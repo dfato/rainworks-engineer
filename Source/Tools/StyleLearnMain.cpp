@@ -119,6 +119,18 @@ int main (int argc, char* argv[])
         }
         NotePlan plan { notes };
         const auto shift = ExpressionLayer::buildShiftCurve (plan, style, f0, sr);
+        if (juce::SystemStats::getEnvironmentVariable ("VE_SHIFT_STATS", {}).isNotEmpty())
+        {
+            int jumps = 0, big = 0; float maxStep = 0.0f;
+            for (int i = 1; i < len; ++i)
+            {
+                const float step = std::abs (shift[(size_t) i] - shift[(size_t) i - 1]);
+                maxStep = juce::jmax (maxStep, step);
+                if (step > 0.02f) ++jumps;
+                if (std::abs (shift[(size_t) i]) > 2.5f) ++big;
+            }
+            std::cerr << "shift: " << jumps << " steps > 2 cents/sample, max step " << maxStep << " st, " << big << " samples beyond 2.5 st" << std::endl;
+        }
         juce::AudioBuffer<float> out;
         PitchCorrectRenderer::psolaShift (audio, out, sr, f0, shift);
 
