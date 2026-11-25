@@ -32,6 +32,7 @@ set(VE_ENGINE_SOURCES
     Source/Engine/PlaybackEngine.cpp
     Source/Engine/RenderCache.cpp
     Source/Engine/SidechainAnalysis.cpp
+    Source/Engine/TakeImporter.cpp
     Source/Engine/TempoMap.cpp
     Source/Engine/ML/OnnxBackend.cpp
     Source/Engine/ML/SmokeTestModel.cpp

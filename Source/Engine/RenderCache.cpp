@@ -51,8 +51,9 @@ namespace ve
         if (! file.existsAsFile())
             return juce::Result::fail ("Missing file: " + file.getFullPathName());
 
-        juce::WavAudioFormat wav;
-        std::unique_ptr<juce::AudioFormatReader> reader (wav.createReaderFor (file.createInputStream().release(), true));
+        juce::AudioFormatManager formats;
+        formats.registerBasicFormats(); // WAV, AIFF, FLAC, Ogg (+ MP3/WMA where the platform provides them)
+        std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (file));
         if (reader == nullptr)
             return juce::Result::fail ("Unreadable audio file: " + file.getFullPathName());
 

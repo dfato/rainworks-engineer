@@ -34,6 +34,10 @@ namespace ve::ui
         addAndMakeVisible (keyBox);
 
         analyseButton.onClick = [this] { if (onAnalyse) onAnalyse(); };
+
+        importButton.setTooltip ("Bring in a whole song at once: pick the vocal file, and optionally the beat. You can also drag files onto the plugin.");
+        importButton.onClick = [this] { if (onImport) onImport(); };
+        addAndMakeVisible (importButton);
         addAndMakeVisible (analyseButton);
 
         folderButton.onClick = [this]
@@ -77,5 +81,7 @@ namespace ve::ui
         folderButton.setBounds (r.removeFromRight (100));
         r.removeFromRight (8);
         analyseButton.setBounds (r.removeFromRight (140));
+        r.removeFromRight (8);
+        importButton.setBounds (r.removeFromRight (120));
     }
 }

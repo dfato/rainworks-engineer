@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include "UI/Theme.h"
+#include "Engine/TakeImporter.h"
 
 VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
     : juce::AudioProcessorEditor (p),
@@ -16,6 +17,15 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
     controls.onModeChanged = [this] (int m) { processor.setMonitoringMode ((ve::MonitoringMode) m); };
     controls.onKeyOverrideChanged = [this] (int k) { processor.setKeyOverride (k); };
     controls.onAnalyse = [this] { processor.analyseAll(); };
+    controls.onImport = [this]
+    {
+        chooser = std::make_unique<juce::FileChooser> ("Choose the vocal file (select the beat too if you have it)",
+                                                       juce::File::getSpecialLocation (juce::File::userMusicDirectory),
+                                                       "*.wav;*.aif;*.aiff;*.flac;*.ogg;*.mp3");
+        chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles
+                                  | juce::FileBrowserComponent::canSelectMultipleItems,
+                              [this] (const juce::FileChooser& fc) { importFiles (fc.getResults()); });
+    };
     controls.onOpenDataFolder = [this]
     {
         auto f = processor.getSession().getDataFolder();
@@ -70,6 +80,45 @@ void VocalEngineEditor::resized()
     statusBar.setBounds (r.removeFromBottom (22));
     r.removeFromBottom (4);
     timeline.setBounds (r);
+}
+
+bool VocalEngineEditor::isInterestedInFileDrag (const juce::StringArray& files)
+{
+    for (auto& f : files)
+        if (ve::TakeImporter::isSupportedAudioFile (juce::File (f)))
+            return true;
+    return false;
+}
+
+void VocalEngineEditor::filesDropped (const juce::StringArray& files, int, int)
+{
+    dragHover = false;
+    repaint();
+    juce::Array<juce::File> list;
+    for (auto& f : files)
+        list.add (juce::File (f));
+    importFiles (list);
+}
+
+void VocalEngineEditor::importFiles (const juce::Array<juce::File>& files)
+{
+    juce::File vocal, beat;
+    ve::TakeImporter::classifyFiles (files, vocal, beat);
+    if (vocal != juce::File())
+        processor.importTake (vocal, beat);
+}
+
+void VocalEngineEditor::paintOverChildren (juce::Graphics& g)
+{
+    if (! dragHover)
+        return;
+    g.fillAll (juce::Colours::black.withAlpha (0.55f));
+    g.setColour (ve::ui::Theme::accent);
+    g.drawRect (getLocalBounds().reduced (6), 2);
+    g.setColour (ve::ui::Theme::text);
+    g.setFont (ve::ui::Theme::font (18.0f, true));
+    g.drawText ("Drop the vocal (and the beat) to import the whole song as one take",
+                getLocalBounds(), juce::Justification::centred);
 }
 
 void VocalEngineEditor::changeListenerCallback (juce::ChangeBroadcaster*)

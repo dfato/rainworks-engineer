@@ -118,6 +118,18 @@ loop on/off with loop points, and sample rate.
 5. Data folder > Show in file browser: one `_vocal.wav` (and `_sidechain.wav` if the sidechain is routed) per take.
 6. Disarm before moving on, or every play records a new take.
 
+### 4b. Whole song in one go
+
+**Import (fastest).** Export your vocal (and optionally the beat) from FL starting at bar 1, then either click
+**Import song...** and select one or both files, or drag them onto the plugin. A file whose name contains
+beat/inst/music/track/mix is used as the beat; the other is the vocal. The take lands at bar 1 using the
+project's current tempo, the beat feeds sidechain analysis, and nothing has to play. WAV, AIFF, FLAC and Ogg
+work everywhere; MP3 works on Windows.
+
+**Capture during export.** Arm the plugin, then File > Export > WAV with the song range. FL renders faster
+than real time and the plugin captures the whole song as one take while it does (it waits for the disk
+instead of dropping audio during offline renders). Disarm afterwards. You can delete the exported WAV.
+
 ### 5. Rendered playback (Step 4)
 
 1. Set Monitor to **Rendered**. Mute the original vocal clip in the playlist (or route it elsewhere) so you only

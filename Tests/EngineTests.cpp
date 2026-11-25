@@ -9,6 +9,7 @@
 #include "Engine/PlaybackEngine.h"
 #include "Engine/RenderCache.h"
 #include "Engine/SidechainAnalysis.h"
+#include "Engine/TakeImporter.h"
 #include "Engine/TempoMap.h"
 #include "Engine/TripleBuffer.h"
 #include "State/SessionModel.h"
@@ -479,6 +480,73 @@ public:
     }
 };
 
+//==============================================================================
+class ImportTests final : public juce::UnitTest
+{
+public:
+    ImportTests() : juce::UnitTest ("Import", "VocalEngine") {}
+
+    void runTest() override
+    {
+        beginTest ("Whole song import resamples, pads the beat and starts at bar 1");
+        {
+            const auto folder = tempFolder ("import");
+            juce::AudioBuffer<float> vocal (1, 44100 * 3), beat (2, 44100 * 2);
+            for (int i = 0; i < vocal.getNumSamples(); ++i) vocal.setSample (0, i, 0.1f * std::sin (i * 0.05f));
+            for (int i = 0; i < beat.getNumSamples(); ++i) { beat.setSample (0, i, 0.2f); beat.setSample (1, i, -0.2f); }
+            const auto vf = folder.getChildFile ("My Hook Vocal.wav"), bf = folder.getChildFile ("my hook beat.wav");
+            expect (TakeImporter::writeWav (vf, vocal, 44100.0).wasOk());
+            expect (TakeImporter::writeWav (bf, beat, 44100.0).wasOk());
+
+            juce::File v, b;
+            TakeImporter::classifyFiles ({ bf, vf }, v, b);
+            expect (v == vf && b == bf, "file classification");
+
+            CapturedRegion r;
+            TempoPoint tempo; tempo.bpm = 140.0; tempo.numerator = 3; tempo.denominator = 4;
+            expect (TakeImporter::importTake (vf, bf, folder, 48000.0, tempo, nullptr, r).wasOk());
+            expectEquals ((juce::int64) r.startSample, (juce::int64) 0);
+            expectEquals ((juce::int64) r.lengthSamples, (juce::int64) 144000);
+            expect (r.hasSidechain && r.numChannels == 1);
+            expectWithinAbsoluteError (r.tempoMap.getPoints()[0].bpm, 140.0, 1e-9);
+
+            juce::AudioBuffer<float> sc;
+            double rate = 0;
+            expect (loadAudioFile (folder.getChildFile (r.sidechainFile), 0.0, nullptr, sc, rate).wasOk());
+            expectEquals (sc.getNumSamples(), 144000);
+            expectWithinAbsoluteError (sc.getSample (1, 1000), -0.2f, 1e-3f);
+            expectEquals (sc.getSample (0, 143000), 0.0f); // padded after the beat ends
+            expectEquals (rate, 48000.0);
+        }
+
+        beginTest ("Offline (export) capture never drops audio");
+        {
+            const auto folder = tempFolder ("offline");
+            CaptureEngine cap;
+            cap.setDataFolder (folder);
+            cap.prepare (48000.0, 4096);
+            juce::AudioBuffer<float> main (2, 4096), sc (2, 4096);
+            main.clear(); sc.clear();
+            const int blocks = 48000 * 30 / 4096; // 30 s, three times the FIFO size, as fast as possible
+            for (int b = 0; b < blocks; ++b)
+                cap.process (playingAt ((std::int64_t) b * 4096, 48000.0), main, &sc, true, true);
+            auto stop = playingAt ((std::int64_t) blocks * 4096, 48000.0);
+            stop.isPlaying = false;
+            cap.process (stop, main, &sc, true, true);
+            juce::Thread::sleep (100);
+            cap.release();
+            auto regions = cap.popFinishedRegions();
+            expectEquals ((int) regions.size(), 1);
+            if (! regions.empty())
+            {
+                expectEquals (regions[0].droppedSamples, (std::int64_t) 0);
+                expectEquals ((juce::int64) regions[0].lengthSamples, (juce::int64) blocks * 4096);
+            }
+        }
+    }
+};
+
+static ImportTests importTests;
 static CoreTests coreTests;
 static CaptureTests captureTests;
 static PlaybackTests playbackTests;

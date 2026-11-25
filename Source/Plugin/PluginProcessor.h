@@ -71,6 +71,8 @@ public:
     void setKeyOverride (int keyIndexOrMinusOne);
 
     void setDataFolder (const juce::File&);
+    // Imports a whole song from files (vocal + optional beat) as one take starting at bar 1.
+    void importTake (const juce::File& vocal, const juce::File& beat);
     void analyseAll();
     void analyseRegion (const juce::String& regionId);
     void deleteRegion (const juce::String& regionId);
@@ -106,6 +108,8 @@ private:
     std::atomic<int>   monitoringMode { (int) ve::MonitoringMode::input };
     std::atomic<double> engineSampleRate { 0.0 };
     std::atomic<bool>  sampleRateChanged { false };
+    std::atomic<double> lastHostBpm { 120.0 };
+    std::atomic<int>   lastHostNum { 4 }, lastHostDen { 4 };
     std::uint64_t blockCounter = 0;
 
     ve::TripleBuffer<ve::HostSnapshot> hostSnapshots;
