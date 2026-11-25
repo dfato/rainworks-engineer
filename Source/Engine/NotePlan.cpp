@@ -39,19 +39,26 @@ namespace ve
         float snapToKey (float midi, const KeyEstimate& key) noexcept
         {
             const float nearest = std::round (midi);
-            if (! key.isValid())
+            if (! key.isValid() || key.scale == ScaleMode::chromatic)
                 return nearest;
 
-            static constexpr int major[] = { 0, 2, 4, 5, 7, 9, 11 };
-            static constexpr int minor[] = { 0, 2, 3, 5, 7, 8, 10 };
-            const int* scale = key.minor ? minor : major;
+            static const std::vector<int> scales[][2] = {
+                // { major-key form, minor-key form }
+                { { 0, 2, 4, 5, 7, 9, 11 }, { 0, 2, 3, 5, 7, 8, 10 } },   // key
+                { { 0, 2, 4, 7, 9 },        { 0, 3, 5, 7, 10 } },         // pentatonic
+                { { 0, 2, 3, 4, 7, 9 },     { 0, 3, 5, 6, 7, 10 } },      // blues
+                { { 0, 2, 4, 5, 7, 8, 11 }, { 0, 2, 3, 5, 7, 8, 11 } },   // harmonic
+                { { 0, 2, 4, 5, 7, 9, 10 }, { 0, 2, 3, 5, 7, 9, 10 } },   // modal: mixolydian / dorian
+            };
+            const int si = juce::jlimit (0, 4, (int) key.scale);
+            const auto& scale = scales[si][key.minor ? 1 : 0];
 
             float best = nearest;
             float bestDist = 1.0e9f;
-            for (int cand = (int) nearest - 2; cand <= (int) nearest + 2; ++cand)
+            for (int cand = (int) nearest - 3; cand <= (int) nearest + 3; ++cand)
             {
                 const int pc = ((cand - key.tonic) % 12 + 12) % 12;
-                if (std::find (scale, scale + 7, pc) == scale + 7) continue;
+                if (std::find (scale.begin(), scale.end(), pc) == scale.end()) continue;
                 const float dist = std::abs ((float) cand - midi);
                 if (dist < bestDist) { bestDist = dist; best = (float) cand; }
             }
@@ -207,5 +214,33 @@ namespace ve
             notes.erase (notes.begin() + index + 1);
             return true;
         }
+    }
+}
+
+namespace ve
+{
+    ScaleMode scaleModeFromString (const juce::String& s) noexcept
+    {
+        const auto t = s.trim().toLowerCase();
+        if (t == "pentatonic") return ScaleMode::pentatonic;
+        if (t == "blues")      return ScaleMode::blues;
+        if (t == "harmonic")   return ScaleMode::harmonic;
+        if (t == "modal")      return ScaleMode::modal;
+        if (t == "chromatic")  return ScaleMode::chromatic;
+        return ScaleMode::key;
+    }
+
+    juce::String toString (ScaleMode m) noexcept
+    {
+        switch (m)
+        {
+            case ScaleMode::pentatonic: return "pentatonic";
+            case ScaleMode::blues:      return "blues";
+            case ScaleMode::harmonic:   return "harmonic";
+            case ScaleMode::modal:      return "modal";
+            case ScaleMode::chromatic:  return "chromatic";
+            case ScaleMode::key:        break;
+        }
+        return "key";
     }
 }

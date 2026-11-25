@@ -2,32 +2,33 @@
   "id": "pop-ballad",
   "name": "Pop Ballad",
   "category": "Pop",
+  "inherits": "pop",
+  "description": "Polished but expressive, with vibrato on held notes. Tuned from 19 openly licensed reference vocals.",
   "pitch": {
-    "correction": 0.76,
-    "retuneMs": 36.43,
-    "keepVariation": 0.89
+    "correction": 0.79,
+    "retuneMs": 35.0,
+    "keepVariation": 0.8,
+    "scale": "key"
   },
   "vibrato": {
-    "addDepthCents": 16.4,
-    "rateHz": 5.39,
-    "onsetMs": 271.89
+    "addDepthCents": 36.66,
+    "rateHz": 5.44,
+    "onsetMs": 305.44
   },
   "slides": {
-    "betweenNotesMs": 60.66,
+    "betweenNotesMs": 70.0,
     "maxGapMs": 80.0,
-    "scoopCents": 9.96,
-    "scoopMs": 46.44
+    "scoopCents": 0.83,
+    "scoopMs": 0.0
   },
   "timing": {
     "quantize": 0.0,
     "grid": 16,
     "swing": 0.0
   },
-  "description": "Polished but expressive, with vibrato on held notes. Tuned from 19 openly licensed reference vocals.",
   "learned": {
     "takes": 19,
     "notes": 8527,
     "voicedMinutes": 47.0
-  },
-  "inherits": "pop"
+  }
 }

@@ -89,8 +89,8 @@
         {
           "member": "data/DWKM/Vocal.wav",
           "id": "ursing-DWKM",
-          "title": "大碗宽面",
-          "genre": "hip-hop"
+          "title": "大碗宽面 (rap: pitch stats describe speech-like delivery, kept as reference only)",
+          "genre": "reference"
         },
         {
           "member": "data/GFZJ/Vocal.wav",
@@ -269,8 +269,8 @@
         {
           "member": "data/SSJR/Vocal.wav",
           "id": "ursing-SSJR",
-          "title": "说散就散 (rap)",
-          "genre": "hip-hop"
+          "title": "说散就散 (rap) (rap: pitch stats describe speech-like delivery, kept as reference only)",
+          "genre": "reference"
         },
         {
           "member": "data/SSJS/Vocal.wav",

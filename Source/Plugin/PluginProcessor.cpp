@@ -283,7 +283,7 @@ void VocalEngineProcessor::schedulePitchTracking (const ve::RegionDescriptor& d)
 
     struct Output { ve::PitchTrack track; std::vector<ve::Note> notes; };
     auto result = std::make_shared<Output>();
-    const auto key = session.getEffectiveKey();
+    const auto key = snappingKey();
     const auto pitchRel = ve::CaptureEngine::regionsSubfolder() + "/" + d.id + "_pitch.bin";
     const auto pitchFile = session.getDataFolder().getChildFile (pitchRel);
 
@@ -379,7 +379,10 @@ void VocalEngineProcessor::rescanVoices()
 void VocalEngineProcessor::setStyle (const juce::String& id)
 {
     const auto style = ve::sharedStyleLibrary().get (id);
+    const auto oldScale = ve::sharedStyleLibrary().get (session.getStyleId()).scale;
     session.setStyleId (style.id);
+    if (style.scale != oldScale)
+        resnapNotes();                      // the style's scale moves note targets
     setGlobalCorrection (style.correction); // marks every take for re-render
     postMessage ("Style: " + style.name + (style.description.isNotEmpty() ? " - " + style.description : juce::String()));
 }
@@ -533,9 +536,16 @@ void VocalEngineProcessor::setKeyOverride (int k)
     sendChangeMessage();
 }
 
+ve::KeyEstimate VocalEngineProcessor::snappingKey() const
+{
+    auto key = session.getEffectiveKey();
+    key.scale = ve::sharedStyleLibrary().get (session.getStyleId()).scale;
+    return key;
+}
+
 void VocalEngineProcessor::resnapNotes()
 {
-    const auto key = session.getEffectiveKey();
+    const auto key = snappingKey();
     for (auto& d : session.getRegionDescriptors())
     {
         if (! session.hasNotes (d.id)) continue;
@@ -726,7 +736,7 @@ juce::String VocalEngineProcessor::intentSummary (const std::vector<ve::Note>& n
 void VocalEngineProcessor::setUseIntent (bool on)
 {
     session.setUseIntent (on);
-    const auto key = session.getEffectiveKey();
+    const auto key = snappingKey();
     const float amount = getGlobalCorrection();
     for (auto& d : session.getRegionDescriptors())
     {

@@ -2,32 +2,33 @@
   "id": "country",
   "name": "Country",
   "category": "Country / Folk",
+  "inherits": "natural",
+  "description": "Clean tuning with twangy scoops. Tuned from 2 openly licensed reference vocals.",
   "pitch": {
-    "correction": 0.7,
-    "retuneMs": 35.04,
-    "keepVariation": 0.93
+    "correction": 0.76,
+    "retuneMs": 31.59,
+    "keepVariation": 0.9,
+    "scale": "pentatonic"
   },
   "vibrato": {
-    "addDepthCents": 9.95,
-    "rateHz": 5.45,
-    "onsetMs": 302.54
+    "addDepthCents": 14.18,
+    "rateHz": 5.34,
+    "onsetMs": 318.39
   },
   "slides": {
-    "betweenNotesMs": 49.02,
+    "betweenNotesMs": 45.47,
     "maxGapMs": 80.0,
-    "scoopCents": 50.89,
-    "scoopMs": 68.2
+    "scoopCents": 99.49,
+    "scoopMs": 106.99
   },
   "timing": {
     "quantize": 0.0,
     "grid": 16,
     "swing": 0.0
   },
-  "description": "Clean tuning with twangy scoops. Tuned from 2 openly licensed reference vocals.",
   "learned": {
     "takes": 2,
     "notes": 562,
     "voicedMinutes": 3.48
-  },
-  "inherits": "natural"
+  }
 }

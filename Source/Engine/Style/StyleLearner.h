@@ -71,6 +71,12 @@ namespace ve
         // measured values wherever the evidence allows. Id/name/category come from base.
         StyleProfile learn (const StyleProfile& base, const TakeStats&, int takeCount, float strength = 1.0f);
 
+        // Contrast learning: moves `base` by how this material differs from `pool` (all the
+        // reference material together), times `gain`. What every singer does alike cancels
+        // out, so a genre keeps only what sets it apart, and gain > 1 exaggerates that.
+        StyleProfile learnContrast (const StyleProfile& base, const TakeStats& genre, int genreTakes,
+                                    const TakeStats& pool, int poolTakes, float gain = 2.0f);
+
         // Profile JSON (with an "inherits" link back to the base style and a "learned" note).
         juce::String toJson (const StyleProfile& learned, const juce::String& inherits,
                              const TakeStats&, int takeCount);

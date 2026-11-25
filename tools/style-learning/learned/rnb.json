@@ -2,32 +2,33 @@
   "id": "rnb",
   "name": "R&B",
   "category": "R&B / Soul",
+  "inherits": "natural",
+  "description": "Smooth tuning that keeps runs and slides. Tuned from 1 openly licensed reference vocal.",
   "pitch": {
-    "correction": 0.69,
-    "retuneMs": 31.75,
-    "keepVariation": 0.88
+    "correction": 0.62,
+    "retuneMs": 30.0,
+    "keepVariation": 0.85,
+    "scale": "blues"
   },
   "vibrato": {
-    "addDepthCents": 13.7,
-    "rateHz": 5.65,
-    "onsetMs": 277.66
+    "addDepthCents": 22.05,
+    "rateHz": 6.1,
+    "onsetMs": 273.96
   },
   "slides": {
-    "betweenNotesMs": 62.92,
-    "maxGapMs": 100.0,
-    "scoopCents": 36.06,
-    "scoopMs": 57.88
+    "betweenNotesMs": 80.0,
+    "maxGapMs": 120.0,
+    "scoopCents": 69.55,
+    "scoopMs": 80.0
   },
   "timing": {
     "quantize": 0.0,
     "grid": 16,
     "swing": 0.0
   },
-  "description": "Smooth tuning that keeps runs and slides. Tuned from 1 openly licensed reference vocal.",
   "learned": {
     "takes": 1,
     "notes": 493,
     "voicedMinutes": 2.34
-  },
-  "inherits": "natural"
+  }
 }

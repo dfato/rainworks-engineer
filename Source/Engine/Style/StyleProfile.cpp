@@ -38,6 +38,8 @@ namespace ve
             p.correction       = juce::jlimit (0.0f, 1.0f, num (v, "pitch", "correction", p.correction));
             p.retuneMs         = juce::jlimit (0.0f, 500.0f, num (v, "pitch", "retuneMs", p.retuneMs));
             p.keepVariation    = juce::jlimit (0.0f, 1.0f, num (v, "pitch", "keepVariation", p.keepVariation));
+            if (auto sc = v.getProperty ("pitch", {}).getProperty ("scale", {}); ! sc.isVoid())
+                p.scale = scaleModeFromString (sc.toString());
             p.vibratoDepthCents = juce::jlimit (0.0f, 150.0f, num (v, "vibrato", "addDepthCents", p.vibratoDepthCents));
             p.vibratoRateHz    = juce::jlimit (1.0f, 12.0f, num (v, "vibrato", "rateHz", p.vibratoRateHz));
             p.vibratoOnsetMs   = juce::jlimit (0.0f, 2000.0f, num (v, "vibrato", "onsetMs", p.vibratoOnsetMs));
@@ -64,7 +66,7 @@ namespace ve
         o->setProperty ("id", id);
         o->setProperty ("name", name);
         o->setProperty ("category", category);
-        o->setProperty ("pitch", section ({ { "correction", correction }, { "retuneMs", retuneMs }, { "keepVariation", keepVariation } }));
+        o->setProperty ("pitch", section ({ { "correction", correction }, { "retuneMs", retuneMs }, { "keepVariation", keepVariation }, { "scale", toString (scale) } }));
         o->setProperty ("vibrato", section ({ { "addDepthCents", vibratoDepthCents }, { "rateHz", vibratoRateHz }, { "onsetMs", vibratoOnsetMs } }));
         o->setProperty ("slides", section ({ { "betweenNotesMs", slideMs }, { "maxGapMs", slideMaxGapMs }, { "scoopCents", scoopCents }, { "scoopMs", scoopMs } }));
         o->setProperty ("timing", section ({ { "quantize", quantize }, { "grid", grid }, { "swing", swing } }));
@@ -75,7 +77,7 @@ namespace ve
     {
         // Only parameters that change the sound (correction is per note, so excluded).
         const float vals[] = { retuneMs, keepVariation, vibratoDepthCents, vibratoRateHz, vibratoOnsetMs,
-                               slideMs, slideMaxGapMs, scoopCents, scoopMs, quantize, (float) grid, swing };
+                               slideMs, slideMaxGapMs, scoopCents, scoopMs, quantize, (float) grid, swing, (float) (int) scale };
         std::uint64_t h = 1469598103934665603ull;
         auto* p = reinterpret_cast<const unsigned char*> (vals);
         for (size_t i = 0; i < sizeof (vals); ++i) { h ^= p[i]; h *= 1099511628211ull; }

@@ -631,6 +631,22 @@ public:
                 expectWithinAbsoluteError ((double) notes[3].end / sr, 2.30, 0.03);
             }
 
+            // Style scales: in C major, D (62) is kept by the key's scale, moved off it by
+            // pentatonic only if not in the set (it is), F (65) is not in major pentatonic.
+            {
+                KeyEstimate k = cMajor;
+                k.scale = ScaleMode::pentatonic;
+                expectEquals (NoteSegmenter::snapToKey (65.1f, k), 64.0f);     // F -> E
+                expectEquals (NoteSegmenter::snapToKey (62.0f, k), 62.0f);     // D stays
+                k.scale = ScaleMode::blues;
+                expectEquals (NoteSegmenter::snapToKey (63.1f, k), 63.0f);     // blue third kept
+                KeyEstimate aMinor; aMinor.tonic = 9; aMinor.minor = true; aMinor.scale = ScaleMode::harmonic;
+                expectEquals (NoteSegmenter::snapToKey (67.8f, aMinor), 68.0f); // G -> G# (raised 7th)
+                aMinor.scale = ScaleMode::chromatic;
+                expectEquals (NoteSegmenter::snapToKey (66.2f, aMinor), 66.0f);
+                expect (scaleModeFromString ("Blues") == ScaleMode::blues && toString (ScaleMode::modal) == "modal");
+            }
+
             NotePlan plan { notes };
             expect (plan.isIdentity(), "no correction yet");
             const auto h0 = plan.hash();

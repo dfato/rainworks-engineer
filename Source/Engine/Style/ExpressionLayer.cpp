@@ -41,6 +41,10 @@ namespace ve::ExpressionLayer
             const double scoopSamples = juce::jmin ((double) style.scoopMs * msToSamples, (b - a) * 0.4);
             const double vibOnset = style.vibratoOnsetMs * msToSamples;
             const bool fadeOut = ! slidesToNext[k];
+            // Whole semitones between the nearest semitone and the target (a style's scale, or
+            // an out-of-key note, moving it to another degree) are applied in full: half a
+            // semitone of a move sounds out of tune. Correct scales only the fine tuning.
+            const float jump = note.targetMidi - std::round (note.detectedMidi);
             // Stage 4: the singer's own vibrato is kept on notes where it was intended,
             // unless the style deliberately flattens everything (hard tune, retune < 10 ms).
             const float keep = (note.intent & NoteIntent::vibrato) != 0 && style.retuneMs >= 10.0f
@@ -68,7 +72,7 @@ namespace ve::ExpressionLayer
                     expression += style.vibratoDepthCents / 100.0f * ramp * std::sin (twoPi * style.vibratoRateHz * tv);
                 }
 
-                float s = c * retune * (flat - d) + expressionAmount * expression;
+                float s = retune * (c * (flat - jump - d) + expressionAmount * jump) + expressionAmount * expression;
                 if (fadeOut && b - 1 - i < release)
                     s *= (float) (b - 1 - i) / (float) release;
                 shift[(size_t) i] = s;

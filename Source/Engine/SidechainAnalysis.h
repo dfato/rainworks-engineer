@@ -21,12 +21,28 @@ namespace ve
         float confidence = 0.0f;
     };
 
+    // Scale that note targets snap to, relative to the key's tonic. Each has a major-key
+    // and a minor-key form, so a style can say "pentatonic" and fit any key.
+    enum class ScaleMode : int
+    {
+        key = 0,      // the key's own scale: major, or natural minor
+        pentatonic,   // major pentatonic / minor pentatonic
+        blues,        // major blues (adds b3) / minor blues (adds b5)
+        harmonic,     // harmonic major / harmonic minor
+        modal,        // mixolydian (major keys) / dorian (minor keys)
+        chromatic     // nearest semitone, no key
+    };
+    ScaleMode scaleModeFromString (const juce::String&) noexcept;
+    juce::String toString (ScaleMode) noexcept;
+
     struct KeyEstimate
     {
         int tonic = -1;                      // pitch class, -1 = unknown
         bool minor = false;
         float confidence = 0.0f;             // best correlation
         float margin = 0.0f;                 // best minus second best
+        // Which notes of the key targets snap to. Set from the style, not detected.
+        ScaleMode scale = ScaleMode::key;
 
         bool isValid() const noexcept { return tonic >= 0; }
     };
