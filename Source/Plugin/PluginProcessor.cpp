@@ -220,13 +220,16 @@ void VocalEngineProcessor::scheduleRender (const ve::RegionDescriptor& d)
 
     jobs->submit ("Load take", "render:" + d.id, ve::JobPriority::high,
         [r = (d.plan.rendererId == ve::RenderPlan::capturedId ? renderer
-              : d.plan.rendererId == ve::RenderPlan::voiceConvertId ? voiceRenderer : pitchRenderer), d, rate, result] (ve::JobContext& ctx)
+              : d.plan.rendererId == ve::RenderPlan::voiceConvertId ? std::static_pointer_cast<ve::RegionRenderer> (voiceRenderer) : pitchRenderer),
+         d, rate, result] (ve::JobContext& ctx)
         {
             return r->render (d, d.plan, rate, ctx, *result);
         },
-        [this, id = d.id, hash = d.planHash, result] (const ve::JobResult& res)
+        [this, id = d.id, hash = d.planHash, result, isVoice = d.plan.rendererId == ve::RenderPlan::voiceConvertId] (const ve::JobResult& res)
         {
             loadingRegions.erase (id);
+            if (res.success && isVoice)
+                postMessage ("Voice render done on " + voiceRenderer->getLastDevice());
             if (res.success)
             {
                 cache.removeStale (id, hash);
@@ -351,6 +354,15 @@ void VocalEngineProcessor::setVoice (const juce::String& id)
         pendingRerender.insert (d.id);
     lastEditMs = juce::Time::getMillisecondCounter();
     sendChangeMessage();
+}
+
+void VocalEngineProcessor::setVoiceGpu (bool on)
+{
+    session.setVoiceGpu (on);
+    voiceRenderer->setUseGpu (on);
+    postMessage (on ? (ve::ml::isGpuSupported() ? "Voice models will render on the GPU (DirectML)"
+                                                : "This build can't use the GPU; voice models render on the CPU")
+                    : "Voice models will render on the CPU");
 }
 
 void VocalEngineProcessor::rescanVoices()
@@ -606,6 +618,7 @@ void VocalEngineProcessor::applyState (const juce::XmlElement& xml)
     loadingRegions.clear();
     monitoringMode.store ((int) session.getMonitoringMode());
     capture.setDataFolder (session.getDataFolder());
+    voiceRenderer->setUseGpu (session.getVoiceGpu());
     cache.clear();
     reloadAllRegions();
 

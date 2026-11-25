@@ -6,6 +6,9 @@
  // (Windows 11 ships an older onnxruntime.dll in System32).
  #define ORT_API_MANUAL_INIT 1
  #include <onnxruntime_cxx_api.h>
+ #if VE_ONNX_DML
+  #include <dml_provider_factory.h>
+ #endif
  #if JUCE_WINDOWS
   #ifndef NOMINMAX
    #define NOMINMAX
@@ -36,6 +39,13 @@ namespace ve::ml
                #if JUCE_WINDOWS
                 // Next to the plugin binary (VST3: Contents/x86_64-win) or the standalone exe.
                 const auto dir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
+               #if VE_ONNX_DML
+                // ORT loads DirectML.dll by name; load ours first so the system's older copy isn't used.
+                // Missing is fine: the GPU just won't be offered.
+                const auto dml = dir.getChildFile ("DirectML.dll");
+                if (dml.existsAsFile())
+                    LoadLibraryExW (dml.getFullPathName().toWideCharPointer(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
+               #endif
                 const auto dll = dir.getChildFile ("onnxruntime.dll");
                 if (! dll.existsAsFile())
                 {
@@ -70,14 +80,10 @@ namespace ve::ml
         class OnnxBackend final : public InferenceBackend
         {
         public:
-            explicit OnnxBackend (BackendOptions o)
-            {
-                options.SetIntraOpNumThreads (juce::jmax (1, o.threads));
-                options.SetInterOpNumThreads (1);
-                options.SetGraphOptimizationLevel (GraphOptimizationLevel::ORT_ENABLE_ALL);
-            }
+            explicit OnnxBackend (BackendOptions o) : opts (o) {}
 
-            juce::String getName() const override { return "ONNX Runtime " + juce::String (Ort::GetVersionString()); }
+            juce::String getName() const override { return "ONNX Runtime " + juce::String (Ort::GetVersionString()) + (device.isNotEmpty() ? " on " + device : juce::String()); }
+            juce::String getDevice() const override { return device; }
 
             juce::Result loadModel (const juce::File& f) override
             {
@@ -89,9 +95,40 @@ namespace ve::ml
 
             juce::Result loadModel (const void* data, size_t size) override
             {
+                session.reset();
+                device = {};
+                juce::String gpuError;
+               #if VE_ONNX_DML
+                if (opts.preferGpu)
+                {
+                    try
+                    {
+                        Ort::SessionOptions so;
+                        so.SetGraphOptimizationLevel (GraphOptimizationLevel::ORT_ENABLE_ALL);
+                        so.DisableMemPattern();                     // required by DirectML
+                        so.SetExecutionMode (ExecutionMode::ORT_SEQUENTIAL);
+                        Ort::ThrowOnError (OrtSessionOptionsAppendExecutionProvider_DML (so, 0));
+                        session = std::make_unique<Ort::Session> (sharedEnv(), data, size, so);
+                        device = "GPU (DirectML)";
+                    }
+                    catch (const Ort::Exception& e) { session.reset(); gpuError = e.what(); }
+                }
+               #endif
+                if (session == nullptr)
+                {
+                    try
+                    {
+                        Ort::SessionOptions so;
+                        so.SetIntraOpNumThreads (juce::jmax (1, opts.threads));
+                        so.SetInterOpNumThreads (1);
+                        so.SetGraphOptimizationLevel (GraphOptimizationLevel::ORT_ENABLE_ALL);
+                        session = std::make_unique<Ort::Session> (sharedEnv(), data, size, so);
+                        device = gpuError.isEmpty() ? "CPU" : "CPU (GPU failed: " + gpuError + ")";
+                    }
+                    catch (const Ort::Exception& e) { session.reset(); device = {}; return juce::Result::fail (e.what()); }
+                }
                 try
                 {
-                    session = std::make_unique<Ort::Session> (sharedEnv(), data, size, options);
                     inputs = describe (true);
                     outputs = describe (false);
                     return juce::Result::ok();
@@ -179,10 +216,20 @@ namespace ve::ml
                 return v;
             }
 
-            Ort::SessionOptions options;
+            BackendOptions opts;
+            juce::String device;
             std::unique_ptr<Ort::Session> session;
             std::vector<TensorInfo> inputs, outputs;
         };
+    }
+
+    bool isGpuSupported() noexcept
+    {
+       #if VE_ONNX_DML
+        return isOnnxAvailable();
+       #else
+        return false;
+       #endif
     }
 
     bool isOnnxAvailable() noexcept
@@ -198,6 +245,7 @@ namespace ve::ml
         return std::make_unique<OnnxBackend> (o);
     }
 #else
+    bool isGpuSupported() noexcept { return false; }
     bool isOnnxAvailable() noexcept { return false; }
     juce::String onnxUnavailableReason() { return "This build has no ONNX Runtime (VE_WITH_ONNX=OFF)"; }
     std::unique_ptr<InferenceBackend> createOnnxBackend (BackendOptions) { return nullptr; }

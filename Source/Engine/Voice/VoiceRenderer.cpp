@@ -4,10 +4,11 @@
 namespace ve
 {
     VoiceRenderer::VoiceRenderer()
-        : VoiceRenderer ([]
+        : VoiceRenderer ([this]
                          {
                              ml::BackendOptions o;
                              o.threads = juce::jmax (1, juce::SystemStats::getNumCpus() / 2);
+                             o.preferGpu = useGpu.load();
                              return ml::createOnnxBackend (o);
                          },
                          [] (const juce::String& id, VoiceModelInfo& m) { return sharedVoiceLibrary().get (id, m); })
@@ -16,8 +17,25 @@ namespace ve
 
     VoiceRenderer::VoiceRenderer (BackendFactory f, VoiceLookup l) : makeBackend (std::move (f)), lookup (std::move (l)) {}
 
+    // Never blocks: a render may be holding `lock` for a while. The models are reloaded
+    // on the new device at the start of the next render.
+    void VoiceRenderer::setUseGpu (bool on) { useGpu.store (on); }
+
+    juce::String VoiceRenderer::getLastDevice() const
+    {
+        std::lock_guard<std::mutex> g (deviceLock);
+        return lastDevice;
+    }
+
     juce::Result VoiceRenderer::ensureLoaded (const VoiceModelInfo& m)
     {
+        if (const bool gpu = useGpu.load(); gpu != loadedOnGpu)
+        {
+            encoder.reset();
+            synth.reset();
+            encoderPath = loadedVoice = loadedVersion = {};
+            loadedOnGpu = gpu;
+        }
         if (encoder == nullptr || encoderPath != m.contentEncoderFile.getFullPathName())
         {
             encoder = makeBackend();
@@ -45,6 +63,10 @@ namespace ve
                 bank = {}; // a bad bank only costs some likeness; carry on without it
             loadedVoice = m.id;
             loadedVersion = m.version;
+        }
+        {
+            std::lock_guard<std::mutex> g (deviceLock);
+            lastDevice = synth->getDevice();
         }
         return juce::Result::ok();
     }

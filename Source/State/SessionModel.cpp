@@ -100,6 +100,8 @@ namespace ve
     void SessionModel::setStyleId (const juce::String& id) { tree.setProperty (IDs::styleId, id, nullptr); }
     bool SessionModel::getUseIntent() const { return tree.getProperty (IDs::useIntent, true); }
     void SessionModel::setUseIntent (bool b) { tree.setProperty (IDs::useIntent, b, nullptr); }
+    bool SessionModel::getVoiceGpu() const { return tree.getProperty (IDs::voiceGpu, true); }
+    void SessionModel::setVoiceGpu (bool b) { tree.setProperty (IDs::voiceGpu, b, nullptr); }
     juce::String SessionModel::getVoiceId() const { return tree.getProperty (IDs::voiceId, "").toString(); }
     void SessionModel::setVoiceId (const juce::String& id) { tree.setProperty (IDs::voiceId, id, nullptr); }
 

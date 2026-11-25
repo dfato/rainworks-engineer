@@ -8,6 +8,7 @@
 #include "Engine/RenderCache.h"
 #include "Engine/TripleBuffer.h"
 #include "State/SessionModel.h"
+#include "Engine/Voice/VoiceRenderer.h"
 #include <atomic>
 #include <set>
 
@@ -85,6 +86,7 @@ public:
     void setUseIntent (bool);                      // Stage 4 per-note intent
     static juce::String intentSummary (const std::vector<ve::Note>&);
     void rescanVoices();
+    void setVoiceGpu (bool);
     void updateNote (const juce::String& regionId, int noteIndex, const ve::Note&);
     void splitNote (const juce::String& regionId, int noteIndex, std::int64_t atSample);  // sung (input) time
     void mergeNoteWithNext (const juce::String& regionId, int noteIndex);
@@ -135,7 +137,7 @@ private:
     ve::RenderCache cache;
     std::shared_ptr<ve::RegionRenderer> renderer;            // captured audio
     std::shared_ptr<ve::RegionRenderer> pitchRenderer;       // Stage 2 pitch correction
-    std::shared_ptr<ve::RegionRenderer> voiceRenderer;       // Stage 5 voice conversion
+    std::shared_ptr<ve::VoiceRenderer> voiceRenderer;        // Stage 5 voice conversion
     std::set<juce::String> pendingRerender;                  // debounced after edits
     juce::uint32 lastEditMs = 0;
     std::set<juce::String> loadingRegions;

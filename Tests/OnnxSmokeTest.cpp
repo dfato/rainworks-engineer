@@ -5,7 +5,7 @@
 #include "Engine/ML/InferenceBackend.h"
 #include <iostream>
 
-int main()
+static int runOnce (bool gpu)
 {
 
     ve::JobQueue queue (1, std::make_unique<ve::ImmediateDispatcher>());
@@ -15,7 +15,9 @@ int main()
     queue.submit ("ONNX smoke test", {}, ve::JobPriority::normal,
         [&] (ve::JobContext& ctx)
         {
-            auto backend = ve::ml::createOnnxBackend();
+            ve::ml::BackendOptions opts;
+            opts.preferGpu = gpu;
+            auto backend = ve::ml::createOnnxBackend (opts);
             if (backend == nullptr)
                 return juce::Result::fail ("Built without ONNX Runtime");
 
@@ -45,6 +47,14 @@ int main()
         });
 
     queue.waitUntilIdle (30000);
-    std::cout << (passed ? "PASS: " : "FAIL: ") << report << std::endl;
+    std::cout << (passed ? "PASS" : "FAIL") << (gpu ? " (GPU requested): " : " (CPU): ") << report << std::endl;
     return passed ? 0 : 1;
+}
+
+int main()
+{
+    // CPU must work. GPU is requested second: on machines without a usable GPU the backend
+    // falls back to CPU, which still counts as a pass (the fallback is what's being tested).
+    std::cout << "GPU support in this build: " << (ve::ml::isGpuSupported() ? "yes (DirectML)" : "no") << std::endl;
+    return runOnce (false) | runOnce (true);
 }
