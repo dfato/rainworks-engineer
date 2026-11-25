@@ -1,4 +1,6 @@
 #include "SessionModel.h"
+#include "Engine/ML/InferenceBackend.h"
+#include "Engine/Voice/VoiceModel.h"
 
 namespace ve
 {
@@ -96,6 +98,8 @@ namespace ve
 
     juce::String SessionModel::getStyleId() const { return tree.getProperty (IDs::styleId, "natural").toString(); }
     void SessionModel::setStyleId (const juce::String& id) { tree.setProperty (IDs::styleId, id, nullptr); }
+    juce::String SessionModel::getVoiceId() const { return tree.getProperty (IDs::voiceId, "").toString(); }
+    void SessionModel::setVoiceId (const juce::String& id) { tree.setProperty (IDs::voiceId, id, nullptr); }
 
     int SessionModel::getKeyOverride() const { return juce::jlimit (-1, 23, (int) tree.getProperty (IDs::keyOverride, -1)); }
     void SessionModel::setKeyOverride (int k) { tree.setProperty (IDs::keyOverride, juce::jlimit (-1, 23, k), nullptr); }
@@ -177,9 +181,15 @@ namespace ve
         const auto pitch = r.getProperty (IDs::pitchFile).toString();
         if (pitch.isNotEmpty())
             d.pitchFile = folder.getChildFile (pitch);
-        d.plan = RenderPlan::forNotes (getNotePlan (d.id), sharedStyleLibrary().get (getStyleId()));
+        // Stage 5 voice: only when the model is installed and ONNX Runtime can run it;
+        // otherwise the take renders in the recorded voice (the choice is kept in the session).
+        juce::String voice, voiceVersion;
+        VoiceModelInfo vm;
+        if (getVoiceId().isNotEmpty() && ml::isOnnxAvailable() && sharedVoiceLibrary().get (getVoiceId(), vm))
+            voice = vm.id, voiceVersion = vm.version;
+        d.plan = RenderPlan::forNotes (getNotePlan (d.id), sharedStyleLibrary().get (getStyleId()), voice, voiceVersion);
         if (d.plan.rendererId != RenderPlan::capturedId && ! d.pitchFile.existsAsFile())
-            d.plan = RenderPlan::identity(); // can't correct without the pitch track
+            d.plan = RenderPlan::identity(); // can't correct or convert without the pitch track
         d.planHash = d.plan.hash();
         d.missingFiles = ! d.vocalFile.existsAsFile();
         return d;

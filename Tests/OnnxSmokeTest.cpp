@@ -25,7 +25,7 @@ int main()
             ctx.setProgress (0.5f);
 
             std::vector<ve::ml::Tensor> out;
-            if (auto r = backend->run ({ { "X", { 4 }, { 1.0f, 2.0f, 3.0f, 4.5f } } }, out); r.failed())
+            if (auto r = backend->run ({ ve::ml::Tensor::makeFloat ("X", { 4 }, { 1.0f, 2.0f, 3.0f, 4.5f }) }, out); r.failed())
                 return r;
 
             if (out.size() != 1 || out[0].data.size() != 4)

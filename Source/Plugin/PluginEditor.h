@@ -32,6 +32,7 @@ private:
     void timerCallback() override;
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
     void rebuildFromSession();
+    void refreshVoices();
 
     VocalEngineProcessor& processor;
     ve::ui::HeaderComponent header;

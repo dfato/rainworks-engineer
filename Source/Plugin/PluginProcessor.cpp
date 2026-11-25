@@ -6,6 +6,8 @@
 #include "Engine/NotePlan.h"
 #include "Engine/PitchTracker.h"
 #include "Engine/PitchCorrectRenderer.h"
+#include "Engine/ML/InferenceBackend.h"
+#include "Engine/Voice/VoiceRenderer.h"
 
 VocalEngineProcessor::BusesProperties VocalEngineProcessor::makeBusesProperties()
 {
@@ -19,6 +21,7 @@ VocalEngineProcessor::VocalEngineProcessor()
     : juce::AudioProcessor (makeBusesProperties()),
       renderer (std::make_shared<ve::CapturedAudioRenderer>()),
       pitchRenderer (std::make_shared<ve::PitchCorrectRenderer>()),
+      voiceRenderer (std::make_shared<ve::VoiceRenderer>()),
       jobs (std::make_unique<ve::JobQueue> (2))
 {
     capture.setDataFolder (session.getDataFolder());
@@ -215,7 +218,8 @@ void VocalEngineProcessor::scheduleRender (const ve::RegionDescriptor& d)
     loadingRegions.insert (d.id);
 
     jobs->submit ("Load take", "render:" + d.id, ve::JobPriority::high,
-        [r = (d.plan.rendererId == ve::RenderPlan::capturedId ? renderer : pitchRenderer), d, rate, result] (ve::JobContext& ctx)
+        [r = (d.plan.rendererId == ve::RenderPlan::capturedId ? renderer
+              : d.plan.rendererId == ve::RenderPlan::voiceConvertId ? voiceRenderer : pitchRenderer), d, rate, result] (ve::JobContext& ctx)
         {
             return r->render (d, d.plan, rate, ctx, *result);
         },
@@ -323,6 +327,33 @@ void VocalEngineProcessor::setGlobalCorrection (float amount)
     }
     lastEditMs = juce::Time::getMillisecondCounter();
     sendChangeMessage();
+}
+
+void VocalEngineProcessor::setVoice (const juce::String& id)
+{
+    session.setVoiceId (id);
+    ve::VoiceModelInfo m;
+    if (id.isEmpty())
+        postMessage ("Voice: as recorded");
+    else if (! ve::ml::isOnnxAvailable())
+        postMessage ("Voice rendering is unavailable: " + ve::ml::onnxUnavailableReason());
+    else if (! ve::sharedVoiceLibrary().get (id, m))
+        postMessage ("Voice \"" + id + "\" is not installed");
+    else
+        postMessage ("Voice: " + m.name + " (rendering every take, this can take a minute)");
+    for (auto& d : session.getRegionDescriptors())
+        pendingRerender.insert (d.id);
+    lastEditMs = juce::Time::getMillisecondCounter();
+    sendChangeMessage();
+}
+
+void VocalEngineProcessor::rescanVoices()
+{
+    const auto problems = ve::sharedVoiceLibrary().scan();
+    const auto count = ve::sharedVoiceLibrary().list().size();
+    postMessage (juce::String ((int) count) + " voice model(s) found"
+                 + (problems.isEmpty() ? juce::String() : ". Skipped: " + problems.joinIntoString ("; ")));
+    setVoice (session.getVoiceId());
 }
 
 void VocalEngineProcessor::setStyle (const juce::String& id)

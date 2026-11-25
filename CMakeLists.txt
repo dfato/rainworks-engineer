@@ -39,6 +39,9 @@ set(VE_ENGINE_SOURCES
     Source/Engine/Style/BuiltinStyles.cpp
     Source/Engine/Style/ExpressionLayer.cpp
     Source/Engine/Style/StyleProfile.cpp
+    Source/Engine/Voice/VoiceConverter.cpp
+    Source/Engine/Voice/VoiceModel.cpp
+    Source/Engine/Voice/VoiceRenderer.cpp
     Source/Engine/TempoMap.cpp
     Source/Engine/TimeWarp.cpp
     Source/Engine/ML/OnnxBackend.cpp

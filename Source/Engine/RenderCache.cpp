@@ -16,6 +16,11 @@ namespace ve
         const auto id = rendererId.toStdString();
         mix (id.data(), id.size());
         mix (&rendererVersion, sizeof (rendererVersion));
+        if (rendererId == voiceConvertId)
+        {
+            const auto v = (voiceId + "|" + voiceVersion).toStdString();
+            mix (v.data(), v.size());
+        }
         if (rendererId != capturedId)
         {
             const auto n = notes.hash();
@@ -34,11 +39,17 @@ namespace ve
         return h;
     }
 
-    RenderPlan RenderPlan::forNotes (NotePlan n, StyleProfile style)
+    RenderPlan RenderPlan::forNotes (NotePlan n, StyleProfile style, juce::String voice, juce::String voiceVer)
     {
         RenderPlan p;
         p.style = std::move (style);
         p.rendererId = n.isIdentity() && ! TimeWarp::movesTime (n, p.style) ? capturedId : pitchCorrectId;
+        if (voice.isNotEmpty())
+        {
+            p.rendererId = voiceConvertId;
+            p.voiceId = std::move (voice);
+            p.voiceVersion = std::move (voiceVer);
+        }
         p.notes = std::move (n);
         return p;
     }
