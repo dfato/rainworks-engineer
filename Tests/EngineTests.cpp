@@ -933,6 +933,21 @@ public:
             expectWithinAbsoluteError (nat.second - nat.first, 0.6f, 0.05f);           // vibrato kept
             expectWithinAbsoluteError ((nat.second + nat.first) * 0.5f, 57.0f, 0.05f); // centred on target
 
+            // A tracker octave error inside a note must not become a jump in a flat style's curve.
+            {
+                auto glitchy = f0;
+                for (int i = n / 2; i < n / 2 + 400; ++i) glitchy[(size_t) i] *= 2.0f;
+                const auto sh = ExpressionLayer::buildShiftCurve (plan, lib.get ("trap"), glitchy, sr);
+                float maxStep = 0.0f, maxAbs = 0.0f;
+                for (int i = 1; i < n; ++i)
+                {
+                    maxStep = juce::jmax (maxStep, std::abs (sh[(size_t) i] - sh[(size_t) i - 1]));
+                    maxAbs = juce::jmax (maxAbs, std::abs (sh[(size_t) i]));
+                }
+                expectLessThan (maxAbs, 1.0f);
+                expectLessThan (maxStep, 0.02f);
+            }
+
             // A loose style keeps its full added vibrato even at half correction.
             {
                 auto loose = lib.get ("natural");
