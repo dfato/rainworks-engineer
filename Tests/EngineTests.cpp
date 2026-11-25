@@ -916,6 +916,19 @@ public:
             expectWithinAbsoluteError (nat.second - nat.first, 0.6f, 0.05f);           // vibrato kept
             expectWithinAbsoluteError ((nat.second + nat.first) * 0.5f, 57.0f, 0.05f); // centred on target
 
+            // A loose style keeps its full added vibrato even at half correction.
+            {
+                auto loose = lib.get ("natural");
+                loose.vibratoDepthCents = 40.0f; loose.vibratoRateHz = 5.0f; loose.vibratoOnsetMs = 0.0f;
+                NotePlan half { { note } };
+                half.notes[0].correction = 0.5f;
+                const auto sh = ExpressionLayer::buildShiftCurve (half, loose, f0, sr);
+                const auto flat = ExpressionLayer::buildShiftCurve (half, lib.get ("natural"), f0, sr);
+                float depth = 0.0f;
+                for (int i = n / 4; i < n * 3 / 4; ++i) depth = juce::jmax (depth, std::abs (sh[(size_t) i] - flat[(size_t) i]));
+                expectWithinAbsoluteError (depth, 0.40f, 0.03f);
+            }
+
             // Two corrected notes with a short gap: the slide moves the pitch before the second note starts.
             Note a = note; a.end = n / 2 - 960;  a.detectedMidi = 57.3f; a.targetMidi = 57.0f;
             Note b = note; b.start = n / 2;      b.detectedMidi = 57.3f; b.targetMidi = 60.0f;

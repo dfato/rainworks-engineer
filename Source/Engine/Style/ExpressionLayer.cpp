@@ -30,6 +30,7 @@ namespace ve::ExpressionLayer
             const auto& note = notes[k];
             const float c = juce::jlimit (0.0f, 1.0f, note.correction);
             if (c <= 0.0f) continue;
+            const float expressionAmount = juce::jmin (1.0f, 2.0f * c);
 
             const int a = (int) juce::jlimit<std::int64_t> (0, n, note.start);
             const int b = (int) juce::jlimit<std::int64_t> (0, n, note.end);
@@ -46,19 +47,23 @@ namespace ve::ExpressionLayer
                 const float d = sungAt (i, note.detectedMidi);
                 const float flat = note.targetMidi + style.keepVariation * (d - note.detectedMidi);
                 const float retune = retuneSamples <= 0.0 ? 1.0f : (float) (1.0 - std::exp (-t / retuneSamples));
-                float styled = d + retune * (flat - d);
 
+                // The style's own expression (scoop, added vibrato) is not a correction, so it is
+                // not scaled down with the correction amount: a loose style like Gospel or
+                // Neo-Soul still gets its full vibrato and scoops. It fades in over the first
+                // half of the Correct range so 0% stays exactly as sung.
+                float expression = 0.0f;
                 if (style.scoopCents > 0.0f && t < scoopSamples)
-                    styled -= style.scoopCents / 100.0f * (float) (1.0 - t / scoopSamples);
+                    expression -= style.scoopCents / 100.0f * (float) (1.0 - t / scoopSamples);
 
                 if (style.vibratoDepthCents > 0.0f && t > vibOnset)
                 {
                     const float tv = (float) ((t - vibOnset) / sr);
                     const float ramp = juce::jmin (1.0f, tv / 0.2f);
-                    styled += style.vibratoDepthCents / 100.0f * ramp * std::sin (twoPi * style.vibratoRateHz * tv);
+                    expression += style.vibratoDepthCents / 100.0f * ramp * std::sin (twoPi * style.vibratoRateHz * tv);
                 }
 
-                float s = c * (styled - d);
+                float s = c * retune * (flat - d) + expressionAmount * expression;
                 if (fadeOut && b - 1 - i < release)
                     s *= (float) (b - 1 - i) / (float) release;
                 shift[(size_t) i] = s;
