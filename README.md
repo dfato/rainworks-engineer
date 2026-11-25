@@ -58,7 +58,7 @@ cmake --build build-onnx --config Release --target VocalEngineOnnxSmokeTest
 ctest --test-dir build-onnx -C Release -R onnx_smoke --output-on-failure
 ```
 
-CMake downloads the prebuilt ONNX Runtime (`VE_ONNX_VERSION`, default 1.20.1). To use one you already have,
+CMake downloads ONNX Runtime from its NuGet package (`VE_ONNX_VERSION`, default 1.20.1). To use one you already have,
 pass `-DVE_ONNX_ROOT=C:\path\to\onnxruntime-win-x64-1.20.1`. The test builds a tiny `Y = X + X` model in
 memory (no model files ship) and runs one inference on a JobQueue worker. The plugin itself does not link
 ONNX Runtime yet.

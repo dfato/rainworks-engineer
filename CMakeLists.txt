@@ -22,7 +22,7 @@ FetchContent_MakeAvailable(JUCE)
 option(VE_BUILD_TESTS "Build the headless engine tests" ON)
 option(VE_WITH_ONNX   "Build the optional ONNX Runtime inference backend + smoke test" OFF)
 set(VE_ONNX_VERSION "1.20.1" CACHE STRING "Prebuilt ONNX Runtime version to download when VE_WITH_ONNX=ON")
-set(VE_ONNX_ROOT "" CACHE PATH "Optional: an extracted ONNX Runtime release (has include/ and lib/). Skips the download.")
+set(VE_ONNX_ROOT "" CACHE PATH "Optional: an extracted ONNX Runtime release zip (has include/ and lib/). Skips the download.")
 
 # ---- Engine + State sources (no GUI modules) ---------------------------------
 set(VE_ENGINE_SOURCES
@@ -49,32 +49,47 @@ set(VE_ENGINE_MODULES
 
 # ---- Optional ONNX Runtime (prebuilt from GitHub releases) -------------------
 if(VE_WITH_ONNX)
+    # ONNX Runtime comes from its official NuGet package (stable URL and layout):
+    #   build/native/include/...           headers
+    #   runtimes/<rid>/native/...          libraries
     if(WIN32)
-        set(_ort_pkg "onnxruntime-win-x64-${VE_ONNX_VERSION}.zip")
+        set(_ort_rid "win-x64")
     elseif(APPLE)
-        set(_ort_pkg "onnxruntime-osx-universal2-${VE_ONNX_VERSION}.tgz")
+        set(_ort_rid "osx-arm64")
     else()
-        set(_ort_pkg "onnxruntime-linux-x64-${VE_ONNX_VERSION}.tgz")
+        set(_ort_rid "linux-x64")
     endif()
+
     if(VE_ONNX_ROOT)
-        set(onnxruntime_SOURCE_DIR "${VE_ONNX_ROOT}")
+        set(_ort_inc "${VE_ONNX_ROOT}/include")
+        set(_ort_lib "${VE_ONNX_ROOT}/lib")
     else()
-        FetchContent_Declare(onnxruntime
-            URL https://github.com/microsoft/onnxruntime/releases/download/v${VE_ONNX_VERSION}/${_ort_pkg}
-            DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
-        FetchContent_MakeAvailable(onnxruntime)
+        set(_ort_dir "${CMAKE_BINARY_DIR}/_deps/onnxruntime-${VE_ONNX_VERSION}")
+        if(NOT EXISTS "${_ort_dir}/build/native/include/onnxruntime_cxx_api.h")
+            set(_ort_pkg "${CMAKE_BINARY_DIR}/_deps/onnxruntime-${VE_ONNX_VERSION}.nupkg")
+            message(STATUS "Downloading ONNX Runtime ${VE_ONNX_VERSION} (NuGet)")
+            file(DOWNLOAD "https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/${VE_ONNX_VERSION}"
+                 "${_ort_pkg}" STATUS _ort_status TLS_VERIFY ON)
+            list(GET _ort_status 0 _ort_code)
+            if(NOT _ort_code EQUAL 0)
+                message(FATAL_ERROR "ONNX Runtime download failed: ${_ort_status}. Set VE_ONNX_ROOT to a local copy instead.")
+            endif()
+            file(ARCHIVE_EXTRACT INPUT "${_ort_pkg}" DESTINATION "${_ort_dir}")
+        endif()
+        set(_ort_inc "${_ort_dir}/build/native/include")
+        set(_ort_lib "${_ort_dir}/runtimes/${_ort_rid}/native")
     endif()
 
     add_library(ve_onnxruntime SHARED IMPORTED GLOBAL)
-    set_target_properties(ve_onnxruntime PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${onnxruntime_SOURCE_DIR}/include")
+    set_target_properties(ve_onnxruntime PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${_ort_inc}")
     if(WIN32)
         set_target_properties(ve_onnxruntime PROPERTIES
-            IMPORTED_IMPLIB   "${onnxruntime_SOURCE_DIR}/lib/onnxruntime.lib"
-            IMPORTED_LOCATION "${onnxruntime_SOURCE_DIR}/lib/onnxruntime.dll")
+            IMPORTED_IMPLIB   "${_ort_lib}/onnxruntime.lib"
+            IMPORTED_LOCATION "${_ort_lib}/onnxruntime.dll")
     elseif(APPLE)
-        set_target_properties(ve_onnxruntime PROPERTIES IMPORTED_LOCATION "${onnxruntime_SOURCE_DIR}/lib/libonnxruntime.dylib")
+        set_target_properties(ve_onnxruntime PROPERTIES IMPORTED_LOCATION "${_ort_lib}/libonnxruntime.dylib")
     else()
-        set_target_properties(ve_onnxruntime PROPERTIES IMPORTED_LOCATION "${onnxruntime_SOURCE_DIR}/lib/libonnxruntime.so")
+        set_target_properties(ve_onnxruntime PROPERTIES IMPORTED_LOCATION "${_ort_lib}/libonnxruntime.so")
     endif()
 endif()
 
