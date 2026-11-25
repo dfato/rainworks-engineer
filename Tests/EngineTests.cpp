@@ -13,6 +13,7 @@
 #include "Engine/NotePlan.h"
 #include "Engine/PitchTracker.h"
 #include "Engine/PitchCorrectRenderer.h"
+#include "Engine/TimeWarp.h"
 #include "Engine/Style/ExpressionLayer.h"
 #include "Engine/Style/StyleProfile.h"
 #include "Engine/TempoMap.h"
@@ -784,6 +785,131 @@ public:
     }
 };
 
+class TimingTests final : public juce::UnitTest
+{
+public:
+    TimingTests() : juce::UnitTest ("Timing", "VocalEngine") {}
+
+    static int firstLoud (const juce::AudioBuffer<float>& b, int from, int to, float thresh)
+    {
+        for (int i = from; i < to; ++i)
+            if (std::abs (b.getSample (0, i)) > thresh) return i;
+        return -1;
+    }
+
+    void runTest() override
+    {
+        const double sr = 48000.0;
+        beginTest ("Grid snap with swing");
+        {
+            expectWithinAbsoluteError (TimeWarp::nearestGridPpq (0.26, 16, 0.0f), 0.25, 1.0e-9);
+            expectWithinAbsoluteError (TimeWarp::nearestGridPpq (0.49, 16, 0.0f), 0.5, 1.0e-9);
+            expectWithinAbsoluteError (TimeWarp::nearestGridPpq (0.30, 16, 1.0f), 0.25 * 4.0 / 3.0, 1.0e-9);
+            expectWithinAbsoluteError (TimeWarp::nearestGridPpq (-0.01, 16, 0.0f), 0.0, 1.0e-9);
+            expectWithinAbsoluteError (TimeWarp::nearestGridPpq (3.9, 4, 0.0f), 4.0, 1.0e-9);
+        }
+
+        beginTest ("Warp quantizes onsets, keeps note lengths, stays monotonic");
+        {
+            TempoMap tm (sr);
+            tm.addPoint ({ 0, 0.0, 120.0, 4, 4 });   // one beat = 0.5 s
+            Note a; a.start = (std::int64_t) (0.56 * sr); a.end = (std::int64_t) (0.90 * sr); a.correction = 1.0f;
+            Note b; b.start = (std::int64_t) (1.47 * sr); b.end = (std::int64_t) (1.80 * sr); b.correction = 0.0f;
+            NotePlan plan { { a, b } };
+            StyleProfile st; st.quantize = 1.0f; st.grid = 4;
+            const auto len = (std::int64_t) (3.0 * sr);
+
+            expect (TimeWarp::movesTime (plan, st));
+            const auto w = TimeWarp::build (plan, st, tm, len);
+            expect (! w.isIdentity());
+            expectWithinAbsoluteError (w.outputAt ((double) a.start), 0.5 * sr, 1.0);
+            expectWithinAbsoluteError (w.outputAt ((double) a.end) - w.outputAt ((double) a.start), (double) (a.end - a.start), 1.0);
+            expectWithinAbsoluteError (w.outputAt ((double) b.start), (double) b.start, 1.0); // uncorrected note stays put
+            expectWithinAbsoluteError (w.inputAt (w.outputAt (12345.0)), 12345.0, 1.0e-6);
+            expectWithinAbsoluteError (w.outputAt ((double) len), (double) len, 1.0e-6);
+            for (size_t i = 1; i < w.anchors.size(); ++i)
+                expect (w.anchors[i].out > w.anchors[i - 1].out && w.anchors[i].in > w.anchors[i - 1].in);
+
+            // Half quantize goes halfway; no quantize and no nudges = identity.
+            st.quantize = 0.5f;
+            expectWithinAbsoluteError (TimeWarp::build (plan, st, tm, len).outputAt ((double) a.start), 0.53 * sr, 1.0);
+            st.quantize = 0.0f;
+            expect (! TimeWarp::movesTime (plan, st));
+            expect (TimeWarp::build (plan, st, tm, len).isIdentity());
+
+            // A huge nudge is limited by the gap stretch limits instead of folding time.
+            plan.notes[0].timeShift = (std::int64_t) (5.0 * sr);
+            const auto w2 = TimeWarp::build (plan, st, tm, len);
+            for (size_t i = 1; i < w2.anchors.size(); ++i)
+                expect (w2.anchors[i].out > w2.anchors[i - 1].out);
+            expectWithinAbsoluteError (w2.anchors.back().out, (double) len, 1.0e-6);
+        }
+
+        beginTest ("Nudged note is re-timed by PSOLA with pitch kept; untouched audio is bit-exact");
+        {
+            juce::AudioBuffer<float> b (1, (int) (sr * 2.5));
+            b.clear();
+            NoteTests::addVoiceNote (b, sr, 0.10, 0.50, 57.0f, 0.0f);
+            NoteTests::addVoiceNote (b, sr, 1.00, 0.60, 60.0f, 0.0f);
+            PitchTrack t;
+            expect (PitchTracker::track (b, sr, {}, nullptr, t).wasOk());
+            auto notes = NoteSegmenter::segment (t, {});
+            expectEquals ((int) notes.size(), 2);
+            if (notes.size() != 2) return;
+            notes[1].timeShift = (std::int64_t) (0.10 * sr); // 100 ms late
+
+            NotePlan plan { notes };
+            StyleProfile st;
+            expect (RenderPlan::forNotes (plan, st).rendererId == RenderPlan::pitchCorrectId);
+            NotePlan plain { notes }; plain.notes[1].timeShift = 0;
+            expect (RenderPlan::forNotes (plan, st).hash() != RenderPlan::forNotes (plain, st).hash());
+
+            const int n = b.getNumSamples();
+            std::vector<float> f0 ((size_t) n);
+            for (int i = 0; i < n; ++i) f0[(size_t) i] = t.frames[(size_t) juce::jmin ((int) t.frames.size() - 1, i / t.hopSize)].f0;
+            const std::vector<float> shift ((size_t) n, 0.0f);
+            const auto warp = TimeWarp::build (plan, st, TempoMap (sr), n);
+            juce::AudioBuffer<float> out;
+            PitchCorrectRenderer::psolaShift (b, out, sr, f0, shift, warp);
+            expectEquals (out.getNumSamples(), n);
+
+            const int inOnset = firstLoud (b, (int) (0.8 * sr), n, 0.05f);
+            const int outOnset = firstLoud (out, (int) (0.8 * sr), n, 0.05f);
+            const double movedMs = 1000.0 * (outOnset - inOnset) / sr;
+            logMessage ("Second note onset moved by " + juce::String (movedMs, 1) + " ms (asked 100)");
+            expectWithinAbsoluteError (movedMs, 100.0, 12.0);
+
+            PitchTrack t2;
+            expect (PitchTracker::track (out, sr, {}, nullptr, t2).wasOk());
+            const float f = t2.frames[(size_t) (1.45 * sr / t2.hopSize)].f0;
+            const float cents = 1200.0f * std::log2 (f / 261.6256f);
+            logMessage ("Moved note is " + juce::String (cents, 1) + " cents from C4");
+            expectWithinAbsoluteError (cents, 0.0f, 10.0f);
+
+            bool exact = true;
+            for (int i = 0; i < (int) (0.5 * sr); ++i)
+                exact = exact && juce::exactlyEqual (out.getSample (0, i), b.getSample (0, i));
+            expect (exact, "audio before the moved stretch must be untouched");
+
+            const float inRms = b.getRMSLevel (0, (int) (1.1 * sr), (int) (0.4 * sr));
+            const float outRms = out.getRMSLevel (0, (int) (1.2 * sr), (int) (0.4 * sr));
+            expectWithinAbsoluteError (outRms / inRms, 1.0f, 0.25f);
+        }
+
+        beginTest ("Style timing parses swing and is part of the style hash");
+        {
+            StyleLibrary lib;
+            const auto lofi = lib.get ("lo-fi");
+            expect (lofi.swing > 0.0f && lofi.quantize > 0.0f);
+            expect (lib.get ("trap").quantize > 0.0f);
+            expect (lib.get ("natural").quantize <= 0.0f);
+            auto a = lofi; a.swing = 0.0f;
+            expect (a.hash() != lofi.hash());
+        }
+    }
+};
+
+static TimingTests timingTests;
 static StyleTests styleTests;
 static ImportTests importTests;
 static CoreTests coreTests;

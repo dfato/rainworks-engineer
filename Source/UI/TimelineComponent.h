@@ -6,6 +6,7 @@
 #include "Engine/RenderCache.h"
 #include "Engine/SidechainAnalysis.h"
 #include "Engine/TempoMap.h"
+#include "Engine/TimeWarp.h"
 
 namespace ve::ui
 {
@@ -20,6 +21,7 @@ namespace ve::ui
         bool missing = false, loading = false, hasSidechain = false;
         std::vector<ChordSpan> chords;
         std::vector<Note> notes;                     // region-local samples at capture rate
+        std::vector<double> noteOutStart;            // where each note will sound after timing edits/quantize
         bool trackingPitch = false;
     };
 
@@ -70,7 +72,8 @@ namespace ve::ui
         const TimelineRegion* regionAt (juce::Point<int>) const;
         struct NoteHit { int region = -1, note = -1; };
         NoteHit noteAt (juce::Point<int>) const;
-        juce::Rectangle<float> noteBounds (const TimelineRegion&, const Note&, bool target) const;
+        juce::Rectangle<float> noteBounds (const TimelineRegion&, int noteIndex, bool target) const;
+        static double outStart (const TimelineRegion&, int noteIndex) noexcept;
 
         static constexpr int gutter = 64;
 
@@ -88,6 +91,9 @@ namespace ve::ui
         float noteLo = 48.0f, noteRowH = 4.0f, noteH = 6.0f;
         NoteHit dragNote;
         float dragStartTarget = 0.0f;
+        std::int64_t dragStartShift = 0;
+        double dragStartOut = 0.0;
+        bool dragTiming = false;
         bool noteDragged = false;
 
         juce::Rectangle<int> ruler, takesLane, chordLane, noteLane;

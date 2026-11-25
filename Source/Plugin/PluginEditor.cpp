@@ -173,7 +173,14 @@ void VocalEngineEditor::rebuildFromSession()
             r.renderedRate = rendered->sampleRate;
         }
         r.chords = session.getChords (desc.id);
-        r.notes = session.getNotePlan (desc.id).notes;
+        {
+            const auto plan = session.getNotePlan (desc.id);
+            const auto warp = ve::TimeWarp::build (plan, ve::sharedStyleLibrary().get (session.getStyleId()),
+                                                   desc.tempoMap, desc.lengthSamples);
+            for (auto& n : plan.notes)
+                r.noteOutStart.push_back (warp.outputAt ((double) n.start));
+            r.notes = plan.notes;
+        }
         r.trackingPitch = ! session.hasNotes (desc.id) && ! desc.missingFiles;
         d.regions.push_back (std::move (r));
     }

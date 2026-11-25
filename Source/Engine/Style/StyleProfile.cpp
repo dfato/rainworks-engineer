@@ -47,6 +47,7 @@ namespace ve
             p.scoopMs          = juce::jlimit (0.0f, 400.0f, num (v, "slides", "scoopMs", p.scoopMs));
             p.quantize         = juce::jlimit (0.0f, 1.0f, num (v, "timing", "quantize", p.quantize));
             p.grid             = juce::jlimit (1, 64, (int) num (v, "timing", "grid", (float) p.grid));
+            p.swing            = juce::jlimit (0.0f, 1.0f, num (v, "timing", "swing", p.swing));
             return p;
         }
     }
@@ -66,7 +67,7 @@ namespace ve
         o->setProperty ("pitch", section ({ { "correction", correction }, { "retuneMs", retuneMs }, { "keepVariation", keepVariation } }));
         o->setProperty ("vibrato", section ({ { "addDepthCents", vibratoDepthCents }, { "rateHz", vibratoRateHz }, { "onsetMs", vibratoOnsetMs } }));
         o->setProperty ("slides", section ({ { "betweenNotesMs", slideMs }, { "maxGapMs", slideMaxGapMs }, { "scoopCents", scoopCents }, { "scoopMs", scoopMs } }));
-        o->setProperty ("timing", section ({ { "quantize", quantize }, { "grid", grid } }));
+        o->setProperty ("timing", section ({ { "quantize", quantize }, { "grid", grid }, { "swing", swing } }));
         return juce::var (o);
     }
 
@@ -74,7 +75,7 @@ namespace ve
     {
         // Only parameters that change the sound (correction is per note, so excluded).
         const float vals[] = { retuneMs, keepVariation, vibratoDepthCents, vibratoRateHz, vibratoOnsetMs,
-                               slideMs, slideMaxGapMs, scoopCents, scoopMs, quantize, (float) grid };
+                               slideMs, slideMaxGapMs, scoopCents, scoopMs, quantize, (float) grid, swing };
         std::uint64_t h = 1469598103934665603ull;
         auto* p = reinterpret_cast<const unsigned char*> (vals);
         for (size_t i = 0; i < sizeof (vals); ++i) { h ^= p[i]; h *= 1099511628211ull; }

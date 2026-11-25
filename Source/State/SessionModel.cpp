@@ -253,6 +253,8 @@ namespace ve
             v.setProperty (IDs::target, n.targetMidi, nullptr);
             v.setProperty (IDs::correction, n.correction, nullptr);
             v.setProperty (IDs::edited, n.userEdited, nullptr);
+            if (n.timeShift != 0)
+                v.setProperty (IDs::shift, juce::String (n.timeShift), nullptr);
             list.appendChild (v, nullptr);
         }
         r.appendChild (list, nullptr);
@@ -275,6 +277,7 @@ namespace ve
             n.targetMidi = v.getProperty (IDs::target);
             n.correction = v.getProperty (IDs::correction, 0.0f);
             n.userEdited = v.getProperty (IDs::edited, false);
+            n.timeShift = getInt64 (v, IDs::shift);
             plan.notes.push_back (n);
         }
         return plan;

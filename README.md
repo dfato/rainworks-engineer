@@ -206,8 +206,19 @@ inherit from any other and override only what it changes:
 ```
 
 Fields: `pitch` (`correction` 0-1, `retuneMs`, `keepVariation` 0-1), `vibrato` (`addDepthCents`, `rateHz`,
-`onsetMs`), `slides` (`betweenNotesMs`, `maxGapMs`, `scoopCents`, `scoopMs`), `timing` (`quantize`, `grid`).
+`onsetMs`), `slides` (`betweenNotesMs`, `maxGapMs`, `scoopCents`, `scoopMs`), `timing` (`quantize` 0-1, `grid` divisions per whole note, `swing` 0-1).
 A file with the same `id` as a built-in replaces it.
+
+### 11. Timing: quantize, swing and note nudges
+
+1. Pick **Trap**, **EDM**, **Hyperpop** or **Hard Tune** on a take sung slightly off the beat. Corrected notes
+   are pulled toward the 1/16 grid (by the style's `quantize` times each note's correction). The note lane
+   shows the blob where it will sound, with a faint outline where it was sung.
+2. **Lo-Fi**, **Neo-Soul**, **Afrobeats**, **Drill** and **House** add swing: every second 1/16 step sits late.
+3. **Shift + drag** a blob left or right to move that note in time. It snaps to 1/16; hold **Alt** too for
+   free movement. Right-click > **Reset timing** puts it back.
+4. Each note keeps its length and moves as a block; the gaps around it stretch or squeeze (up to 4x either
+   way). Pitch, vibrato and formants are kept. Audio away from moved notes is untouched.
 
 ## Known limitations (to fix after the full build)
 
@@ -217,6 +228,9 @@ A file with the same `id` as a built-in replaces it.
 - Standalone has no host transport, so capture and Rendered playback do nothing there.
 - The session id is copied when you "Save as" an FL project, so both projects share one data folder.
 - No crossfades at take boundaries yet (punch-ins can click).
-- Pitch only so far: note timing edits, splitting/merging blobs and the styles' `timing` settings
-  (quantize/swing) need time-stretching, which comes next.
+- Blobs can't be split or merged yet.
+- Moving a note only re-times the gaps either side of it, so pulling a note past its neighbour is limited
+  (gaps squeeze to a quarter of their length at most). Very long gaps of breath noise can sound grainy when
+  stretched a lot.
+- Quantize uses the tempo recorded with the take; it ignores tempo changes made after recording.
 - Heavily breathy or polyphonic material confuses the pitch tracker (it assumes one voice).

@@ -94,13 +94,20 @@ namespace ve::ui
         repaint();
     }
 
-    juce::Rectangle<float> TimelineComponent::noteBounds (const TimelineRegion& r, const Note& n, bool target) const
+    double TimelineComponent::outStart (const TimelineRegion& r, int i) noexcept
     {
+        return i < (int) r.noteOutStart.size() ? r.noteOutStart[(size_t) i] : (double) r.notes[(size_t) i].start;
+    }
+
+    juce::Rectangle<float> TimelineComponent::noteBounds (const TimelineRegion& r, int i, bool target) const
+    {
+        const auto& n = r.notes[(size_t) i];
         const auto lane = noteLane.reduced (0, 4).toFloat();
         const float midi = target ? n.detectedMidi + (n.targetMidi - n.detectedMidi) * n.correction : n.detectedMidi;
         const float y = lane.getBottom() - (midi - noteLo) * noteRowH;
-        const float x0 = ppqToX (r.tempoMap.sampleToPpq ((double) n.start));
-        const float x1 = ppqToX (r.tempoMap.sampleToPpq ((double) n.end));
+        const double s = target ? outStart (r, i) : (double) n.start;
+        const float x0 = ppqToX (r.tempoMap.sampleToPpq (s));
+        const float x1 = ppqToX (r.tempoMap.sampleToPpq (s + (double) (n.end - n.start)));
         return { x0, y - juce::jmax (noteH, 8.0f) * 0.5f, juce::jmax (4.0f, x1 - x0), juce::jmax (noteH, 8.0f) };
     }
 
@@ -111,7 +118,7 @@ namespace ve::ui
         {
             const auto& r = data.regions[(size_t) ri];
             for (int ni = 0; ni < (int) r.notes.size(); ++ni)
-                if (noteBounds (r, r.notes[(size_t) ni], true).contains (p.toFloat()))
+                if (noteBounds (r, ni, true).contains (p.toFloat()))
                     return { ri, ni };
         }
         return {};
@@ -168,6 +175,9 @@ namespace ve::ui
                 m.addItem (2, "Correct halfway (50%)");
                 m.addItem (3, "Leave as sung (0%)");
                 m.addItem (4, "Reset target to key");
+                m.addItem (5, "Reset timing", n.timeShift != 0);
+                m.addSeparator();
+                m.addItem (6, "Tip: Shift + drag a note to move it in time", false);
                 m.showMenuAsync (juce::PopupMenu::Options(), [this, id = r.id, idx = hit.note, n] (int res)
                 {
                     if (res == 0 || ! onNoteChanged) return;
@@ -176,12 +186,16 @@ namespace ve::ui
                     if (res == 2) edited.correction = 0.5f;
                     if (res == 3) edited.correction = 0.0f;
                     if (res == 4) edited.targetMidi = std::round (n.detectedMidi), edited.correction = juce::jmax (n.correction, 1.0f);
+                    if (res == 5) edited.timeShift = 0;
                     onNoteChanged (id, idx, edited);
                 });
                 return;
             }
             dragNote = hit;
             dragStartTarget = n.targetMidi;
+            dragStartShift = n.timeShift;
+            dragStartOut = outStart (r, hit.note);
+            dragTiming = e.mods.isShiftDown();
             noteDragged = false;
             return;
         }
@@ -210,8 +224,24 @@ namespace ve::ui
 
         if (dragNote.region >= 0)
         {
+            auto& r = data.regions[(size_t) dragNote.region];
+            auto& n = r.notes[(size_t) dragNote.note];
+            if (dragTiming)
+            {
+                // Shift + horizontal drag nudges timing (snaps to 1/16 unless Alt is held).
+                const double startPpq = r.tempoMap.sampleToPpq (dragStartOut);
+                double ppq = startPpq + e.getDistanceFromDragStartX() / pxPerPpq;
+                if (! e.mods.isAltDown())
+                    ppq = TimeWarp::nearestGridPpq (ppq, 16, 0.0f);
+                const double delta = r.tempoMap.ppqToSample (ppq) - dragStartOut;
+                n.timeShift = dragStartShift + (std::int64_t) std::llround (delta);
+                if (dragNote.note < (int) r.noteOutStart.size())
+                    r.noteOutStart[(size_t) dragNote.note] = dragStartOut + delta;
+                noteDragged = true;
+                repaint();
+                return;
+            }
             // Vertical drag moves the target in semitones (Alt for fine/cents).
-            auto& n = data.regions[(size_t) dragNote.region].notes[(size_t) dragNote.note];
             const float steps = (float) -e.getDistanceFromDragStartY() / juce::jmax (1.0f, noteRowH);
             n.targetMidi = e.mods.isAltDown() ? dragStartTarget + steps : std::round (dragStartTarget + steps);
             n.correction = 1.0f;
@@ -369,11 +399,22 @@ namespace ve::ui
         const float h = juce::jlimit (3.0f, 12.0f, noteRowH * 0.8f);
         noteH = h;
         for (auto& r : data.regions)
-            for (auto& n : r.notes)
+            for (int ni = 0; ni < (int) r.notes.size(); ++ni)
             {
-                const float x0 = ppqToX (r.tempoMap.sampleToPpq ((double) n.start));
-                const float x1 = ppqToX (r.tempoMap.sampleToPpq ((double) n.end));
+                const auto& n = r.notes[(size_t) ni];
+                const double os = outStart (r, ni);
+                const float x0 = ppqToX (r.tempoMap.sampleToPpq (os));
+                const float x1 = ppqToX (r.tempoMap.sampleToPpq (os + (double) (n.end - n.start)));
                 if (x1 < lane.getX() || x0 > lane.getRight()) continue;
+
+                // Moved in time: faint outline where it was sung.
+                if (std::abs (os - (double) n.start) > 0.002 * r.tempoMap.getSampleRate())
+                {
+                    const float g0 = ppqToX (r.tempoMap.sampleToPpq ((double) n.start));
+                    const float g1 = ppqToX (r.tempoMap.sampleToPpq ((double) n.end));
+                    g.setColour (Theme::textDim.withAlpha (0.4f));
+                    g.drawRoundedRectangle (juce::Rectangle<float> (g0, yFor (n.detectedMidi) - h * 0.5f, juce::jmax (2.0f, g1 - g0), h), h * 0.4f, 1.0f);
+                }
 
                 const float cents = std::abs (n.centsOff());
                 const auto colour = cents < 15.0f ? Theme::good : (cents < 35.0f ? Theme::warn : Theme::bad);
