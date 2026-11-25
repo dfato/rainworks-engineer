@@ -4,7 +4,7 @@
 
 namespace ve::ui
 {
-    // Plugin name, version and a routing status line.
+    // Plugin name, version, input format and a sidechain routing light.
     // Knows nothing about the processor: the editor pushes plain values in.
     class HeaderComponent final : public juce::Component
     {
@@ -21,7 +21,7 @@ namespace ve::ui
         void setStatus (const Status&);
         void paint (juce::Graphics&) override;
 
-        static juce::Colour backgroundColour() { return juce::Colour (0xff15171c); }
+        static juce::Colour backgroundColour();
 
     private:
         juce::String name, versionText;

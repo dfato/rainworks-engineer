@@ -2,7 +2,8 @@
 
 // Engine-wide constants. Everything under Source/Engine must stay free of
 // juce_gui_* includes so it can be reused headless (tests, offline render,
-// a future inference sidecar).
+// a future inference sidecar). CMake builds the engine tests without any GUI
+// module, which enforces this.
 
 namespace ve
 {

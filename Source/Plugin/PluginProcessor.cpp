@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "Engine/EngineConfig.h"
+#include "Engine/SidechainAnalysis.h"
 
 VocalEngineProcessor::BusesProperties VocalEngineProcessor::makeBusesProperties()
 {
@@ -11,18 +12,42 @@ VocalEngineProcessor::BusesProperties VocalEngineProcessor::makeBusesProperties(
 }
 
 VocalEngineProcessor::VocalEngineProcessor()
-    : juce::AudioProcessor (makeBusesProperties())
+    : juce::AudioProcessor (makeBusesProperties()),
+      renderer (std::make_shared<ve::CapturedAudioRenderer>()),
+      jobs (std::make_unique<ve::JobQueue> (2))
 {
+    capture.setDataFolder (session.getDataFolder());
+    session.getTree().addListener (this);
+    startTimerHz (20);
 }
 
-void VocalEngineProcessor::prepareToPlay (double, int)
+VocalEngineProcessor::~VocalEngineProcessor()
+{
+    alive->store (false);
+    stopTimer();
+    session.getTree().removeListener (this);
+    jobs.reset();       // cancel + join workers first
+    capture.release();  // flush the take in progress, if any
+}
+
+//==============================================================================
+void VocalEngineProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     // Playback comes from cache and capture is offline, so nothing adds delay.
     setLatencySamples (0);
     sidechainPeak.store (0.0f, std::memory_order_relaxed);
+
+    const auto previous = engineSampleRate.exchange (sampleRate);
+    if (previous > 0.0 && std::abs (previous - sampleRate) > 0.5)
+        sampleRateChanged = true; // cached renders are at the old rate
+
+    capture.prepare (sampleRate, samplesPerBlock);
 }
 
-void VocalEngineProcessor::releaseResources() {}
+void VocalEngineProcessor::releaseResources()
+{
+    capture.release();
+}
 
 bool VocalEngineProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
@@ -50,31 +75,43 @@ void VocalEngineProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 {
     juce::ScopedNoDenormals noDenormals;
 
-    // Main output shares channels with main input, so passthrough is implicit.
-    // Clear any output channels that have no matching main input channel.
-    const auto mainIn  = getBusBuffer (buffer, true,  ve::Bus::mainInput);
-    auto       mainOut = getBusBuffer (buffer, false, ve::Bus::mainOutput);
-    for (int ch = mainIn.getNumChannels(); ch < mainOut.getNumChannels(); ++ch)
-        mainOut.clear (ch, 0, mainOut.getNumSamples());
+    const int numSamples = buffer.getNumSamples();
+    const auto host = ve::HostContext::read (getPlayHead(), getSampleRate(), numSamples, ++blockCounter);
+    hostSnapshots.write (host);
 
+    const auto mainIn = getBusBuffer (buffer, true, ve::Bus::mainInput);
     mainInputChannels.store (mainIn.getNumChannels(), std::memory_order_relaxed);
 
-    // Sidechain is read only for a routing indicator in Step 1.
+    // Sidechain (optional).
     auto* scBus = getBus (true, ve::Bus::sidechain);
-    const bool scOn = scBus != nullptr && scBus->isEnabled();
+    const bool scOn = scBus != nullptr && scBus->isEnabled() && scBus->getNumberOfChannels() > 0;
     sidechainEnabled.store (scOn, std::memory_order_relaxed);
 
+    juce::AudioBuffer<float> scBuffer;
     float peak = 0.0f;
     if (scOn)
     {
-        const auto sc = getBusBuffer (buffer, true, ve::Bus::sidechain);
-        if (sc.getNumChannels() > 0)
-            peak = sc.getMagnitude (0, sc.getNumSamples());
+        scBuffer = getBusBuffer (buffer, true, ve::Bus::sidechain);
+        peak = scBuffer.getMagnitude (0, numSamples);
     }
-
-    // Simple decay so the UI (polling at ~15 Hz) does not miss short signals.
+    // Decay so the UI (polling at ~30 Hz) does not miss short signals.
     const float held = sidechainPeak.load (std::memory_order_relaxed) * 0.9f;
     sidechainPeak.store (juce::jmax (peak, held), std::memory_order_relaxed);
+
+    const auto mode = (ve::MonitoringMode) monitoringMode.load (std::memory_order_relaxed);
+
+    // Capture reads the input before playback may overwrite the shared channels.
+    capture.process (host, mainIn, scOn ? &scBuffer : nullptr,
+                     armed.load (std::memory_order_relaxed) && mode != ve::MonitoringMode::bypass);
+
+    // Main output shares channels with main input, so passthrough is implicit.
+    auto mainOut = getBusBuffer (buffer, false, ve::Bus::mainOutput);
+    for (int ch = mainIn.getNumChannels(); ch < mainOut.getNumChannels(); ++ch)
+        mainOut.clear (ch, 0, numSamples);
+
+    // While a take is being recorded you always hear the input.
+    if (mode == ve::MonitoringMode::rendered && ! capture.isCapturing())
+        playback.render (mainOut, host);
 }
 
 VocalEngineProcessor::Status VocalEngineProcessor::getStatus() const noexcept
@@ -87,13 +124,246 @@ VocalEngineProcessor::Status VocalEngineProcessor::getStatus() const noexcept
 }
 
 //==============================================================================
-void VocalEngineProcessor::getStateInformation (juce::MemoryBlock&)
+void VocalEngineProcessor::timerCallback()
 {
-    // Session ValueTree serialisation arrives in Step 5.
+    playback.collectGarbage();
+
+    if (sampleRateChanged.exchange (false))
+    {
+        cache.clear();
+        reloadAllRegions();
+    }
+
+    bool changed = false;
+    for (auto& r : capture.popFinishedRegions())
+    {
+        if (! r.ok)
+        {
+            postMessage ("Capture failed: " + r.error);
+            continue;
+        }
+
+        session.addRegion (r);
+        if (r.droppedSamples > 0)
+            postMessage ("Take captured with " + juce::String (r.droppedSamples) + " samples of dropout (disk too slow?)");
+
+        const auto d = session.getRegionDescriptor (session.findRegion (r.id));
+        scheduleRender (d);
+        scheduleAnalysis (d);
+        changed = true;
+    }
+
+    if (stateDirty)
+        refreshCachedState();
+
+    if (changed)
+        sendChangeMessage();
 }
 
-void VocalEngineProcessor::setStateInformation (const void*, int)
+void VocalEngineProcessor::postMessage (const juce::String& m)
 {
+    lastMessage = juce::Time::getCurrentTime().toString (false, true, false) + "  " + m;
+    sendChangeMessage();
+}
+
+void VocalEngineProcessor::rebuildPlayback()
+{
+    auto snap = std::make_unique<ve::PlaybackSnapshot>();
+    const double rate = engineSampleRate.load();
+    snap->sampleRate = rate;
+    for (auto& d : session.getRegionDescriptors())
+        if (! d.missingFiles)
+            snap->add (d, cache.find (d.id, d.planHash), rate > 0.0 ? rate : d.captureSampleRate);
+    playback.publish (std::move (snap));
+}
+
+void VocalEngineProcessor::scheduleRender (const ve::RegionDescriptor& d)
+{
+    if (d.missingFiles || cache.find (d.id, d.planHash) != nullptr)
+        return;
+
+    const double rate = engineSampleRate.load() > 0.0 ? engineSampleRate.load() : d.captureSampleRate;
+    auto result = std::make_shared<ve::RenderedAudio>();
+    loadingRegions.insert (d.id);
+
+    jobs->submit ("Load take", "render:" + d.id, ve::JobPriority::high,
+        [r = renderer, d, rate, result] (ve::JobContext& ctx)
+        {
+            return r->render (d, ve::RenderPlan::identity(), rate, ctx, *result);
+        },
+        [this, id = d.id, hash = d.planHash, result] (const ve::JobResult& res)
+        {
+            loadingRegions.erase (id);
+            if (res.success)
+            {
+                cache.removeStale (id, hash);
+                cache.store (result);
+                rebuildPlayback();
+            }
+            else if (! res.cancelled)
+            {
+                postMessage ("Could not load take: " + res.error);
+            }
+            sendChangeMessage();
+        });
+}
+
+void VocalEngineProcessor::scheduleAnalysis (const ve::RegionDescriptor& d)
+{
+    if (d.sidechainFile == juce::File() || ! d.sidechainFile.existsAsFile())
+        return;
+
+    auto result = std::make_shared<ve::SidechainAnalysisResult>();
+    jobs->submit ("Analyse sidechain", "analysis:" + d.id, ve::JobPriority::normal,
+        [d, result] (ve::JobContext& ctx)
+        {
+            juce::AudioBuffer<float> audio;
+            double rate = 0.0;
+            if (auto r = ve::loadAudioFile (d.sidechainFile, 0.0, nullptr, audio, rate); r.failed())
+                return r;
+            auto map = d.tempoMap;
+            map.setSampleRate (rate);
+            return ve::Analysis::analyseSidechain (audio, rate, map, &ctx, *result);
+        },
+        [this, id = d.id, result] (const ve::JobResult& res)
+        {
+            if (res.success)
+                session.setAnalysis (id, *result);
+            else if (! res.cancelled)
+                postMessage ("Sidechain analysis failed: " + res.error);
+            sendChangeMessage();
+        });
+}
+
+void VocalEngineProcessor::reloadAllRegions()
+{
+    rebuildPlayback();
+    for (auto& d : session.getRegionDescriptors())
+    {
+        scheduleRender (d);
+        if (! session.hasAnalysis (d.id))
+            scheduleAnalysis (d);
+    }
+    sendChangeMessage();
+}
+
+//==============================================================================
+void VocalEngineProcessor::setMonitoringMode (ve::MonitoringMode m)
+{
+    monitoringMode.store ((int) m);
+    session.setMonitoringMode (m);
+    sendChangeMessage();
+}
+
+void VocalEngineProcessor::setKeyOverride (int k)
+{
+    session.setKeyOverride (k);
+    sendChangeMessage();
+}
+
+void VocalEngineProcessor::setDataFolder (const juce::File& f)
+{
+    session.setDataFolder (f);
+    capture.setDataFolder (f);
+    cache.clear();
+    reloadAllRegions();
+
+    int missing = 0;
+    for (auto& d : session.getRegionDescriptors())
+        missing += d.missingFiles ? 1 : 0;
+    postMessage ("Data folder set to " + f.getFullPathName()
+                 + (missing > 0 ? " (" + juce::String (missing) + " takes still missing)" : juce::String()));
+}
+
+void VocalEngineProcessor::analyseAll()
+{
+    for (auto& d : session.getRegionDescriptors())
+        scheduleAnalysis (d);
+    sendChangeMessage();
+}
+
+void VocalEngineProcessor::analyseRegion (const juce::String& id)
+{
+    auto r = session.findRegion (id);
+    if (r.isValid())
+        scheduleAnalysis (session.getRegionDescriptor (r));
+}
+
+void VocalEngineProcessor::deleteRegion (const juce::String& id)
+{
+    jobs->cancelGroup ("render:" + id);
+    jobs->cancelGroup ("analysis:" + id);
+    if (session.removeRegion (id))
+    {
+        cache.removeRegion (id);
+        loadingRegions.erase (id);
+        rebuildPlayback();
+        postMessage ("Take removed from session (its audio files are kept in the data folder)");
+    }
+}
+
+//==============================================================================
+void VocalEngineProcessor::refreshCachedState()
+{
+    stateDirty = false;
+    juce::MemoryBlock mb;
+    if (auto xml = session.toXml())
+        copyXmlToBinary (*xml, mb);
+    const juce::ScopedLock sl (cachedStateLock);
+    cachedState = std::move (mb);
+}
+
+void VocalEngineProcessor::getStateInformation (juce::MemoryBlock& destData)
+{
+    if (juce::MessageManager::existsAndIsCurrentThread())
+        refreshCachedState();
+
+    const juce::ScopedLock sl (cachedStateLock);
+    destData = cachedState;
+}
+
+void VocalEngineProcessor::setStateInformation (const void* data, int sizeInBytes)
+{
+    std::shared_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
+    if (xml == nullptr)
+        return;
+
+    if (juce::MessageManager::existsAndIsCurrentThread())
+    {
+        applyState (*xml);
+        return;
+    }
+
+    juce::MessageManager::callAsync ([this, a = alive, xml]
+    {
+        if (a->load())
+            applyState (*xml);
+    });
+}
+
+void VocalEngineProcessor::applyState (const juce::XmlElement& xml)
+{
+    if (auto r = session.restoreFromXml (xml); r.failed())
+    {
+        postMessage ("Could not restore session: " + r.getErrorMessage());
+        return;
+    }
+
+    jobs->cancelAll();
+    loadingRegions.clear();
+    monitoringMode.store ((int) session.getMonitoringMode());
+    capture.setDataFolder (session.getDataFolder());
+    cache.clear();
+    reloadAllRegions();
+
+    int missing = 0;
+    for (auto& d : session.getRegionDescriptors())
+        missing += d.missingFiles ? 1 : 0;
+    if (missing > 0)
+        postMessage (juce::String (missing) + " take(s) have missing audio files. Use Data folder > Locate... to point at the folder.");
+
+    refreshCachedState();
+    sendChangeMessage();
 }
 
 juce::AudioProcessorEditor* VocalEngineProcessor::createEditor()
