@@ -66,6 +66,8 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
     };
     refreshStyles();
 
+    controls.onGpuChanged = [this] (bool on) { processor.setVoiceGpu (on); };
+    controls.onIntentChanged = [this] (bool on) { processor.setUseIntent (on); };
     controls.onVoiceChanged = [this] (const juce::String& id) { processor.setVoice (id); };
     controls.onRescanVoices = [this] { processor.rescanVoices(); refreshVoices(); };
     controls.onOpenVoicesFolder = []
@@ -80,8 +82,8 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
     rebuildFromSession();
 
     setResizable (true, true);
-    setResizeLimits (1300, 520, 3000, 1800);
-    setSize (1360, 720);
+    setResizeLimits (1370, 520, 3000, 1800);
+    setSize (1420, 720);
     startTimerHz (30);
 }
 
@@ -207,6 +209,8 @@ void VocalEngineEditor::rebuildFromSession()
     controls.setCorrection (processor.getGlobalCorrection());
     controls.setStyle (session.getStyleId());
     controls.setVoice (session.getVoiceId());
+    controls.setIntent (session.getUseIntent());
+    controls.setGpu (session.getVoiceGpu(), ve::ml::isGpuSupported());
 
     const auto est = session.getEstimatedKey();
     controls.setEstimatedKeyText (est.isValid() ? ve::Analysis::keyName (est.tonic, est.minor) : "not analysed");

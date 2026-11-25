@@ -8,6 +8,7 @@
 #include "Engine/PitchTracker.h"
 #include "Engine/Style/StyleLearner.h"
 #include "Engine/PitchCorrectRenderer.h"
+#include "Engine/Intent/NoteIntent.h"
 #include "Engine/ML/InferenceBackend.h"
 #include "Engine/Voice/VoiceRenderer.h"
 
@@ -221,13 +222,16 @@ void VocalEngineProcessor::scheduleRender (const ve::RegionDescriptor& d)
 
     jobs->submit ("Load take", "render:" + d.id, ve::JobPriority::high,
         [r = (d.plan.rendererId == ve::RenderPlan::capturedId ? renderer
-              : d.plan.rendererId == ve::RenderPlan::voiceConvertId ? voiceRenderer : pitchRenderer), d, rate, result] (ve::JobContext& ctx)
+              : d.plan.rendererId == ve::RenderPlan::voiceConvertId ? std::static_pointer_cast<ve::RegionRenderer> (voiceRenderer) : pitchRenderer),
+         d, rate, result] (ve::JobContext& ctx)
         {
             return r->render (d, d.plan, rate, ctx, *result);
         },
-        [this, id = d.id, hash = d.planHash, result] (const ve::JobResult& res)
+        [this, id = d.id, hash = d.planHash, result, isVoice = d.plan.rendererId == ve::RenderPlan::voiceConvertId] (const ve::JobResult& res)
         {
             loadingRegions.erase (id);
+            if (res.success && isVoice)
+                postMessage ("Voice render done on " + voiceRenderer->getLastDevice());
             if (res.success)
             {
                 cache.removeStale (id, hash);
@@ -283,8 +287,9 @@ void VocalEngineProcessor::schedulePitchTracking (const ve::RegionDescriptor& d)
     const auto pitchRel = ve::CaptureEngine::regionsSubfolder() + "/" + d.id + "_pitch.bin";
     const auto pitchFile = session.getDataFolder().getChildFile (pitchRel);
 
+    const bool useIntent = session.getUseIntent();
     jobs->submit ("Track pitch", "pitch:" + d.id, ve::JobPriority::normal,
-        [d, key, pitchFile, result] (ve::JobContext& ctx)
+        [d, key, pitchFile, result, useIntent] (ve::JobContext& ctx)
         {
             juce::AudioBuffer<float> audio;
             double rate = 0.0;
@@ -293,18 +298,22 @@ void VocalEngineProcessor::schedulePitchTracking (const ve::RegionDescriptor& d)
             if (auto r = ve::PitchTracker::track (audio, rate, {}, &ctx, result->track); r.failed())
                 return r;
             result->notes = ve::NoteSegmenter::segment (result->track, key);
+            if (useIntent)
+                ve::NoteIntent::apply (result->track, result->notes, key);
             const auto mb = result->track.serialise();
             if (! pitchFile.replaceWithData (mb.getData(), mb.getSize()))
                 return juce::Result::fail ("Could not write " + pitchFile.getFullPathName());
             return juce::Result::ok();
         },
-        [this, id = d.id, pitchRel, result] (const ve::JobResult& res)
+        [this, id = d.id, pitchRel, result, useIntent] (const ve::JobResult& res)
         {
             if (res.success)
             {
                 const float amount = getGlobalCorrection();
-                for (auto& n : result->notes) n.correction = amount;
+                for (auto& n : result->notes) n.correction = ve::NoteIntent::correctionFor (n, amount, useIntent);
                 session.setNotes (id, result->notes, pitchRel);
+                if (useIntent)
+                    postMessage (intentSummary (result->notes));
                 if (amount > 0.0f)
                     pendingRerender.insert (id);
             }
@@ -323,7 +332,7 @@ void VocalEngineProcessor::setGlobalCorrection (float amount)
         if (! session.hasNotes (d.id)) continue;
         auto plan = session.getNotePlan (d.id);
         for (auto& n : plan.notes)
-            if (! n.userEdited) n.correction = amount;
+            if (! n.userEdited) n.correction = ve::NoteIntent::correctionFor (n, amount, session.getUseIntent());
         session.setNotes (d.id, plan.notes);
         pendingRerender.insert (d.id);
     }
@@ -347,6 +356,15 @@ void VocalEngineProcessor::setVoice (const juce::String& id)
         pendingRerender.insert (d.id);
     lastEditMs = juce::Time::getMillisecondCounter();
     sendChangeMessage();
+}
+
+void VocalEngineProcessor::setVoiceGpu (bool on)
+{
+    session.setVoiceGpu (on);
+    voiceRenderer->setUseGpu (on);
+    postMessage (on ? (ve::ml::isGpuSupported() ? "Voice models will render on the GPU (DirectML)"
+                                                : "This build can't use the GPU; voice models render on the CPU")
+                    : "Voice models will render on the CPU");
 }
 
 void VocalEngineProcessor::rescanVoices()
@@ -522,7 +540,11 @@ void VocalEngineProcessor::resnapNotes()
     {
         if (! session.hasNotes (d.id)) continue;
         auto plan = session.getNotePlan (d.id);
-        ve::NoteSegmenter::resnap (plan.notes, key);
+        ve::PitchTrack track;
+        if (session.getUseIntent() && loadPitchTrack (d, track))
+            ve::NoteIntent::apply (track, plan.notes, key);   // accidentals depend on the key
+        else
+            ve::NoteSegmenter::resnap (plan.notes, key);
         session.setNotes (d.id, plan.notes);
         pendingRerender.insert (d.id);
     }
@@ -660,6 +682,7 @@ void VocalEngineProcessor::applyState (const juce::XmlElement& xml)
     loadingRegions.clear();
     monitoringMode.store ((int) session.getMonitoringMode());
     capture.setDataFolder (session.getDataFolder());
+    voiceRenderer->setUseGpu (session.getVoiceGpu());
     cache.clear();
     reloadAllRegions();
 
@@ -681,4 +704,46 @@ juce::AudioProcessorEditor* VocalEngineProcessor::createEditor()
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new VocalEngineProcessor();
+}
+
+juce::String VocalEngineProcessor::intentSummary (const std::vector<ve::Note>& notes)
+{
+    int counts[7] = {};
+    for (auto& n : notes)
+        for (int b = 0; b < 7; ++b)
+            if (n.intent & (1 << b)) ++counts[b];
+    static const char* names[] = { "slides", "vibrato", "scoops", "passing notes", "chosen accidentals", "spoken", "ad-libs" };
+    juce::StringArray parts;
+    for (int b = 0; b < 7; ++b)
+        if (counts[b] > 0) parts.add (juce::String (counts[b]) + " " + names[b]);
+    juce::String msg = juce::String ((int) notes.size()) + " notes";
+    if (! parts.isEmpty()) msg << ". Kept as sung or corrected gently: " << parts.joinIntoString (", ");
+    if (! notes.empty() && counts[5] * 2 > (int) notes.size())
+        msg << ". This take sounds mostly spoken or rapped, so pitch is left alone.";
+    return msg;
+}
+
+void VocalEngineProcessor::setUseIntent (bool on)
+{
+    session.setUseIntent (on);
+    const auto key = session.getEffectiveKey();
+    const float amount = getGlobalCorrection();
+    for (auto& d : session.getRegionDescriptors())
+    {
+        if (! session.hasNotes (d.id)) continue;
+        auto plan = session.getNotePlan (d.id);
+        ve::PitchTrack track;
+        if (on && loadPitchTrack (d, track))
+            ve::NoteIntent::apply (track, plan.notes, key);
+        else
+            ve::NoteIntent::clear (plan.notes, key);
+        for (auto& n : plan.notes)
+            if (! n.userEdited) n.correction = ve::NoteIntent::correctionFor (n, amount, on);
+        session.setNotes (d.id, plan.notes);
+        pendingRerender.insert (d.id);
+    }
+    postMessage (on ? "Intent on: slides, vibrato, accidentals and spoken parts are kept as sung"
+                    : "Intent off: every note is corrected the same way");
+    lastEditMs = juce::Time::getMillisecondCounter();
+    sendChangeMessage();
 }

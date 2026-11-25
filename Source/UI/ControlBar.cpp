@@ -37,11 +37,27 @@ namespace ve::ui
         };
         addAndMakeVisible (styleBox);
 
+        intentButton.setClickingTogglesState (true);
+        intentButton.setToggleState (true, juce::dontSendNotification);
+        intentButton.setColour (juce::TextButton::buttonOnColourId, Theme::accent.withAlpha (0.6f));
+        intentButton.setTooltip ("Intent: read what each note was meant to be. Slides, vibrato, scoops, passing notes, "
+                                 "chosen out-of-key notes and spoken lines are kept as sung or corrected gently. "
+                                 "Off: every note is pulled to the key the same way.");
+        intentButton.onClick = [this] { if (onIntentChanged) onIntentChanged (intentButton.getToggleState()); };
+        addAndMakeVisible (intentButton);
+
         voiceBox.onChange = [this]
         {
             const int sel = voiceBox.getSelectedId();
             if (sel == rescanId) { setVoice (currentVoice); if (onRescanVoices) onRescanVoices(); return; }
             if (sel == openFolderId) { setVoice (currentVoice); if (onOpenVoicesFolder) onOpenVoicesFolder(); return; }
+            if (sel == gpuId)
+            {
+                setVoice (currentVoice);
+                setGpu (! gpuOn, gpuSupported);
+                if (onGpuChanged) onGpuChanged (gpuOn);
+                return;
+            }
             const int idx = sel - 1;
             if (idx >= 0 && idx < voiceIds.size())
             {
@@ -143,10 +159,26 @@ namespace ve::ui
         voiceBox.addSeparator();
         voiceBox.addItem ("Rescan voices folder", rescanId);
         voiceBox.addItem ("Open voices folder...", openFolderId);
+        voiceBox.addItem (gpuLabel(), gpuId);
+        voiceBox.setItemEnabled (gpuId, gpuSupported);
         voiceBox.setTooltip (available
             ? juce::String ("Re-sing every take in a trained voice model, following the notes, style and timing. Models live in Documents\\RainWorks\\Engineer\\Voices.")
             : "Voice models can't run in this build: " + reason);
         setVoice (currentVoice);
+    }
+
+    juce::String ControlBar::gpuLabel() const
+    {
+        if (! gpuSupported) return "Render on GPU: not in this build";
+        return gpuOn ? "Render on GPU: on (click for CPU)" : "Render on GPU: off (click to use GPU)";
+    }
+
+    void ControlBar::setGpu (bool on, bool supported)
+    {
+        gpuOn = on;
+        gpuSupported = supported;
+        voiceBox.changeItemText (gpuId, gpuLabel());
+        voiceBox.setItemEnabled (gpuId, gpuSupported);
     }
 
     void ControlBar::setVoice (const juce::String& id)
@@ -155,6 +187,8 @@ namespace ve::ui
         const int idx = voiceIds.indexOf (id);
         voiceBox.setSelectedId (idx >= 0 ? idx + 1 : 1, juce::dontSendNotification);
     }
+
+    void ControlBar::setIntent (bool on) { intentButton.setToggleState (on, juce::dontSendNotification); }
 
     void ControlBar::setCorrection (float a) { correctionSlider.setValue (a * 100.0, juce::dontSendNotification); }
     void ControlBar::setDataFolderText (const juce::String& t) { folderText = t; folderButton.setTooltip (t); }
@@ -184,6 +218,8 @@ namespace ve::ui
         r.removeFromLeft (8);
         correctionLabel.setBounds (r.removeFromLeft (52));
         correctionSlider.setBounds (r.removeFromLeft (124));
+        r.removeFromLeft (6);
+        intentButton.setBounds (r.removeFromLeft (64));
         r.removeFromLeft (8);
         folderButton.setBounds (r.removeFromRight (100));
         r.removeFromRight (8);

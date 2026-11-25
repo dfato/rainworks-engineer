@@ -14,6 +14,7 @@
 #include "Engine/PitchTracker.h"
 #include "Engine/PitchCorrectRenderer.h"
 #include "Engine/TimeWarp.h"
+#include "Engine/Intent/NoteIntent.h"
 #include "Engine/Voice/VoiceConverter.h"
 #include "Engine/Voice/VoiceRenderer.h"
 #include "Engine/Style/ExpressionLayer.h"
@@ -1365,6 +1366,169 @@ public:
 };
 
 static VoiceTests voiceTests;
+class IntentTests final : public juce::UnitTest
+{
+public:
+    IntentTests() : juce::UnitTest ("Intent", "VocalEngine") {}
+
+    static constexpr double sr = 48000.0;
+    static constexpr int hop = 240; // 5 ms
+
+    // Appends frames for a note whose pitch (MIDI) at time t (seconds into the note) is pitchAt(t).
+    template <typename F>
+    static Note addNote (PitchTrack& t, double startSec, double lenSec, F pitchAt, float conf = 0.95f, float rms = 0.2f)
+    {
+        const int f0 = (int) (startSec * sr / hop), f1 = (int) ((startSec + lenSec) * sr / hop);
+        if ((int) t.frames.size() < f1) t.frames.resize ((size_t) f1);
+        std::vector<float> m;
+        for (int f = f0; f < f1; ++f)
+        {
+            const float midi = pitchAt ((f - f0) * hop / sr);
+            t.frames[(size_t) f] = { PitchTrack::midiToHz (midi), conf, rms };
+            m.push_back (midi);
+        }
+        Note n;
+        n.start = (std::int64_t) f0 * hop;
+        n.end = (std::int64_t) f1 * hop;
+        std::nth_element (m.begin(), m.begin() + (std::ptrdiff_t) (m.size() / 2), m.end());
+        n.detectedMidi = m[m.size() / 2];
+        n.targetMidi = std::round (n.detectedMidi);
+        return n;
+    }
+
+    static PitchTrack emptyTrack() { PitchTrack t; t.sampleRate = sr; t.hopSize = hop; return t; }
+
+    void runTest() override
+    {
+        KeyEstimate cMajor; cMajor.tonic = 0; cMajor.minor = false;
+        const double pi2 = 2.0 * juce::MathConstants<double>::pi;
+
+        beginTest ("Steady note: no intent, full correction");
+        {
+            auto t = emptyTrack();
+            std::vector<Note> notes { addNote (t, 0.1, 0.6, [] (double) { return 63.7f; }) };
+            const auto a = NoteIntent::analyse (t, notes, 0, cMajor, 0.2f);
+            expectEquals ((int) a.flags, 0);
+            expectWithinAbsoluteError (a.scale, 1.0f, 1.0e-6f);
+            expectWithinAbsoluteError (a.target, 64.0f, 1.0e-6f); // E, in key
+        }
+
+        beginTest ("Vibrato, slide, scoop");
+        {
+            auto t = emptyTrack();
+            std::vector<Note> notes {
+                addNote (t, 0.1, 0.9, [pi2] (double x) { return 64.0f + 0.4f * (float) std::sin (pi2 * 5.8 * x); }),
+                addNote (t, 1.2, 0.3, [] (double x) { return 57.0f + 3.0f * (float) (x / 0.3); }),
+                addNote (t, 1.8, 0.6, [] (double x) { return x < 0.08 ? 65.8f : 67.0f; }),
+            };
+            const auto vib = NoteIntent::analyse (t, notes, 0, cMajor, 0.2f);
+            logMessage ("Vibrato read as " + juce::String (vib.vibratoHz, 1) + " Hz, " + juce::String (vib.vibratoCents, 0) + " cents");
+            expect ((vib.flags & NoteIntent::vibrato) != 0, "vibrato");
+            expect ((vib.flags & NoteIntent::spoken) == 0, "vibrato isn't speech");
+            expectWithinAbsoluteError (vib.scale, 1.0f, 1.0e-6f);
+
+            const auto sl = NoteIntent::analyse (t, notes, 1, cMajor, 0.2f);
+            expect ((sl.flags & NoteIntent::slide) != 0, "slide");
+            expect (sl.scale <= 0.4f + 1.0e-6f);
+
+            const auto sc = NoteIntent::analyse (t, notes, 2, cMajor, 0.2f);
+            expect ((sc.flags & NoteIntent::scoop) != 0, "scoop");
+            expect ((sc.flags & NoteIntent::slide) == 0);
+        }
+
+        beginTest ("Chosen accidental keeps its semitone; an out-of-tune note still snaps to the key");
+        {
+            auto t = emptyTrack();
+            std::vector<Note> notes {
+                addNote (t, 0.1, 0.5, [] (double) { return 66.05f; }),   // F#4 in C major, held and steady
+                addNote (t, 0.8, 0.5, [] (double) { return 65.55f; }),   // between F and F#: off-pitch
+                addNote (t, 1.5, 0.15, [] (double) { return 66.0f; }),   // F# but too short to count as chosen
+            };
+            const auto acc = NoteIntent::analyse (t, notes, 0, cMajor, 0.2f);
+            expect ((acc.flags & NoteIntent::accidental) != 0);
+            expectWithinAbsoluteError (acc.target, 66.0f, 1.0e-6f);
+            const auto off = NoteIntent::analyse (t, notes, 1, cMajor, 0.2f);
+            expect ((off.flags & NoteIntent::accidental) == 0);
+            expect (std::abs (off.target - 66.0f) > 0.5f, "off-pitch note goes to an in-key note");
+            const auto brief = NoteIntent::analyse (t, notes, 2, cMajor, 0.2f);
+            expect ((brief.flags & NoteIntent::accidental) == 0);
+            expect ((NoteIntent::analyse (t, notes, 0, {}, 0.2f).flags & NoteIntent::accidental) == 0, "no key, no accidentals");
+        }
+
+        beginTest ("Passing, spoken and quiet notes get less correction");
+        {
+            auto t = emptyTrack();
+            juce::Random rng (7);
+            std::vector<Note> notes {
+                addNote (t, 0.10, 0.30, [] (double) { return 60.0f; }),
+                addNote (t, 0.42, 0.08, [] (double) { return 62.0f; }),  // passing, 20 ms gaps
+                addNote (t, 0.52, 0.30, [] (double) { return 64.0f; }),
+                addNote (t, 1.00, 0.40, [&rng] (double) { return 55.0f + 2.0f * rng.nextFloat(); }, 0.5f), // spoken
+                addNote (t, 1.60, 0.40, [] (double) { return 67.0f; }, 0.95f, 0.01f),                    // ad-lib
+            };
+            NoteIntent::apply (t, notes, cMajor);
+            expect ((notes[1].intent & NoteIntent::passing) != 0, "passing");
+            expectWithinAbsoluteError (notes[1].intentScale, 0.5f, 1.0e-6f);
+            expect ((notes[3].intent & NoteIntent::spoken) != 0, "spoken");
+            expectWithinAbsoluteError (notes[3].intentScale, 0.0f, 1.0e-6f);
+            expect ((notes[4].intent & NoteIntent::quiet) != 0, "quiet");
+            expect ((notes[0].intent & (NoteIntent::passing | NoteIntent::spoken | NoteIntent::quiet)) == 0);
+            expectWithinAbsoluteError (NoteIntent::correctionFor (notes[1], 0.8f, true), 0.4f, 1.0e-6f);
+            expectWithinAbsoluteError (NoteIntent::correctionFor (notes[1], 0.8f, false), 0.8f, 1.0e-6f);
+            expect (NoteIntent::describe (notes[1].intent).startsWith ("Passing"));
+        }
+
+        beginTest ("User-edited targets survive; clear resets intent");
+        {
+            auto t = emptyTrack();
+            std::vector<Note> notes { addNote (t, 0.1, 0.5, [] (double) { return 66.0f; }) };
+            notes[0].userEdited = true;
+            notes[0].targetMidi = 67.0f;
+            NoteIntent::apply (t, notes, cMajor);
+            expectWithinAbsoluteError (notes[0].targetMidi, 67.0f, 1.0e-6f);
+            expect (notes[0].intent != 0);
+            notes[0].userEdited = false;
+            NoteIntent::clear (notes, cMajor);
+            expect (notes[0].intent == 0 && notes[0].intentScale >= 1.0f);
+            expect (std::abs (notes[0].targetMidi - 66.0f) > 0.5f, "back to the key");
+        }
+
+        beginTest ("Intended vibrato survives a flattening style, but not hard tune");
+        {
+            auto t = emptyTrack();
+            std::vector<Note> notes { addNote (t, 0.1, 0.9, [pi2] (double x) { return 64.0f + 0.4f * (float) std::sin (pi2 * 5.8 * x); }) };
+            notes[0].correction = 1.0f;
+            const int n = (int) (1.2 * sr);
+            std::vector<float> f0 ((size_t) n, 0.0f);
+            for (int i = 0; i < n; ++i) f0[(size_t) i] = t.frames[(size_t) juce::jmin ((int) t.frames.size() - 1, i / hop)].f0;
+
+            StyleProfile flatish; flatish.keepVariation = 0.1f; flatish.retuneMs = 20.0f;
+            auto wobble = [&] (const NotePlan& plan, const StyleProfile& st)
+            {
+                const auto shift = ExpressionLayer::buildShiftCurve (plan, st, f0, sr);
+                float lo = 1000.0f, hi = -1000.0f;
+                for (int i = (int) (0.4 * sr); i < (int) (0.8 * sr); ++i)
+                {
+                    const float out = PitchTrack::hzToMidi (f0[(size_t) i]) + shift[(size_t) i];
+                    lo = std::min (lo, out); hi = std::max (hi, out);
+                }
+                return (hi - lo) * 100.0f;
+            };
+            NotePlan without { notes };
+            NotePlan with { notes };
+            NoteIntent::apply (t, with.notes, cMajor);
+            with.notes[0].correction = 1.0f;
+            const float a = wobble (without, flatish), b = wobble (with, flatish);
+            logMessage ("Vibrato width after a flattening style: " + juce::String (a, 0) + " cents without intent, " + juce::String (b, 0) + " with");
+            expect (b > 2.0f * a, "intent keeps the vibrato");
+            StyleProfile hard; hard.keepVariation = 0.0f; hard.retuneMs = 2.0f;
+            expect (wobble (with, hard) < 15.0f, "hard tune still flattens");
+            expect (with.hash() != without.hash());
+        }
+    }
+};
+
+static IntentTests intentTests;
 static StyleTests styleTests;
 static ImportTests importTests;
 static CoreTests coreTests;

@@ -19,6 +19,8 @@ namespace ve::ui
         std::function<void (float)> onCorrectionChanged;  // 0..1
         std::function<void (const juce::String&)> onStyleChanged;
         std::function<void()> onLearnStyle;               // "Learn style from vocals..." picked
+        std::function<void (bool)> onIntentChanged;
+        void setIntent (bool);
 
         struct StyleItem { juce::String id, name, category; };
         void setStyles (const std::vector<StyleItem>&);
@@ -27,6 +29,8 @@ namespace ve::ui
         struct VoiceItem { juce::String id, name; };
         std::function<void (const juce::String&)> onVoiceChanged;
         std::function<void()> onRescanVoices, onOpenVoicesFolder;
+        std::function<void (bool)> onGpuChanged;
+        void setGpu (bool on, bool supported);
         void setVoices (const std::vector<VoiceItem>&, bool available, const juce::String& unavailableReason);
         void setVoice (const juce::String& id);
 
@@ -57,7 +61,10 @@ namespace ve::ui
         juce::StringArray styleIds;
         juce::String currentStyleId;
         static constexpr int learnStyleId = 9101;
-        static constexpr int rescanId = 9001, openFolderId = 9002;
+        static constexpr int rescanId = 9001, openFolderId = 9002, gpuId = 9003;
+        bool gpuOn = true, gpuSupported = false;
+        juce::String gpuLabel() const;
+        juce::TextButton intentButton { "Intent" };
         juce::Label voiceLabel { {}, "Voice" };
         juce::ComboBox voiceBox;
         juce::StringArray voiceIds;   // index i = combo id i + 1; "" = as recorded

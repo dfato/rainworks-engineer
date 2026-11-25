@@ -53,12 +53,19 @@ namespace ve::ml
 
         virtual std::vector<TensorInfo> getInputs() const = 0;
         virtual std::vector<TensorInfo> getOutputs() const = 0;
+
+        // Where the loaded model runs: "CPU", "GPU (DirectML)", or "" before a model is loaded.
+        virtual juce::String getDevice() const { return {}; }
     };
 
     struct BackendOptions
     {
-        int threads = 1;  // intra-op threads
+        int threads = 1;        // intra-op threads (CPU)
+        bool preferGpu = false; // DirectML on Windows builds that have it; falls back to CPU
     };
+
+    // True when this build can run models on the GPU (DirectML build of ONNX Runtime).
+    bool isGpuSupported() noexcept;
 
     // True when the build has ONNX Runtime (CMake option VE_WITH_ONNX) and the runtime
     // library could be loaded (on Windows it's loaded from next to the plugin binary).

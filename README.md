@@ -234,7 +234,27 @@ The built-in genre styles were tuned the same way from openly licensed singing (
 5. Right-click a blob > **Split note here** cuts it where you clicked (each half gets its own pitch);
    **Merge with next note** joins it with the following blob.
 
-### 12. Voice models (Stage 5)
+### 12. Intent (Stage 4)
+
+**Intent** (next to Correct, on by default) reads what each note was meant to be before correcting it:
+
+| Read as | What happens |
+| --- | --- |
+| Slide (pitch glides through the note) | 40% of Correct, so the glide stays |
+| Vibrato on a held note | Corrected, and the singer's own vibrato is kept even on flatter styles (not on Hard Tune) |
+| Scoop into a note | 80% of Correct |
+| Passing note (short, between two others) | 50% of Correct |
+| Chosen accidental (held, steady, on a semitone outside the key) | Stays on that semitone instead of being pulled into the key |
+| Spoken or rapped line | Left as sung |
+| Ad-lib (much quieter than the take) | 60% of Correct |
+
+1. Import or record a take sung with some slides, a blue note and a spoken line. The status bar lists what
+   was found ("12 notes. Kept as sung or corrected gently: 2 slides, 1 chosen accidental, ...").
+2. Right-click a note: the menu says how it was read ("Sung as: Slide (40% of Correct)").
+3. Turn **Intent** off to compare: every note is pulled to the key the same way.
+4. Notes you edit by hand are never changed by Intent.
+
+### 12b. Voice models (Stage 5)
 
 Voice models re-sing each take in a trained voice, following the notes, style and timing.
 Training a model is covered in [tools/voice-training/README.md](tools/voice-training/README.md)
@@ -249,6 +269,11 @@ Training a model is covered in [tools/voice-training/README.md](tools/voice-trai
 
 If ONNX Runtime can't load, the Voice menu is greyed out and its tooltip says why.
 
+**GPU.** Voice models render on the GPU through DirectML (any DirectX 12 GPU, including the RTX 3060).
+The Voice menu's **Render on GPU** item switches between GPU and CPU. When a render finishes, the status
+bar says where it ran, for example "on GPU (DirectML)". If the GPU can't be used, it says "CPU (GPU failed: ...)"
+and the render still completes on the CPU.
+
 ## Known limitations (to fix after the full build)
 
 - Takes are aligned by sample position. If you change the project tempo after recording, takes stay at their
@@ -261,8 +286,7 @@ If ONNX Runtime can't load, the Voice menu is greyed out and its tooltip says wh
   (gaps squeeze to a quarter of their length at most). Very long gaps of breath noise can sound grainy when
   stretched a lot.
 - Quantize uses the tempo recorded with the take; it ignores tempo changes made after recording.
-- Voice models run on the CPU only for now (a DirectML GPU option comes next), and the
-  content encoder isn't bundled yet: export it once with the training tools.
+- The content encoder isn't bundled yet: export it once with the training tools.
 - Voice rendering has only been tested with stand-in models; no real trained voice has been
   run through the plugin yet.
 - Heavily breathy or polyphonic material confuses the pitch tracker (it assumes one voice).

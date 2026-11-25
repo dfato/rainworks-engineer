@@ -3,6 +3,7 @@
 #include "../RenderCache.h"
 #include "VoiceConverter.h"
 #include <functional>
+#include <atomic>
 #include <mutex>
 
 namespace ve
@@ -24,9 +25,16 @@ namespace ve
 
         VoiceConverter::Settings settings;
 
+        // GPU (DirectML) when the build supports it; takes effect on the next render.
+        void setUseGpu (bool);
+        bool getUseGpu() const noexcept { return useGpu.load(); }
+        // Where the voice model ran last ("GPU (DirectML)", "CPU", ...).
+        juce::String getLastDevice() const;
+
     private:
         juce::Result ensureLoaded (const VoiceModelInfo&);
 
+        std::atomic<bool> useGpu { true };
         BackendFactory makeBackend;
         VoiceLookup lookup;
 
@@ -34,5 +42,8 @@ namespace ve
         juce::String encoderPath, loadedVoice, loadedVersion;
         std::unique_ptr<ml::InferenceBackend> encoder, synth;
         FeatureBank bank;
+        bool loadedOnGpu = true;
+        mutable std::mutex deviceLock;
+        juce::String lastDevice;
     };
 }

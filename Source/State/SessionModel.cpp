@@ -98,6 +98,10 @@ namespace ve
 
     juce::String SessionModel::getStyleId() const { return tree.getProperty (IDs::styleId, "natural").toString(); }
     void SessionModel::setStyleId (const juce::String& id) { tree.setProperty (IDs::styleId, id, nullptr); }
+    bool SessionModel::getUseIntent() const { return tree.getProperty (IDs::useIntent, true); }
+    void SessionModel::setUseIntent (bool b) { tree.setProperty (IDs::useIntent, b, nullptr); }
+    bool SessionModel::getVoiceGpu() const { return tree.getProperty (IDs::voiceGpu, true); }
+    void SessionModel::setVoiceGpu (bool b) { tree.setProperty (IDs::voiceGpu, b, nullptr); }
     juce::String SessionModel::getVoiceId() const { return tree.getProperty (IDs::voiceId, "").toString(); }
     void SessionModel::setVoiceId (const juce::String& id) { tree.setProperty (IDs::voiceId, id, nullptr); }
 
@@ -265,6 +269,11 @@ namespace ve
             v.setProperty (IDs::edited, n.userEdited, nullptr);
             if (n.timeShift != 0)
                 v.setProperty (IDs::shift, juce::String (n.timeShift), nullptr);
+            if (n.intent != 0 || n.intentScale < 1.0f)
+            {
+                v.setProperty (IDs::intent, (int) n.intent, nullptr);
+                v.setProperty (IDs::intentScale, n.intentScale, nullptr);
+            }
             list.appendChild (v, nullptr);
         }
         r.appendChild (list, nullptr);
@@ -288,6 +297,8 @@ namespace ve
             n.correction = v.getProperty (IDs::correction, 0.0f);
             n.userEdited = v.getProperty (IDs::edited, false);
             n.timeShift = getInt64 (v, IDs::shift);
+            n.intent = (std::uint8_t) (int) v.getProperty (IDs::intent, 0);
+            n.intentScale = v.getProperty (IDs::intentScale, 1.0f);
             plan.notes.push_back (n);
         }
         return plan;

@@ -24,6 +24,8 @@ option(VE_BUILD_TOOLS "Build command-line tools (style learning)" ON)
 option(VE_WITH_ONNX   "Build the optional ONNX Runtime inference backend + smoke test" OFF)
 set(VE_ONNX_VERSION "1.20.1" CACHE STRING "Prebuilt ONNX Runtime version to download when VE_WITH_ONNX=ON")
 set(VE_ONNX_ROOT "" CACHE PATH "Optional: an extracted ONNX Runtime release zip (has include/ and lib/). Skips the download.")
+option(VE_ONNX_DIRECTML "Windows: use the DirectML build of ONNX Runtime so voice models can run on the GPU" ON)
+set(VE_DIRECTML_VERSION "1.15.4" CACHE STRING "Microsoft.AI.DirectML package version (DirectML.dll shipped next to the plugin)")
 
 # ---- Engine + State sources (no GUI modules) ---------------------------------
 set(VE_ENGINE_SOURCES
@@ -41,6 +43,7 @@ set(VE_ENGINE_SOURCES
     Source/Engine/Style/ExpressionLayer.cpp
     Source/Engine/Style/StyleLearner.cpp
     Source/Engine/Style/StyleProfile.cpp
+    Source/Engine/Intent/NoteIntent.cpp
     Source/Engine/Voice/VoiceConverter.cpp
     Source/Engine/Voice/VoiceModel.cpp
     Source/Engine/Voice/VoiceRenderer.cpp
@@ -59,11 +62,29 @@ set(VE_ENGINE_MODULES
     juce::juce_dsp
 )
 
-# ---- Optional ONNX Runtime (prebuilt from GitHub releases) -------------------
+# ---- Optional ONNX Runtime (prebuilt, from NuGet) -----------------------------
+# NuGet packages have a stable URL and layout:
+#   build/native/include/...           headers
+#   runtimes/<rid>/native/...          libraries
+function(ve_fetch_nuget name version out_dir)
+    set(_dir "${CMAKE_BINARY_DIR}/_deps/${name}-${version}")
+    if(NOT EXISTS "${_dir}/.extracted")
+        set(_pkg "${CMAKE_BINARY_DIR}/_deps/${name}-${version}.nupkg")
+        message(STATUS "Downloading ${name} ${version} (NuGet)")
+        file(DOWNLOAD "https://www.nuget.org/api/v2/package/${name}/${version}" "${_pkg}" STATUS _st TLS_VERIFY ON)
+        list(GET _st 0 _code)
+        if(NOT _code EQUAL 0)
+            message(FATAL_ERROR "${name} download failed: ${_st}. Set VE_ONNX_ROOT to a local copy instead.")
+        endif()
+        file(ARCHIVE_EXTRACT INPUT "${_pkg}" DESTINATION "${_dir}")
+        file(WRITE "${_dir}/.extracted" "")
+    endif()
+    set(${out_dir} "${_dir}" PARENT_SCOPE)
+endfunction()
+
+set(VE_RUNTIME_DLLS "")   # files copied next to every binary that uses ONNX Runtime
+set(VE_USE_DML OFF)
 if(VE_WITH_ONNX)
-    # ONNX Runtime comes from its official NuGet package (stable URL and layout):
-    #   build/native/include/...           headers
-    #   runtimes/<rid>/native/...          libraries
     if(WIN32)
         set(_ort_rid "win-x64")
     elseif(APPLE)
@@ -76,17 +97,13 @@ if(VE_WITH_ONNX)
         set(_ort_inc "${VE_ONNX_ROOT}/include")
         set(_ort_lib "${VE_ONNX_ROOT}/lib")
     else()
-        set(_ort_dir "${CMAKE_BINARY_DIR}/_deps/onnxruntime-${VE_ONNX_VERSION}")
-        if(NOT EXISTS "${_ort_dir}/build/native/include/onnxruntime_cxx_api.h")
-            set(_ort_pkg "${CMAKE_BINARY_DIR}/_deps/onnxruntime-${VE_ONNX_VERSION}.nupkg")
-            message(STATUS "Downloading ONNX Runtime ${VE_ONNX_VERSION} (NuGet)")
-            file(DOWNLOAD "https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/${VE_ONNX_VERSION}"
-                 "${_ort_pkg}" STATUS _ort_status TLS_VERIFY ON)
-            list(GET _ort_status 0 _ort_code)
-            if(NOT _ort_code EQUAL 0)
-                message(FATAL_ERROR "ONNX Runtime download failed: ${_ort_status}. Set VE_ONNX_ROOT to a local copy instead.")
-            endif()
-            file(ARCHIVE_EXTRACT INPUT "${_ort_pkg}" DESTINATION "${_ort_dir}")
+        if(WIN32 AND VE_ONNX_DIRECTML)
+            set(VE_USE_DML ON)
+            ve_fetch_nuget(Microsoft.ML.OnnxRuntime.DirectML ${VE_ONNX_VERSION} _ort_dir)
+            ve_fetch_nuget(Microsoft.AI.DirectML ${VE_DIRECTML_VERSION} _dml_dir)
+            list(APPEND VE_RUNTIME_DLLS "${_dml_dir}/bin/x64-win/DirectML.dll")
+        else()
+            ve_fetch_nuget(Microsoft.ML.OnnxRuntime ${VE_ONNX_VERSION} _ort_dir)
         endif()
         set(_ort_inc "${_ort_dir}/build/native/include")
         set(_ort_lib "${_ort_dir}/runtimes/${_ort_rid}/native")
@@ -98,12 +115,23 @@ if(VE_WITH_ONNX)
         set_target_properties(ve_onnxruntime PROPERTIES
             IMPORTED_IMPLIB   "${_ort_lib}/onnxruntime.lib"
             IMPORTED_LOCATION "${_ort_lib}/onnxruntime.dll")
+        list(APPEND VE_RUNTIME_DLLS "${_ort_lib}/onnxruntime.dll")
     elseif(APPLE)
         set_target_properties(ve_onnxruntime PROPERTIES IMPORTED_LOCATION "${_ort_lib}/libonnxruntime.dylib")
     else()
         set_target_properties(ve_onnxruntime PROPERTIES IMPORTED_LOCATION "${_ort_lib}/libonnxruntime.so")
     endif()
+    if(VE_USE_DML)
+        set_target_properties(ve_onnxruntime PROPERTIES INTERFACE_COMPILE_DEFINITIONS "VE_ONNX_DML=1")
+    endif()
 endif()
+
+function(ve_copy_runtime target)
+    foreach(_dll ${VE_RUNTIME_DLLS})
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${_dll}" $<TARGET_FILE_DIR:${target}>)
+    endforeach()
+endfunction()
 
 function(ve_configure_engine_target target)
     target_include_directories(${target} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Source)
@@ -152,8 +180,7 @@ if(VE_WITH_ONNX)
                 target_link_options(VocalEngine_${_fmt} PRIVATE "/DELAYLOAD:onnxruntime.dll")
                 target_link_libraries(VocalEngine_${_fmt} PRIVATE delayimp)
             endif()
-            add_custom_command(TARGET VocalEngine_${_fmt} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:ve_onnxruntime> $<TARGET_FILE_DIR:VocalEngine_${_fmt}>)
+            ve_copy_runtime(VocalEngine_${_fmt})
         endif()
     endforeach()
 else()
@@ -189,8 +216,7 @@ if(VE_BUILD_TESTS)
         PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
     if(VE_WITH_ONNX)
         target_link_libraries(VocalEngineTests PRIVATE ve_onnxruntime)
-        add_custom_command(TARGET VocalEngineTests POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:ve_onnxruntime> $<TARGET_FILE_DIR:VocalEngineTests>)
+        ve_copy_runtime(VocalEngineTests)
     endif()
     add_test(NAME engine COMMAND VocalEngineTests)
 
@@ -202,8 +228,7 @@ if(VE_BUILD_TESTS)
         target_link_libraries(VocalEngineOnnxSmokeTest PRIVATE ${VE_ENGINE_MODULES} ve_onnxruntime
             PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
         # Put the runtime next to the executable so it is found at launch.
-        add_custom_command(TARGET VocalEngineOnnxSmokeTest POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:ve_onnxruntime> $<TARGET_FILE_DIR:VocalEngineOnnxSmokeTest>)
+        ve_copy_runtime(VocalEngineOnnxSmokeTest)
         add_test(NAME onnx_smoke COMMAND VocalEngineOnnxSmokeTest)
     endif()
 endif()

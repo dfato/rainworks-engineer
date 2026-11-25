@@ -29,6 +29,7 @@ namespace ve
             mix (&n.targetMidi, sizeof (float));
             mix (&n.correction, sizeof (float));
             if (n.timeShift != 0) mix (&n.timeShift, sizeof (n.timeShift)); // keeps old hashes stable
+            if (n.intent != 0) mix (&n.intent, sizeof (n.intent));       // vibrato intent changes the render
         }
         return h;
     }

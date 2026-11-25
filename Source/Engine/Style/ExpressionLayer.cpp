@@ -1,4 +1,5 @@
 #include "ExpressionLayer.h"
+#include "../Intent/NoteIntent.h"
 #include "../PitchTracker.h"
 
 namespace ve::ExpressionLayer
@@ -40,12 +41,16 @@ namespace ve::ExpressionLayer
             const double scoopSamples = juce::jmin ((double) style.scoopMs * msToSamples, (b - a) * 0.4);
             const double vibOnset = style.vibratoOnsetMs * msToSamples;
             const bool fadeOut = ! slidesToNext[k];
+            // Stage 4: the singer's own vibrato is kept on notes where it was intended,
+            // unless the style deliberately flattens everything (hard tune, retune < 10 ms).
+            const float keep = (note.intent & NoteIntent::vibrato) != 0 && style.retuneMs >= 10.0f
+                                   ? juce::jmax (style.keepVariation, 0.8f) : style.keepVariation;
 
             for (int i = a; i < b; ++i)
             {
                 const double t = i - a;
                 const float d = sungAt (i, note.detectedMidi);
-                const float flat = note.targetMidi + style.keepVariation * (d - note.detectedMidi);
+                const float flat = note.targetMidi + keep * (d - note.detectedMidi);
                 const float retune = retuneSamples <= 0.0 ? 1.0f : (float) (1.0 - std::exp (-t / retuneSamples));
 
                 // The style's own expression (scoop, added vibrato) is not a correction, so it is
