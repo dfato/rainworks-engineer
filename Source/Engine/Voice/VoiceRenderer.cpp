@@ -1,3 +1,4 @@
+#include "../Style/ToneShaper.h"
 #include "VoiceRenderer.h"
 #include "../PitchCorrectRenderer.h"
 
@@ -108,6 +109,7 @@ namespace ve
         juce::AudioBuffer<float> audio (chs, (int) converted.size());
         for (int ch = 0; ch < chs; ++ch)
             audio.copyFrom (ch, 0, converted.data(), (int) converted.size());
+        ToneShaper::process (audio, model.sampleRate, plan.style);  // the style's tone, on the new voice
         PitchCorrectRenderer::resample (audio, model.sampleRate, targetRate > 0.0 ? targetRate : rate);
         const double outRate = targetRate > 0.0 ? targetRate : rate;
         const int wanted = (int) std::llround ((double) n * outRate / rate);

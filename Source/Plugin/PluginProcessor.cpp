@@ -449,6 +449,18 @@ void VocalEngineProcessor::learnStyle (const juce::Array<juce::File>& refs, cons
         });
 }
 
+void VocalEngineProcessor::setStyleAmount (float amount)
+{
+    session.setStyleAmount (amount);
+    for (auto& d : session.getRegionDescriptors())
+        if (session.hasNotes (d.id))
+            pendingRerender.insert (d.id);
+    lastEditMs = juce::Time::getMillisecondCounter();
+    sendChangeMessage();
+}
+
+float VocalEngineProcessor::getStyleAmount() const { return session.getStyleAmount(); }
+
 float VocalEngineProcessor::getGlobalCorrection() const
 {
     return (float) session.getTree().getProperty ("globalCorrection", 0.0f);

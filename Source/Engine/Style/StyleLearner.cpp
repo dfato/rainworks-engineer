@@ -552,7 +552,7 @@ namespace ve::StyleLearner
         if (p.description.isNotEmpty()) o->setProperty ("description", p.description);
 
         // Tidy numbers for people reading or editing the file.
-        for (auto section : { "pitch", "vibrato", "slides", "timing" })
+        for (auto section : { "pitch", "vibrato", "slides", "timing", "ornaments", "tone", "dynamics" })
             if (auto* sec = o->getProperty (section).getDynamicObject())
                 for (auto& prop : sec->getProperties())
                     if (prop.value.isDouble())

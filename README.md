@@ -206,8 +206,24 @@ inherit from any other and override only what it changes:
 ```
 
 Fields: `pitch` (`correction` 0-1, `retuneMs`, `keepVariation` 0-1, `scale`), `vibrato` (`addDepthCents`, `rateHz`,
-`onsetMs`), `slides` (`betweenNotesMs`, `maxGapMs`, `scoopCents`, `scoopMs`), `timing` (`quantize` 0-1, `grid` divisions per whole note, `swing` 0-1).
+`onsetMs`), `slides` (`betweenNotesMs`, `maxGapMs`, `scoopCents`, `scoopMs`), `timing` (`quantize` 0-1, `grid` divisions per whole note, `swing` 0-1),
+`ornaments` (`runs` 0-1, `runNotes` 2-8, `runNoteMs`, `fallCents`, `fallMs`), `tone` (`brightness` -1..1,
+`warmth` -1..1, `grit` 0-1, `breath` 0-1) and `dynamics` (`compress` 0-1).
 A file with the same `id` as a built-in replaces it.
+
+**Runs, falls and tone.** Each style also has its own ornaments and tone:
+
+- **Runs** are quick lines through the song's own scale on held notes. In the middle of a phrase a run
+  turns around the note and comes back. At a phrase end it walks down and lands on a lower scale note.
+  Gospel, Soul, R&B, Neo-Soul, Afrobeats and Jazz use the most runs.
+- **Falls** drop the pitch off the end of a phrase. Rock, Country, Drill, Melodic rap and Jazz use them.
+- **Tone** sets brightness (presence and air), warmth (low mids), grit (rasp that follows the voice's level)
+  and breath (airy noise that rides the voice), plus **compression**. Pop, Trap and K-pop are bright and
+  tightly compressed. Rock, Gospel and Metal have grit. Lo-Fi, Neo-Soul and Jazz are dark and warm.
+
+The loudness of the take is kept. The **Amount** slider next to Style sets how strongly all of this is
+applied: 0% is tuning only, 100% is the style as designed, and 200% exaggerates it (double-click for 100%).
+At Correct 0% the take still plays exactly as sung.
 
 **Scales.** `pitch.scale` picks which notes of the key the targets snap to, so a style can change the
 melody as well as the delivery: `key` (the key's own major or natural minor), `pentatonic`, `blues`

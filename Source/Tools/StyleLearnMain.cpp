@@ -20,12 +20,15 @@
 //   --stats-only       print the combined statistics and stop
 //   --render <style> <out.wav>
 //                      instead of learning: correct the first input with <style> (pitch and
-//                      expression, no timing moves) and write the result, to audition a style
+//                      expression, ornaments and tone, no timing moves) and write the result,
+//                      to audition a style
+//   --amount <0..2>    with --render: style amount (1 = as designed)
 
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "Engine/Style/StyleLearner.h"
 #include "Engine/Style/StyleProfile.h"
 #include "Engine/Style/ExpressionLayer.h"
+#include "Engine/Style/ToneShaper.h"
 #include "Engine/PitchCorrectRenderer.h"
 #include "Engine/SidechainAnalysis.h"
 #include <iostream>
@@ -58,6 +61,7 @@ int main (int argc, char* argv[])
     float strength = 1.0f, gain = 2.0f;
     juce::String baseJson, poolPath;
     bool statsOnly = false;
+    float amount = 1.0f;
     juce::String renderStyle, renderOut;
     juce::StringArray inputs;
 
@@ -76,6 +80,7 @@ int main (int argc, char* argv[])
         else if (a == "--out")        outPath = next();
         else if (a == "--stats-dir")  statsDir = next();
         else if (a == "--stats-only") statsOnly = true;
+        else if (a == "--amount")     amount = next().getFloatValue();
         else if (a == "--render")     { renderStyle = next(); renderOut = next(); }
         else if (a == "--help" || a == "-h") { std::cout << "See the comment at the top of Source/Tools/StyleLearnMain.cpp" << std::endl; return 0; }
         else inputs.add (a);
@@ -89,7 +94,7 @@ int main (int argc, char* argv[])
     {
         auto& lib = sharedStyleLibrary();
         if (! lib.contains (renderStyle)) return fail ("unknown style " + renderStyle);
-        const auto style = lib.get (renderStyle);
+        const auto style = lib.get (renderStyle).withAmount (amount);
         const auto path = inputs[0].containsChar ('@') ? inputs[0].upToLastOccurrenceOf ("@", false, false) : inputs[0];
         const auto file = juce::File::getCurrentWorkingDirectory().getChildFile (path);
         juce::AudioBuffer<float> audio;
@@ -129,10 +134,14 @@ int main (int argc, char* argv[])
                 if (step > 0.02f) ++jumps;
                 if (std::abs (shift[(size_t) i]) > 2.5f) ++big;
             }
+            int longNotes = 0;
+            for (auto& n : notes) if ((double) (n.end - n.start) >= 0.6 * sr) ++longNotes;
+            std::cerr << longNotes << " notes of 0.6 s or more; ";
             std::cerr << "shift: " << jumps << " steps > 2 cents/sample, max step " << maxStep << " st, " << big << " samples beyond 2.5 st" << std::endl;
         }
         juce::AudioBuffer<float> out;
         PitchCorrectRenderer::psolaShift (audio, out, sr, f0, shift);
+        ToneShaper::process (out, sr, style);
 
         auto outFile = juce::File::getCurrentWorkingDirectory().getChildFile (renderOut);
         outFile.deleteFile();

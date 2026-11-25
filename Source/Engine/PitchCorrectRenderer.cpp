@@ -1,5 +1,6 @@
 #include "PitchCorrectRenderer.h"
 #include "Style/ExpressionLayer.h"
+#include "Style/ToneShaper.h"
 
 namespace ve
 {
@@ -282,6 +283,7 @@ namespace ve
         ctx.setProgress (0.8f);
         if (ctx.shouldCancel()) return juce::Result::fail ("cancelled");
 
+        ToneShaper::process (shifted, rate, plan.style);
         resample (shifted, rate, targetRate);
         if (targetRate > 0.0) rate = targetRate;
         out.audio = std::move (shifted);

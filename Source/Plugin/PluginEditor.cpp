@@ -54,6 +54,7 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
     timeline.onSplitNote = [this] (const juce::String& id, int idx, std::int64_t at) { processor.splitNote (id, idx, at); };
     timeline.onMergeNote = [this] (const juce::String& id, int idx) { processor.mergeNoteWithNext (id, idx); };
     controls.onCorrectionChanged = [this] (float a) { processor.setGlobalCorrection (a); };
+    controls.onStyleAmountChanged = [this] (float a) { processor.setStyleAmount (a); };
     controls.onStyleChanged = [this] (const juce::String& id) { processor.setStyle (id); };
     controls.onLearnStyle = [this]
     {
@@ -82,8 +83,8 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
     rebuildFromSession();
 
     setResizable (true, true);
-    setResizeLimits (1370, 520, 3000, 1800);
-    setSize (1420, 720);
+    setResizeLimits (1540, 520, 3000, 1800);
+    setSize (1580, 720);
     startTimerHz (30);
 }
 
@@ -207,6 +208,7 @@ void VocalEngineEditor::rebuildFromSession()
     controls.setKeyOverride (session.getKeyOverride());
     controls.setDataFolderText (session.getDataFolder().getFullPathName());
     controls.setCorrection (processor.getGlobalCorrection());
+    controls.setStyleAmount (processor.getStyleAmount());
     controls.setStyle (session.getStyleId());
     controls.setVoice (session.getVoiceId());
     controls.setIntent (session.getUseIntent());

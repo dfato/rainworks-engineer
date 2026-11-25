@@ -98,6 +98,8 @@ namespace ve
 
     juce::String SessionModel::getStyleId() const { return tree.getProperty (IDs::styleId, "natural").toString(); }
     void SessionModel::setStyleId (const juce::String& id) { tree.setProperty (IDs::styleId, id, nullptr); }
+    float SessionModel::getStyleAmount() const { return juce::jlimit (0.0f, 2.0f, (float) tree.getProperty (IDs::styleAmount, 1.0f)); }
+    void SessionModel::setStyleAmount (float a) { tree.setProperty (IDs::styleAmount, juce::jlimit (0.0f, 2.0f, a), nullptr); }
     bool SessionModel::getUseIntent() const { return tree.getProperty (IDs::useIntent, true); }
     void SessionModel::setUseIntent (bool b) { tree.setProperty (IDs::useIntent, b, nullptr); }
     bool SessionModel::getVoiceGpu() const { return tree.getProperty (IDs::voiceGpu, true); }
@@ -191,7 +193,7 @@ namespace ve
         VoiceModelInfo vm;
         if (getVoiceId().isNotEmpty() && ml::isOnnxAvailable() && sharedVoiceLibrary().get (getVoiceId(), vm))
             voice = vm.id, voiceVersion = vm.version;
-        d.plan = RenderPlan::forNotes (getNotePlan (d.id), sharedStyleLibrary().get (getStyleId()), voice, voiceVersion);
+        d.plan = RenderPlan::forNotes (getNotePlan (d.id), sharedStyleLibrary().get (getStyleId()).withAmount (getStyleAmount()), voice, voiceVersion);
         if (d.plan.rendererId != RenderPlan::capturedId && ! d.pitchFile.existsAsFile())
             d.plan = RenderPlan::identity(); // can't correct or convert without the pitch track
         d.planHash = d.plan.hash();

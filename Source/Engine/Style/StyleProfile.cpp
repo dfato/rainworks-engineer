@@ -50,6 +50,16 @@ namespace ve
             p.quantize         = juce::jlimit (0.0f, 1.0f, num (v, "timing", "quantize", p.quantize));
             p.grid             = juce::jlimit (1, 64, (int) num (v, "timing", "grid", (float) p.grid));
             p.swing            = juce::jlimit (0.0f, 1.0f, num (v, "timing", "swing", p.swing));
+            p.runs             = juce::jlimit (0.0f, 1.0f, num (v, "ornaments", "runs", p.runs));
+            p.runNotes         = juce::jlimit (2, 8, (int) num (v, "ornaments", "runNotes", (float) p.runNotes));
+            p.runNoteMs        = juce::jlimit (40.0f, 300.0f, num (v, "ornaments", "runNoteMs", p.runNoteMs));
+            p.fallCents        = juce::jlimit (0.0f, 1200.0f, num (v, "ornaments", "fallCents", p.fallCents));
+            p.fallMs           = juce::jlimit (0.0f, 600.0f, num (v, "ornaments", "fallMs", p.fallMs));
+            p.brightness       = juce::jlimit (-1.0f, 1.0f, num (v, "tone", "brightness", p.brightness));
+            p.warmth           = juce::jlimit (-1.0f, 1.0f, num (v, "tone", "warmth", p.warmth));
+            p.grit             = juce::jlimit (0.0f, 1.0f, num (v, "tone", "grit", p.grit));
+            p.breath           = juce::jlimit (0.0f, 1.0f, num (v, "tone", "breath", p.breath));
+            p.compress         = juce::jlimit (0.0f, 1.0f, num (v, "dynamics", "compress", p.compress));
             return p;
         }
     }
@@ -70,14 +80,40 @@ namespace ve
         o->setProperty ("vibrato", section ({ { "addDepthCents", vibratoDepthCents }, { "rateHz", vibratoRateHz }, { "onsetMs", vibratoOnsetMs } }));
         o->setProperty ("slides", section ({ { "betweenNotesMs", slideMs }, { "maxGapMs", slideMaxGapMs }, { "scoopCents", scoopCents }, { "scoopMs", scoopMs } }));
         o->setProperty ("timing", section ({ { "quantize", quantize }, { "grid", grid }, { "swing", swing } }));
+        o->setProperty ("ornaments", section ({ { "runs", runs }, { "runNotes", runNotes }, { "runNoteMs", runNoteMs },
+                                                { "fallCents", fallCents }, { "fallMs", fallMs } }));
+        o->setProperty ("tone", section ({ { "brightness", brightness }, { "warmth", warmth }, { "grit", grit }, { "breath", breath } }));
+        o->setProperty ("dynamics", section ({ { "compress", compress } }));
         return juce::var (o);
+    }
+
+    StyleProfile StyleProfile::withAmount (float amount) const
+    {
+        amount = juce::jlimit (0.0f, 2.0f, amount);
+        if (std::abs (amount - 1.0f) < 1.0e-4f) return *this;
+        StyleProfile p = *this;
+        p.vibratoDepthCents = juce::jlimit (0.0f, 150.0f, vibratoDepthCents * amount);
+        p.scoopCents = juce::jlimit (0.0f, 300.0f, scoopCents * amount);
+        p.slideMs = juce::jlimit (0.0f, 400.0f, slideMs * amount);
+        p.runs = juce::jlimit (0.0f, 1.0f, runs * amount);
+        p.fallCents = juce::jlimit (0.0f, 1200.0f, fallCents * amount);
+        p.brightness = juce::jlimit (-1.0f, 1.0f, brightness * amount);
+        p.warmth = juce::jlimit (-1.0f, 1.0f, warmth * amount);
+        p.grit = juce::jlimit (0.0f, 1.0f, grit * amount);
+        p.breath = juce::jlimit (0.0f, 1.0f, breath * amount);
+        p.compress = juce::jlimit (0.0f, 1.0f, compress * amount);
+        // Less style also keeps more of the singer's own wobble; more style flattens it further.
+        p.keepVariation = juce::jlimit (0.0f, 1.0f, keepVariation + (1.0f - keepVariation) * juce::jmax (0.0f, 1.0f - amount)
+                                                       - keepVariation * 0.5f * juce::jmax (0.0f, amount - 1.0f));
+        return p;
     }
 
     std::uint64_t StyleProfile::hash() const
     {
         // Only parameters that change the sound (correction is per note, so excluded).
         const float vals[] = { retuneMs, keepVariation, vibratoDepthCents, vibratoRateHz, vibratoOnsetMs,
-                               slideMs, slideMaxGapMs, scoopCents, scoopMs, quantize, (float) grid, swing, (float) (int) scale };
+                               slideMs, slideMaxGapMs, scoopCents, scoopMs, quantize, (float) grid, swing, (float) (int) scale,
+                               runs, (float) runNotes, runNoteMs, fallCents, fallMs, brightness, warmth, grit, breath, compress };
         std::uint64_t h = 1469598103934665603ull;
         auto* p = reinterpret_cast<const unsigned char*> (vals);
         for (size_t i = 0; i < sizeof (vals); ++i) { h ^= p[i]; h *= 1099511628211ull; }

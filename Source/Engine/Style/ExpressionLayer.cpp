@@ -4,6 +4,57 @@
 
 namespace ve::ExpressionLayer
 {
+    namespace
+    {
+        // Stable 0..1 value per note, so a re-render puts runs on the same notes.
+        double noteRandom (std::int64_t start)
+        {
+            auto z = (std::uint64_t) start + 0x9E3779B97F4A7C15ull;
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ull;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBull;
+            z ^= z >> 31;
+            return (double) (z >> 11) / 9007199254740992.0;
+        }
+
+        // The notes the plan actually lands on (its scale), so runs move through the song's
+        // own scale degrees rather than through chromatic steps.
+        struct PlanScale
+        {
+            bool member[12] {};
+            bool any = false;
+
+            explicit PlanScale (const std::vector<Note>& notes)
+            {
+                double w[12] {}, total = 0.0;
+                for (auto& n : notes)
+                {
+                    const int pc = ((int) std::lround (n.targetMidi) % 12 + 12) % 12;
+                    const double len = (double) juce::jmax<std::int64_t> (1, n.end - n.start);
+                    w[pc] += len; total += len;
+                }
+                int count = 0;
+                for (int i = 0; i < 12; ++i)
+                    if (total > 0.0 && w[i] >= 0.03 * total) { member[i] = true; ++count; }
+                any = count >= 4;
+            }
+
+            // MIDI note `steps` scale degrees away from `midi` (whole tones without a scale).
+            int step (int midi, int steps) const
+            {
+                if (steps == 0) return midi;
+                if (! any) return midi + 2 * steps;
+                const int dir = steps > 0 ? 1 : -1;
+                int m = midi;
+                for (int k = 0; k < std::abs (steps); ++k)
+                {
+                    int tries = 0;
+                    do { m += dir; } while (! member[(m % 12 + 12) % 12] && ++tries < 4);
+                }
+                return m;
+            }
+        };
+    }
+
     std::vector<float> buildShiftCurve (const NotePlan& plan, const StyleProfile& style,
                                         const std::vector<float>& f0, double sr)
     {
@@ -18,6 +69,12 @@ namespace ve::ExpressionLayer
         {
             return f0[(size_t) i] > 0.0f ? PitchTrack::hzToMidi (f0[(size_t) i]) : fallback;
         };
+
+        const PlanScale planScale (notes);
+        // Phrase ends: the last corrected note before a pause (or the end).
+        std::vector<char> phraseEnd (notes.size(), 0);
+        for (size_t k = 0; k < notes.size(); ++k)
+            phraseEnd[k] = k + 1 == notes.size() || (double) (notes[k + 1].start - notes[k].end) > 0.25 * sr;
 
         // Which notes slide into the next one.
         std::vector<char> slidesToNext (notes.size(), 0);
@@ -50,6 +107,53 @@ namespace ve::ExpressionLayer
             const float keep = (note.intent & NoteIntent::vibrato) != 0 && style.retuneMs >= 10.0f
                                    ? juce::jmax (style.keepVariation, 0.8f) : style.keepVariation;
 
+            // Ornaments. A run is a quick line of scale notes sung on one syllable: in the middle
+            // of a phrase it turns around the note and comes back, at a phrase end it walks down
+            // and lands on a lower scale note. A fall drops off the end of a phrase.
+            std::vector<float> run;
+            int runFrom = b;
+            {
+                // Shorter notes get a shorter, quicker run rather than none.
+                double runNote = style.runNoteMs * msToSamples;
+                const double tail = (phraseEnd[k] ? 0.14 : 0.07) * sr;
+                const double room = (double) (b - a) - tail - 0.12 * sr;
+                const int fewest = juce::jmin (3, style.runNotes);
+                int count = juce::jmin (style.runNotes, (int) (room / runNote));
+                if (count < fewest)
+                {
+                    runNote *= 0.75;
+                    count = juce::jmin (style.runNotes, (int) (room / runNote));
+                }
+                const double chance = style.runs * (phraseEnd[k] ? 1.4 : 0.6);
+                if (style.runs > 0.0f && count >= fewest && noteRandom (note.start) < chance)
+                {
+                    const int root = (int) std::lround (note.targetMidi);
+                    std::vector<float> offs;
+                    for (int j = 0; j < count; ++j)
+                    {
+                        const int deg = phraseEnd[k] ? 1 - j                       // +1, 0, -1, -2 ...
+                                                     : (j % 4 == 0 ? 1 : j % 4 == 2 ? -1 : 0); // +1, 0, -1, 0 ...
+                        offs.push_back ((float) (planScale.step (root, deg) - root));
+                    }
+                    const float landing = phraseEnd[k] ? offs.back() : 0.0f;
+                    runFrom = (int) (b - runNote * count - tail);
+                    run.assign ((size_t) (b - runFrom), landing);
+                    for (int i = 0; i < b - runFrom; ++i)
+                    {
+                        const double pos = i / runNote;
+                        const int j = (int) pos;
+                        const float to = j < count ? offs[(size_t) j] : landing;
+                        const float from = j == 0 ? 0.0f : j - 1 < count ? offs[(size_t) j - 1] : landing;
+                        // Move to each note in the first 35% of its slot, then hold it.
+                        const float w = (float) juce::jlimit (0.0, 1.0, (pos - j) / 0.35);
+                        run[(size_t) i] = from + (to - from) * w * w * (3.0f - 2.0f * w);
+                    }
+                }
+            }
+            const bool falls = run.empty() && phraseEnd[k] && style.fallCents > 0.0f && style.fallMs > 0.0f
+                               && (double) (b - a) >= (style.fallMs + 150.0) * msToSamples;
+            const double fallSamples = style.fallMs * msToSamples;
+
             for (int i = a; i < b; ++i)
             {
                 const double t = i - a;
@@ -73,7 +177,16 @@ namespace ve::ExpressionLayer
                 {
                     const float tv = (float) ((t - vibOnset) / sr);
                     const float ramp = juce::jmin (1.0f, tv / 0.2f);
-                    expression += style.vibratoDepthCents / 100.0f * ramp * std::sin (twoPi * style.vibratoRateHz * tv);
+                    // No vibrato while a run is moving.
+                    const float quiet = i >= runFrom ? 0.0f : 1.0f;
+                    expression += quiet * style.vibratoDepthCents / 100.0f * ramp * std::sin (twoPi * style.vibratoRateHz * tv);
+                }
+                if (i >= runFrom)
+                    expression += run[(size_t) (i - runFrom)];
+                if (falls && (double) (b - i) < fallSamples)
+                {
+                    const float x = (float) (1.0 - (b - i) / fallSamples);
+                    expression -= style.fallCents / 100.0f * x * x;
                 }
 
                 float s = retune * (c * (flat - jump - d) + expressionAmount * jump) + expressionAmount * expression;

@@ -27,6 +27,22 @@
     "quantize": 0,
     "grid": 16,
     "swing": 0
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0,
+    "warmth": 0,
+    "grit": 0,
+    "breath": 0
+   },
+   "dynamics": {
+    "compress": 0
    }
   },
   {
@@ -54,6 +70,22 @@
    "timing": {
     "quantize": 0.5,
     "grid": 16
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.2,
+    "warmth": 0,
+    "grit": 0,
+    "breath": 0
+   },
+   "dynamics": {
+    "compress": 0.4
    }
   },
   {
@@ -70,6 +102,22 @@
    },
    "slides": {
     "betweenNotesMs": 30
+   },
+   "ornaments": {
+    "runs": 0.08,
+    "runNotes": 4,
+    "runNoteMs": 85,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.35,
+    "warmth": 0,
+    "grit": 0,
+    "breath": 0.1
+   },
+   "dynamics": {
+    "compress": 0.55
    }
   },
   {
@@ -91,6 +139,22 @@
    },
    "slides": {
     "betweenNotesMs": 70
+   },
+   "ornaments": {
+    "runs": 0.15,
+    "runNotes": 4,
+    "runNoteMs": 110,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.2,
+    "warmth": 0.3,
+    "grit": 0,
+    "breath": 0.2
+   },
+   "dynamics": {
+    "compress": 0.45
    }
   },
   {
@@ -111,6 +175,22 @@
    "timing": {
     "quantize": 0.4,
     "grid": 16
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 80,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.5,
+    "warmth": 0,
+    "grit": 0,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.7
    }
   },
   {
@@ -131,6 +211,22 @@
    "timing": {
     "quantize": 0.4,
     "grid": 16
+   },
+   "ornaments": {
+    "runs": 0.05,
+    "runNotes": 3,
+    "runNoteMs": 75,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.6,
+    "warmth": -0.1,
+    "grit": 0,
+    "breath": 0.15
+   },
+   "dynamics": {
+    "compress": 0.7
    }
   },
   {
@@ -150,6 +246,22 @@
    },
    "pitch": {
     "scale": "pentatonic"
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 70,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.8,
+    "warmth": -0.5,
+    "grit": 0.25,
+    "breath": 0
+   },
+   "dynamics": {
+    "compress": 0.85
    }
   },
   {
@@ -173,6 +285,22 @@
    "vibrato": {
     "addDepthCents": 20,
     "onsetMs": 280
+   },
+   "ornaments": {
+    "runs": 0.45,
+    "runNotes": 5,
+    "runNoteMs": 80,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.1,
+    "warmth": 0.4,
+    "grit": 0,
+    "breath": 0.25
+   },
+   "dynamics": {
+    "compress": 0.5
    }
   },
   {
@@ -186,6 +314,22 @@
     "retuneMs": 18,
     "keepVariation": 0.6,
     "scale": "blues"
+   },
+   "ornaments": {
+    "runs": 0.35,
+    "runNotes": 5,
+    "runNoteMs": 70,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.3,
+    "warmth": 0.2,
+    "grit": 0,
+    "breath": 0.3
+   },
+   "dynamics": {
+    "compress": 0.6
    }
   },
   {
@@ -208,6 +352,22 @@
     "quantize": 0.15,
     "grid": 16,
     "swing": 0.5
+   },
+   "ornaments": {
+    "runs": 0.4,
+    "runNotes": 4,
+    "runNoteMs": 100,
+    "fallCents": 60,
+    "fallMs": 180
+   },
+   "tone": {
+    "brightness": -0.3,
+    "warmth": 0.6,
+    "grit": 0.1,
+    "breath": 0.35
+   },
+   "dynamics": {
+    "compress": 0.35
    }
   },
   {
@@ -225,6 +385,22 @@
     "addDepthCents": 45,
     "rateHz": 5.8,
     "onsetMs": 220
+   },
+   "ornaments": {
+    "runs": 0.5,
+    "runNotes": 5,
+    "runNoteMs": 85,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.1,
+    "warmth": 0.45,
+    "grit": 0.3,
+    "breath": 0.15
+   },
+   "dynamics": {
+    "compress": 0.45
    }
   },
   {
@@ -244,6 +420,22 @@
    },
    "pitch": {
     "scale": "blues"
+   },
+   "ornaments": {
+    "runs": 0.7,
+    "runNotes": 6,
+    "runNoteMs": 70,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.25,
+    "warmth": 0.4,
+    "grit": 0.35,
+    "breath": 0.1
+   },
+   "dynamics": {
+    "compress": 0.5
    }
   },
   {
@@ -265,6 +457,22 @@
     "quantize": 0.25,
     "grid": 16,
     "swing": 0.15
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.3,
+    "warmth": 0.2,
+    "grit": 0.1,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.7
    }
   },
   {
@@ -286,6 +494,22 @@
     "quantize": 0.4,
     "grid": 16,
     "swing": 0
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.4,
+    "warmth": 0.1,
+    "grit": 0.15,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.8
    }
   },
   {
@@ -304,6 +528,22 @@
     "maxGapMs": 110,
     "scoopCents": 50,
     "scoopMs": 50
+   },
+   "ornaments": {
+    "runs": 0.05,
+    "runNotes": 3,
+    "runNoteMs": 80,
+    "fallCents": 150,
+    "fallMs": 160
+   },
+   "tone": {
+    "brightness": 0.35,
+    "warmth": 0.1,
+    "grit": 0.1,
+    "breath": 0.15
+   },
+   "dynamics": {
+    "compress": 0.75
    }
   },
   {
@@ -324,6 +564,22 @@
     "quantize": 0.35,
     "grid": 16,
     "swing": 0.3
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 200,
+    "fallMs": 120
+   },
+   "tone": {
+    "brightness": -0.1,
+    "warmth": 0.3,
+    "grit": 0.25,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.85
    }
   },
   {
@@ -339,6 +595,22 @@
    },
    "pitch": {
     "scale": "key"
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 120,
+    "fallMs": 180
+   },
+   "tone": {
+    "brightness": 0.1,
+    "warmth": 0.1,
+    "grit": 0.1,
+    "breath": 0.3
+   },
+   "dynamics": {
+    "compress": 0.7
    }
   },
   {
@@ -356,6 +628,22 @@
    "slides": {
     "scoopCents": 55,
     "scoopMs": 70
+   },
+   "ornaments": {
+    "runs": 0.05,
+    "runNotes": 3,
+    "runNoteMs": 90,
+    "fallCents": 150,
+    "fallMs": 140
+   },
+   "tone": {
+    "brightness": 0.3,
+    "warmth": 0.1,
+    "grit": 0.55,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.6
    }
   },
   {
@@ -369,6 +657,22 @@
     "retuneMs": 25,
     "keepVariation": 0.7,
     "scale": "key"
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 100,
+    "fallMs": 120
+   },
+   "tone": {
+    "brightness": 0.5,
+    "warmth": -0.1,
+    "grit": 0.35,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.7
    }
   },
   {
@@ -381,6 +685,22 @@
     "correction": 0.3,
     "retuneMs": 80,
     "scale": "key"
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": -0.2,
+    "warmth": 0.2,
+    "grit": 0.1,
+    "breath": 0.3
+   },
+   "dynamics": {
+    "compress": 0.35
    }
   },
   {
@@ -398,6 +718,22 @@
     "addDepthCents": 40,
     "rateHz": 6.5,
     "onsetMs": 250
+   },
+   "ornaments": {
+    "runs": 0.1,
+    "runNotes": 4,
+    "runNoteMs": 80,
+    "fallCents": 80,
+    "fallMs": 120
+   },
+   "tone": {
+    "brightness": 0.4,
+    "warmth": 0.1,
+    "grit": 0.45,
+    "breath": 0
+   },
+   "dynamics": {
+    "compress": 0.75
    }
   },
   {
@@ -420,6 +756,22 @@
    "vibrato": {
     "addDepthCents": 15,
     "onsetMs": 320
+   },
+   "ornaments": {
+    "runs": 0.12,
+    "runNotes": 3,
+    "runNoteMs": 110,
+    "fallCents": 120,
+    "fallMs": 180
+   },
+   "tone": {
+    "brightness": 0.4,
+    "warmth": -0.1,
+    "grit": 0.1,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.45
    }
   },
   {
@@ -432,6 +784,22 @@
     "correction": 0.3,
     "retuneMs": 80,
     "scale": "pentatonic"
+   },
+   "ornaments": {
+    "runs": 0.05,
+    "runNotes": 3,
+    "runNoteMs": 120,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": -0.15,
+    "warmth": 0.35,
+    "grit": 0,
+    "breath": 0.25
+   },
+   "dynamics": {
+    "compress": 0.2
    }
   },
   {
@@ -444,6 +812,22 @@
     "correction": 0.45,
     "retuneMs": 55,
     "scale": "key"
+   },
+   "ornaments": {
+    "runs": 0.05,
+    "runNotes": 3,
+    "runNoteMs": 110,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0,
+    "warmth": 0.3,
+    "grit": 0,
+    "breath": 0.2
+   },
+   "dynamics": {
+    "compress": 0.3
    }
   },
   {
@@ -461,6 +845,22 @@
    "timing": {
     "quantize": 0.45,
     "grid": 16
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 80,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.55,
+    "warmth": 0,
+    "grit": 0,
+    "breath": 0.1
+   },
+   "dynamics": {
+    "compress": 0.8
    }
   },
   {
@@ -482,6 +882,22 @@
     "quantize": 0.45,
     "grid": 16,
     "swing": 0.2
+   },
+   "ornaments": {
+    "runs": 0.25,
+    "runNotes": 4,
+    "runNoteMs": 85,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.4,
+    "warmth": 0.2,
+    "grit": 0,
+    "breath": 0.1
+   },
+   "dynamics": {
+    "compress": 0.7
    }
   },
   {
@@ -498,6 +914,22 @@
    "slides": {
     "betweenNotesMs": 60,
     "maxGapMs": 120
+   },
+   "ornaments": {
+    "runs": 0.05,
+    "runNotes": 3,
+    "runNoteMs": 70,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.7,
+    "warmth": -0.2,
+    "grit": 0,
+    "breath": 0.2
+   },
+   "dynamics": {
+    "compress": 0.8
    }
   },
   {
@@ -518,6 +950,22 @@
    "timing": {
     "quantize": 0.35,
     "grid": 16
+   },
+   "ornaments": {
+    "runs": 0.15,
+    "runNotes": 3,
+    "runNoteMs": 80,
+    "fallCents": 100,
+    "fallMs": 120
+   },
+   "tone": {
+    "brightness": 0.45,
+    "warmth": 0.1,
+    "grit": 0.05,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.75
    }
   },
   {
@@ -540,6 +988,22 @@
     "quantize": 0.25,
     "grid": 16,
     "swing": 0.35
+   },
+   "ornaments": {
+    "runs": 0.3,
+    "runNotes": 4,
+    "runNoteMs": 80,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.3,
+    "warmth": 0.2,
+    "grit": 0,
+    "breath": 0.1
+   },
+   "dynamics": {
+    "compress": 0.55
    }
   },
   {
@@ -555,6 +1019,22 @@
    },
    "slides": {
     "betweenNotesMs": 25
+   },
+   "ornaments": {
+    "runs": 0.2,
+    "runNotes": 3,
+    "runNoteMs": 80,
+    "fallCents": 150,
+    "fallMs": 130
+   },
+   "tone": {
+    "brightness": 0.4,
+    "warmth": 0.1,
+    "grit": 0.2,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.7
    }
   },
   {
@@ -572,6 +1052,22 @@
     "quantize": 0.2,
     "grid": 16,
     "swing": 0.45
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 60,
+    "fallMs": 200
+   },
+   "tone": {
+    "brightness": -0.6,
+    "warmth": 0.5,
+    "grit": 0.15,
+    "breath": 0.35
+   },
+   "dynamics": {
+    "compress": 0.5
    }
   },
   {
@@ -595,6 +1091,22 @@
     "addDepthCents": 30,
     "rateHz": 5.0,
     "onsetMs": 380
+   },
+   "ornaments": {
+    "runs": 0.3,
+    "runNotes": 4,
+    "runNoteMs": 110,
+    "fallCents": 200,
+    "fallMs": 220
+   },
+   "tone": {
+    "brightness": -0.2,
+    "warmth": 0.5,
+    "grit": 0,
+    "breath": 0.2
+   },
+   "dynamics": {
+    "compress": 0.3
    }
   },
   {
@@ -610,6 +1122,22 @@
    },
    "pitch": {
     "scale": "key"
+   },
+   "ornaments": {
+    "runs": 0.05,
+    "runNotes": 4,
+    "runNoteMs": 100,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.45,
+    "warmth": 0.2,
+    "grit": 0,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.35
    }
   }
  ]
