@@ -23,6 +23,7 @@
 //                      expression, ornaments and tone, no timing moves) and write the result,
 //                      to audition a style
 //   --amount <0..2>    with --render: style amount (1 = as designed)
+//   --key <key>        with --render: the song's key (e.g. Gm, F#), instead of guessing it from the vocal
 
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "Engine/Style/StyleLearner.h"
@@ -62,6 +63,7 @@ int main (int argc, char* argv[])
     juce::String baseJson, poolPath;
     bool statsOnly = false;
     float amount = 1.0f;
+    juce::String keyName;
     juce::String renderStyle, renderOut;
     juce::StringArray inputs;
 
@@ -81,6 +83,7 @@ int main (int argc, char* argv[])
         else if (a == "--stats-dir")  statsDir = next();
         else if (a == "--stats-only") statsOnly = true;
         else if (a == "--amount")     amount = next().getFloatValue();
+        else if (a == "--key")        keyName = next();
         else if (a == "--render")     { renderStyle = next(); renderOut = next(); }
         else if (a == "--help" || a == "-h") { std::cout << "See the comment at the top of Source/Tools/StyleLearnMain.cpp" << std::endl; return 0; }
         else inputs.add (a);
@@ -108,6 +111,19 @@ int main (int argc, char* argv[])
         Chroma chroma {};
         for (auto& n : notes) chroma[(size_t) (((int) std::lround (n.detectedMidi) % 12 + 12) % 12)] += (float) (n.end - n.start);
         auto key = Analysis::estimateKey (chroma);
+        if (keyName.isNotEmpty())
+        {
+            // "G", "F#", "Bb", "Gm", "C#m": as the song's key would come from the beat.
+            const int letters[] = { 9, 11, 0, 2, 4, 5, 7 };  // A B C D E F G
+            const auto c = juce::CharacterFunctions::toUpperCase (keyName[0]);
+            if (c < 'A' || c > 'G') return fail ("bad --key " + keyName);
+            int pc = letters[c - 'A'];
+            auto rest = keyName.substring (1);
+            if (rest.startsWith ("#")) { pc += 1; rest = rest.substring (1); }
+            else if (rest.startsWith ("b")) { pc -= 1; rest = rest.substring (1); }
+            key.tonic = (pc + 12) % 12;
+            key.minor = rest.startsWith ("m");
+        }
         key.scale = style.scale;
         NoteSegmenter::resnap (notes, key);
         for (auto& n : notes) n.correction = style.correction;
@@ -134,6 +150,9 @@ int main (int argc, char* argv[])
                 if (step > 0.02f) ++jumps;
                 if (std::abs (shift[(size_t) i]) > 2.5f) ++big;
             }
+            for (auto& n : notes)
+                std::cerr << juce::String ((double) n.start / sr, 2) << "s " << juce::String ((double) (n.end - n.start) / sr, 2)
+                          << "s " << juce::String (n.detectedMidi, 2) << " -> " << n.targetMidi << "\n";
             int longNotes = 0;
             for (auto& n : notes) if ((double) (n.end - n.start) >= 0.6 * sr) ++longNotes;
             std::cerr << longNotes << " notes of 0.6 s or more; ";

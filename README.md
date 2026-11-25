@@ -194,7 +194,7 @@ notes is passed through untouched.
 3. The Correct slider and per-note edits still work on top of the style.
 4. Save and reopen: the style is restored with the project.
 
-Built in: 3 basic styles (Natural, Transparent, Hard Tune) and 31 genre styles across Pop, R&B / Soul,
+Built in: 3 basic styles (Natural, Transparent, Hard Tune) and 32 genre styles across Pop, R&B / Soul,
 Hip-hop, Rock, Country / Folk, Electronic, Latin / Caribbean / African and Other.
 
 **Custom styles.** Drop `.json` files into `Documents\RainWorks\Engineer\Styles\` and restart FL. A style can

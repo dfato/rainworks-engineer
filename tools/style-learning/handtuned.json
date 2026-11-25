@@ -676,6 +676,45 @@
    }
   },
   {
+   "id": "post-hardcore",
+   "name": "Post-Hardcore",
+   "category": "Rock",
+   "inherits": "rock",
+   "description": "Tight, bright and gritty: clean hooks pulled hard to pitch, fast vibrato tails, falls at phrase ends, heavy compression.",
+   "pitch": {
+    "correction": 0.8,
+    "retuneMs": 18,
+    "keepVariation": 0.55,
+    "scale": "key"
+   },
+   "vibrato": {
+    "addDepthCents": 25,
+    "rateHz": 6.6,
+    "onsetMs": 350
+   },
+   "slides": {
+    "betweenNotesMs": 30,
+    "scoopCents": 40,
+    "scoopMs": 50
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 120,
+    "fallMs": 120
+   },
+   "tone": {
+    "brightness": 0.5,
+    "warmth": 0.1,
+    "grit": 0.45,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.85
+   }
+  },
+  {
    "id": "indie",
    "name": "Indie",
    "category": "Rock",
