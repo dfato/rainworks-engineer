@@ -219,6 +219,23 @@ A file with the same `id` as a built-in replaces it.
    free movement. Right-click > **Reset timing** puts it back.
 4. Each note keeps its length and moves as a block; the gaps around it stretch or squeeze (up to 4x either
    way). Pitch, vibrato and formants are kept. Audio away from moved notes is untouched.
+5. Right-click a blob > **Split note here** cuts it where you clicked (each half gets its own pitch);
+   **Merge with next note** joins it with the following blob.
+
+### 12. Voice models (Stage 5)
+
+Voice models re-sing each take in a trained voice, following the notes, style and timing.
+Training a model is covered in [tools/voice-training/README.md](tools/voice-training/README.md)
+(RTX 3060 12 GB: about 1 to 2 hours per voice).
+
+1. Export a voice (that guide, step 4). It lands in `Documents\RainWorks\Engineer\Voices\<name>`.
+2. **Voice** menu > **Rescan voices folder**, then pick the voice. The status bar says when it starts.
+3. With Monitor on **Rendered**, takes play in the new voice once each render finishes. The old
+   render keeps playing until then.
+4. Pitch edits, styles and timing still apply: the model sings the planned pitch.
+5. **As recorded** returns to the original voice. Save and reopen: the voice choice is kept.
+
+If ONNX Runtime can't load, the Voice menu is greyed out and its tooltip says why.
 
 ## Known limitations (to fix after the full build)
 
@@ -228,9 +245,12 @@ A file with the same `id` as a built-in replaces it.
 - Standalone has no host transport, so capture and Rendered playback do nothing there.
 - The session id is copied when you "Save as" an FL project, so both projects share one data folder.
 - No crossfades at take boundaries yet (punch-ins can click).
-- Blobs can't be split or merged yet.
 - Moving a note only re-times the gaps either side of it, so pulling a note past its neighbour is limited
   (gaps squeeze to a quarter of their length at most). Very long gaps of breath noise can sound grainy when
   stretched a lot.
 - Quantize uses the tempo recorded with the take; it ignores tempo changes made after recording.
+- Voice models run on the CPU only for now (a DirectML GPU option comes next), and the
+  content encoder isn't bundled yet: export it once with the training tools.
+- Voice rendering has only been tested with stand-in models; no real trained voice has been
+  run through the plugin yet.
 - Heavily breathy or polyphonic material confuses the pitch tracker (it assumes one voice).
