@@ -21,6 +21,14 @@ namespace ve
                                 double sampleRate, const std::vector<float>& f0PerSample,
                                 const std::vector<float>& shiftSemitones, const TimeWarp& warp = {});
 
+        // Loads the take and applies pitch + timing at the take's own rate. `plannedF0`, if
+        // given, receives the pitch (Hz, 0 = unvoiced) each output sample should have.
+        static juce::Result renderAtSourceRate (const RegionDescriptor&, const RenderPlan&, JobContext&,
+                                                juce::AudioBuffer<float>& out, double& rate, std::vector<float>* plannedF0);
+
+        // In-place sample-rate conversion (no-op when the rates match).
+        static void resample (juce::AudioBuffer<float>&, double fromRate, double toRate);
+
         // Per-sample shift curve for a note plan (ramps at note edges).
         static std::vector<float> buildShiftCurve (const NotePlan&, int numSamples, double sampleRate);
     };

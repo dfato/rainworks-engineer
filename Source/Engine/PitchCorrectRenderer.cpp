@@ -171,14 +171,30 @@ namespace ve
         }
     }
 
-    juce::Result PitchCorrectRenderer::render (const RegionDescriptor& region, const RenderPlan& plan, double targetRate,
-                                               JobContext& ctx, RenderedAudio& out)
+    void PitchCorrectRenderer::resample (juce::AudioBuffer<float>& audio, double fromRate, double toRate)
+    {
+        if (toRate <= 0.0 || std::abs (toRate - fromRate) <= 0.5 || audio.getNumSamples() == 0)
+            return;
+        const double ratio = fromRate / toRate;
+        const int n = audio.getNumSamples();
+        const int outLen = (int) std::ceil ((double) n / ratio);
+        juce::AudioBuffer<float> out (audio.getNumChannels(), outLen);
+        for (int ch = 0; ch < audio.getNumChannels(); ++ch)
+        {
+            juce::LagrangeInterpolator interp;
+            interp.process (ratio, audio.getReadPointer (ch), out.getWritePointer (ch), outLen, n, 0);
+        }
+        audio = std::move (out);
+    }
+
+    juce::Result PitchCorrectRenderer::renderAtSourceRate (const RegionDescriptor& region, const RenderPlan& plan, JobContext& ctx,
+                                                           juce::AudioBuffer<float>& result, double& rate, std::vector<float>* plannedF0)
     {
         juce::AudioBuffer<float> audio;
-        double rate = 0.0;
+        rate = 0.0;
         if (auto r = loadAudioFile (region.vocalFile, 0.0, &ctx, audio, rate); r.failed())
             return r;
-        ctx.setProgress (0.3f);
+        ctx.setProgress (0.1f);
 
         juce::MemoryBlock mb;
         PitchTrack track;
@@ -201,29 +217,35 @@ namespace ve
 
         const auto shift = ExpressionLayer::buildShiftCurve (plan.notes, plan.style, f0, rate);
         const auto warp = TimeWarp::build (plan.notes, plan.style, region.tempoMap, n);
+        psolaShift (audio, result, rate, f0, shift, warp);
+
+        if (plannedF0 != nullptr)
+        {
+            // The pitch the output should have, in output time.
+            plannedF0->assign ((size_t) n, 0.0f);
+            for (int t = 0; t < n; ++t)
+            {
+                const int u = juce::jlimit (0, n - 1, (int) std::llround (warp.isIdentity() ? (double) t : warp.inputAt ((double) t)));
+                const float f = f0[(size_t) u];
+                (*plannedF0)[(size_t) t] = f > 0.0f ? f * std::pow (2.0f, shift[(size_t) u] / 12.0f) : 0.0f;
+            }
+        }
+        return juce::Result::ok();
+    }
+
+    juce::Result PitchCorrectRenderer::render (const RegionDescriptor& region, const RenderPlan& plan, double targetRate,
+                                               JobContext& ctx, RenderedAudio& out)
+    {
+        double rate = 0.0;
         juce::AudioBuffer<float> shifted;
-        psolaShift (audio, shifted, rate, f0, shift, warp);
+        if (auto r = renderAtSourceRate (region, plan, ctx, shifted, rate, nullptr); r.failed())
+            return r;
         ctx.setProgress (0.8f);
         if (ctx.shouldCancel()) return juce::Result::fail ("cancelled");
 
-        // Resample to the engine rate if needed.
-        if (targetRate > 0.0 && std::abs (targetRate - rate) > 0.5)
-        {
-            const double ratio = rate / targetRate;
-            const int outLen = (int) std::ceil ((double) n / ratio);
-            out.audio.setSize (shifted.getNumChannels(), outLen);
-            for (int ch = 0; ch < shifted.getNumChannels(); ++ch)
-            {
-                juce::LagrangeInterpolator interp;
-                interp.process (ratio, shifted.getReadPointer (ch), out.audio.getWritePointer (ch), outLen, n, 0);
-            }
-            rate = targetRate;
-        }
-        else
-        {
-            out.audio = std::move (shifted);
-        }
-
+        resample (shifted, rate, targetRate);
+        if (targetRate > 0.0) rate = targetRate;
+        out.audio = std::move (shifted);
         out.sampleRate = rate;
         out.regionId = region.id;
         out.planHash = region.planHash;

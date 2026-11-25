@@ -22,6 +22,13 @@ namespace ve::ui
         struct StyleItem { juce::String id, name, category; };
         void setStyles (const std::vector<StyleItem>&);
         void setStyle (const juce::String& id);
+        // Stage 5 voice models. Empty id = the recorded voice.
+        struct VoiceItem { juce::String id, name; };
+        std::function<void (const juce::String&)> onVoiceChanged;
+        std::function<void()> onRescanVoices, onOpenVoicesFolder;
+        void setVoices (const std::vector<VoiceItem>&, bool available, const juce::String& unavailableReason);
+        void setVoice (const juce::String& id);
+
         std::function<void()> onOpenDataFolder;
         std::function<void()> onLocateDataFolder;
 
@@ -47,6 +54,11 @@ namespace ve::ui
         juce::Label styleLabel { {}, "Style" };
         juce::ComboBox styleBox;
         juce::StringArray styleIds;
+        static constexpr int rescanId = 9001, openFolderId = 9002;
+        juce::Label voiceLabel { {}, "Voice" };
+        juce::ComboBox voiceBox;
+        juce::StringArray voiceIds;   // index i = combo id i + 1; "" = as recorded
+        juce::String currentVoice;
         juce::Slider correctionSlider { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
         juce::TextButton folderButton { "Data folder" };
         juce::String folderText;

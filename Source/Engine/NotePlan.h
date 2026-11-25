@@ -50,4 +50,19 @@ namespace ve
         // Re-snaps targets of notes the user has not edited (e.g. after a key change).
         void resnap (std::vector<Note>&, const KeyEstimate& key);
     }
+
+    namespace NoteEdit
+    {
+        // Median sung pitch over [start, end) from the track, or `fallback` if nothing is voiced there.
+        float medianMidi (const PitchTrack&, std::int64_t start, std::int64_t end, float fallback);
+
+        // Splits note `index` at region-local sample `at` (input/sung time). Both halves keep the
+        // target, correction and timing nudge; each gets its own detected pitch from the track
+        // (may be null). Refuses splits that leave a half shorter than `minSamples`.
+        bool split (std::vector<Note>&, int index, std::int64_t at, const PitchTrack*, std::int64_t minSamples);
+
+        // Joins note `index` with the next one: spans both, keeps the first note's target,
+        // correction and nudge, detected pitch from the track over the joined span.
+        bool mergeWithNext (std::vector<Note>&, int index, const PitchTrack*);
+    }
 }

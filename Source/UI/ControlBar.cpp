@@ -27,7 +27,22 @@ namespace ve::ui
         };
         addAndMakeVisible (styleBox);
 
-        for (auto* l : { &modeLabel, &keyLabel, &correctionLabel, &styleLabel })
+        voiceBox.onChange = [this]
+        {
+            const int sel = voiceBox.getSelectedId();
+            if (sel == rescanId) { setVoice (currentVoice); if (onRescanVoices) onRescanVoices(); return; }
+            if (sel == openFolderId) { setVoice (currentVoice); if (onOpenVoicesFolder) onOpenVoicesFolder(); return; }
+            const int idx = sel - 1;
+            if (idx >= 0 && idx < voiceIds.size())
+            {
+                currentVoice = voiceIds[idx];
+                if (onVoiceChanged) onVoiceChanged (currentVoice);
+            }
+        };
+        addAndMakeVisible (voiceBox);
+        setVoices ({}, false, {});
+
+        for (auto* l : { &modeLabel, &keyLabel, &correctionLabel, &styleLabel, &voiceLabel })
         {
             l->setColour (juce::Label::textColourId, Theme::textDim);
             l->setJustificationType (juce::Justification::centredRight);
@@ -97,6 +112,36 @@ namespace ve::ui
         styleBox.setSelectedId (idx >= 0 ? idx + 1 : 0, juce::dontSendNotification);
     }
 
+    void ControlBar::setVoices (const std::vector<VoiceItem>& items, bool available, const juce::String& reason)
+    {
+        voiceBox.clear (juce::dontSendNotification);
+        voiceIds.clear();
+        voiceIds.add ({});
+        voiceBox.addItem ("As recorded", 1);
+        if (! items.empty())
+            voiceBox.addSectionHeading ("Voice models");
+        for (auto& v : items)
+        {
+            voiceIds.add (v.id);
+            voiceBox.addItem (v.name, voiceIds.size());
+            voiceBox.setItemEnabled (voiceIds.size(), available);
+        }
+        voiceBox.addSeparator();
+        voiceBox.addItem ("Rescan voices folder", rescanId);
+        voiceBox.addItem ("Open voices folder...", openFolderId);
+        voiceBox.setTooltip (available
+            ? juce::String ("Re-sing every take in a trained voice model, following the notes, style and timing. Models live in Documents\\RainWorks\\Engineer\\Voices.")
+            : "Voice models can't run in this build: " + reason);
+        setVoice (currentVoice);
+    }
+
+    void ControlBar::setVoice (const juce::String& id)
+    {
+        currentVoice = id;
+        const int idx = voiceIds.indexOf (id);
+        voiceBox.setSelectedId (idx >= 0 ? idx + 1 : 1, juce::dontSendNotification);
+    }
+
     void ControlBar::setCorrection (float a) { correctionSlider.setValue (a * 100.0, juce::dontSendNotification); }
     void ControlBar::setDataFolderText (const juce::String& t) { folderText = t; folderButton.setTooltip (t); }
 
@@ -111,22 +156,25 @@ namespace ve::ui
         auto r = getLocalBounds().reduced (6, 5);
         armButton.setBounds (r.removeFromLeft (80));
         r.removeFromLeft (8);
-        modeLabel.setBounds (r.removeFromLeft (60));
+        modeLabel.setBounds (r.removeFromLeft (54));
         modeBox.setBounds (r.removeFromLeft (100));
         r.removeFromLeft (8);
         keyLabel.setBounds (r.removeFromLeft (36));
-        keyBox.setBounds (r.removeFromLeft (130));
+        keyBox.setBounds (r.removeFromLeft (118));
         r.removeFromLeft (8);
         styleLabel.setBounds (r.removeFromLeft (40));
-        styleBox.setBounds (r.removeFromLeft (150));
+        styleBox.setBounds (r.removeFromLeft (136));
+        r.removeFromLeft (8);
+        voiceLabel.setBounds (r.removeFromLeft (40));
+        voiceBox.setBounds (r.removeFromLeft (130));
         r.removeFromLeft (8);
         correctionLabel.setBounds (r.removeFromLeft (52));
-        correctionSlider.setBounds (r.removeFromLeft (140));
+        correctionSlider.setBounds (r.removeFromLeft (124));
         r.removeFromLeft (8);
         folderButton.setBounds (r.removeFromRight (100));
         r.removeFromRight (8);
-        analyseButton.setBounds (r.removeFromRight (128));
+        analyseButton.setBounds (r.removeFromRight (104));
         r.removeFromRight (8);
-        importButton.setBounds (r.removeFromRight (110));
+        importButton.setBounds (r.removeFromRight (104));
     }
 }

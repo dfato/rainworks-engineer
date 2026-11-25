@@ -6,6 +6,8 @@
 #include "Engine/NotePlan.h"
 #include "Engine/PitchTracker.h"
 #include "Engine/PitchCorrectRenderer.h"
+#include "Engine/ML/InferenceBackend.h"
+#include "Engine/Voice/VoiceRenderer.h"
 
 VocalEngineProcessor::BusesProperties VocalEngineProcessor::makeBusesProperties()
 {
@@ -19,6 +21,7 @@ VocalEngineProcessor::VocalEngineProcessor()
     : juce::AudioProcessor (makeBusesProperties()),
       renderer (std::make_shared<ve::CapturedAudioRenderer>()),
       pitchRenderer (std::make_shared<ve::PitchCorrectRenderer>()),
+      voiceRenderer (std::make_shared<ve::VoiceRenderer>()),
       jobs (std::make_unique<ve::JobQueue> (2))
 {
     capture.setDataFolder (session.getDataFolder());
@@ -215,7 +218,8 @@ void VocalEngineProcessor::scheduleRender (const ve::RegionDescriptor& d)
     loadingRegions.insert (d.id);
 
     jobs->submit ("Load take", "render:" + d.id, ve::JobPriority::high,
-        [r = (d.plan.rendererId == ve::RenderPlan::capturedId ? renderer : pitchRenderer), d, rate, result] (ve::JobContext& ctx)
+        [r = (d.plan.rendererId == ve::RenderPlan::capturedId ? renderer
+              : d.plan.rendererId == ve::RenderPlan::voiceConvertId ? voiceRenderer : pitchRenderer), d, rate, result] (ve::JobContext& ctx)
         {
             return r->render (d, d.plan, rate, ctx, *result);
         },
@@ -325,6 +329,33 @@ void VocalEngineProcessor::setGlobalCorrection (float amount)
     sendChangeMessage();
 }
 
+void VocalEngineProcessor::setVoice (const juce::String& id)
+{
+    session.setVoiceId (id);
+    ve::VoiceModelInfo m;
+    if (id.isEmpty())
+        postMessage ("Voice: as recorded");
+    else if (! ve::ml::isOnnxAvailable())
+        postMessage ("Voice rendering is unavailable: " + ve::ml::onnxUnavailableReason());
+    else if (! ve::sharedVoiceLibrary().get (id, m))
+        postMessage ("Voice \"" + id + "\" is not installed");
+    else
+        postMessage ("Voice: " + m.name + " (rendering every take, this can take a minute)");
+    for (auto& d : session.getRegionDescriptors())
+        pendingRerender.insert (d.id);
+    lastEditMs = juce::Time::getMillisecondCounter();
+    sendChangeMessage();
+}
+
+void VocalEngineProcessor::rescanVoices()
+{
+    const auto problems = ve::sharedVoiceLibrary().scan();
+    const auto count = ve::sharedVoiceLibrary().list().size();
+    postMessage (juce::String ((int) count) + " voice model(s) found"
+                 + (problems.isEmpty() ? juce::String() : ". Skipped: " + problems.joinIntoString ("; ")));
+    setVoice (session.getVoiceId());
+}
+
 void VocalEngineProcessor::setStyle (const juce::String& id)
 {
     const auto style = ve::sharedStyleLibrary().get (id);
@@ -344,6 +375,47 @@ void VocalEngineProcessor::updateNote (const juce::String& id, int index, const 
     if (index < 0 || index >= (int) plan.notes.size()) return;
     plan.notes[(size_t) index] = note;
     plan.notes[(size_t) index].userEdited = true;
+    session.setNotes (id, plan.notes);
+    pendingRerender.insert (id);
+    lastEditMs = juce::Time::getMillisecondCounter();
+    sendChangeMessage();
+}
+
+namespace
+{
+    bool loadPitchTrack (const ve::RegionDescriptor& d, ve::PitchTrack& t)
+    {
+        juce::MemoryBlock mb;
+        return d.pitchFile.existsAsFile() && d.pitchFile.loadFileAsData (mb) && ve::PitchTrack::deserialise (mb, t);
+    }
+}
+
+void VocalEngineProcessor::splitNote (const juce::String& id, int index, std::int64_t at)
+{
+    auto plan = session.getNotePlan (id);
+    const auto d = session.getRegionDescriptor (session.findRegion (id));
+    ve::PitchTrack track;
+    const bool haveTrack = loadPitchTrack (d, track);
+    const auto minLen = (std::int64_t) (0.03 * juce::jmax (1.0, d.captureSampleRate));
+    if (! ve::NoteEdit::split (plan.notes, index, at, haveTrack ? &track : nullptr, minLen))
+    {
+        postMessage ("Can't split there: both halves need to be at least 30 ms long.");
+        return;
+    }
+    session.setNotes (id, plan.notes);
+    pendingRerender.insert (id);
+    lastEditMs = juce::Time::getMillisecondCounter();
+    sendChangeMessage();
+}
+
+void VocalEngineProcessor::mergeNoteWithNext (const juce::String& id, int index)
+{
+    auto plan = session.getNotePlan (id);
+    const auto d = session.getRegionDescriptor (session.findRegion (id));
+    ve::PitchTrack track;
+    const bool haveTrack = loadPitchTrack (d, track);
+    if (! ve::NoteEdit::mergeWithNext (plan.notes, index, haveTrack ? &track : nullptr))
+        return;
     session.setNotes (id, plan.notes);
     pendingRerender.insert (id);
     lastEditMs = juce::Time::getMillisecondCounter();

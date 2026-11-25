@@ -2,6 +2,8 @@
 #include "UI/Theme.h"
 #include "Engine/TakeImporter.h"
 #include "Engine/Style/StyleProfile.h"
+#include "Engine/ML/InferenceBackend.h"
+#include "Engine/Voice/VoiceModel.h"
 
 VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
     : juce::AudioProcessorEditor (p),
@@ -49,6 +51,8 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
     timeline.onDeleteRegion = [this] (const juce::String& id) { processor.deleteRegion (id); };
     timeline.onAnalyseRegion = [this] (const juce::String& id) { processor.analyseRegion (id); };
     timeline.onNoteChanged = [this] (const juce::String& id, int idx, const ve::Note& n) { processor.updateNote (id, idx, n); };
+    timeline.onSplitNote = [this] (const juce::String& id, int idx, std::int64_t at) { processor.splitNote (id, idx, at); };
+    timeline.onMergeNote = [this] (const juce::String& id, int idx) { processor.mergeNoteWithNext (id, idx); };
     controls.onCorrectionChanged = [this] (float a) { processor.setGlobalCorrection (a); };
     controls.onStyleChanged = [this] (const juce::String& id) { processor.setStyle (id); };
     {
@@ -58,12 +62,22 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
         controls.setStyles (items);
     }
 
+    controls.onVoiceChanged = [this] (const juce::String& id) { processor.setVoice (id); };
+    controls.onRescanVoices = [this] { processor.rescanVoices(); refreshVoices(); };
+    controls.onOpenVoicesFolder = []
+    {
+        auto f = ve::VoiceLibrary::voicesFolder();
+        f.createDirectory();
+        f.startAsProcess();
+    };
+    refreshVoices();
+
     processor.addChangeListener (this);
     rebuildFromSession();
 
     setResizable (true, true);
-    setResizeLimits (1180, 520, 3000, 1800);
-    setSize (1280, 700);
+    setResizeLimits (1300, 520, 3000, 1800);
+    setSize (1360, 720);
     startTimerHz (30);
 }
 
@@ -136,6 +150,14 @@ void VocalEngineEditor::changeListenerCallback (juce::ChangeBroadcaster*)
     rebuildFromSession();
 }
 
+void VocalEngineEditor::refreshVoices()
+{
+    std::vector<ve::ui::ControlBar::VoiceItem> items;
+    for (auto& v : ve::sharedVoiceLibrary().list())
+        items.push_back ({ v.id, v.name });
+    controls.setVoices (items, ve::ml::isOnnxAvailable(), ve::ml::onnxUnavailableReason());
+}
+
 void VocalEngineEditor::rebuildFromSession()
 {
     const auto& session = processor.getSession();
@@ -146,6 +168,7 @@ void VocalEngineEditor::rebuildFromSession()
     controls.setDataFolderText (session.getDataFolder().getFullPathName());
     controls.setCorrection (processor.getGlobalCorrection());
     controls.setStyle (session.getStyleId());
+    controls.setVoice (session.getVoiceId());
 
     const auto est = session.getEstimatedKey();
     controls.setEstimatedKeyText (est.isValid() ? ve::Analysis::keyName (est.tonic, est.minor) : "not analysed");

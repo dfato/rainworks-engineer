@@ -39,6 +39,9 @@ set(VE_ENGINE_SOURCES
     Source/Engine/Style/BuiltinStyles.cpp
     Source/Engine/Style/ExpressionLayer.cpp
     Source/Engine/Style/StyleProfile.cpp
+    Source/Engine/Voice/VoiceConverter.cpp
+    Source/Engine/Voice/VoiceModel.cpp
+    Source/Engine/Voice/VoiceRenderer.cpp
     Source/Engine/TempoMap.cpp
     Source/Engine/TimeWarp.cpp
     Source/Engine/ML/OnnxBackend.cpp
@@ -132,10 +135,28 @@ target_sources(VocalEngine PRIVATE
     Source/UI/TimelineComponent.cpp
 )
 
-# The plugin does not link ONNX Runtime yet (Stage 5 decides in-process vs sidecar);
-# its ML backend compiles as the "not available" stub.
 target_include_directories(VocalEngine PRIVATE Source)
-target_compile_definitions(VocalEngine PRIVATE VE_WITH_ONNX=0)
+
+# Stage 5 voice models run in-process through ONNX Runtime when VE_WITH_ONNX=ON.
+# On Windows the runtime is delay-loaded and shipped next to the plugin binary
+# (inside the .vst3 bundle), and the engine loads it from there by full path, so a
+# missing or foreign onnxruntime.dll can never crash the host.
+if(VE_WITH_ONNX)
+    target_compile_definitions(VocalEngine PRIVATE VE_WITH_ONNX=1)
+    target_link_libraries(VocalEngine PRIVATE ve_onnxruntime)
+    foreach(_fmt VST3 Standalone)
+        if(TARGET VocalEngine_${_fmt})
+            if(MSVC)
+                target_link_options(VocalEngine_${_fmt} PRIVATE "/DELAYLOAD:onnxruntime.dll")
+                target_link_libraries(VocalEngine_${_fmt} PRIVATE delayimp)
+            endif()
+            add_custom_command(TARGET VocalEngine_${_fmt} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:ve_onnxruntime> $<TARGET_FILE_DIR:VocalEngine_${_fmt}>)
+        endif()
+    endforeach()
+else()
+    target_compile_definitions(VocalEngine PRIVATE VE_WITH_ONNX=0)
+endif()
 
 target_compile_definitions(VocalEngine PUBLIC
     JUCE_WEB_BROWSER=0
@@ -166,6 +187,8 @@ if(VE_BUILD_TESTS)
         PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
     if(VE_WITH_ONNX)
         target_link_libraries(VocalEngineTests PRIVATE ve_onnxruntime)
+        add_custom_command(TARGET VocalEngineTests POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:ve_onnxruntime> $<TARGET_FILE_DIR:VocalEngineTests>)
     endif()
     add_test(NAME engine COMMAND VocalEngineTests)
 

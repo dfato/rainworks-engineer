@@ -14,6 +14,8 @@
 #include "Engine/PitchTracker.h"
 #include "Engine/PitchCorrectRenderer.h"
 #include "Engine/TimeWarp.h"
+#include "Engine/Voice/VoiceConverter.h"
+#include "Engine/Voice/VoiceRenderer.h"
 #include "Engine/Style/ExpressionLayer.h"
 #include "Engine/Style/StyleProfile.h"
 #include "Engine/TempoMap.h"
@@ -896,6 +898,32 @@ public:
             expectWithinAbsoluteError (outRms / inRms, 1.0f, 0.25f);
         }
 
+        beginTest ("Split and merge note blobs");
+        {
+            PitchTrack t; t.sampleRate = sr; t.hopSize = 240;
+            for (int i = 0; i < 400; ++i)   // 2 s: first second A3, second second C4
+                t.frames.push_back ({ i < 200 ? 220.0f : 261.6256f, 1.0f, 0.1f });
+            Note n; n.start = 0; n.end = (std::int64_t) (2.0 * sr); n.detectedMidi = 58.0f; n.targetMidi = 57.0f;
+            n.correction = 0.7f; n.timeShift = 100;
+            std::vector<Note> notes { n };
+            const auto minLen = (std::int64_t) (0.03 * sr);
+
+            expect (! NoteEdit::split (notes, 0, 10, &t, minLen), "too close to the edge");
+            expect (! NoteEdit::split (notes, 3, 1000, &t, minLen), "bad index");
+            expect (NoteEdit::split (notes, 0, (std::int64_t) sr, &t, minLen));
+            expectEquals ((int) notes.size(), 2);
+            expect (notes[0].end == notes[1].start && notes[1].end == n.end);
+            expectWithinAbsoluteError (notes[0].detectedMidi, 57.0f, 0.01f);
+            expectWithinAbsoluteError (notes[1].detectedMidi, 60.0f, 0.01f);
+            expect (notes[1].timeShift == 100 && notes[1].userEdited && notes[1].correction > 0.69f);
+
+            expect (! NoteEdit::mergeWithNext (notes, 1, &t), "no next note");
+            expect (NoteEdit::mergeWithNext (notes, 0, &t));
+            expectEquals ((int) notes.size(), 1);
+            expect (notes[0].start == 0 && notes[0].end == n.end);
+            expectWithinAbsoluteError (notes[0].targetMidi, 57.0f, 1.0e-6f);
+        }
+
         beginTest ("Style timing parses swing and is part of the style hash");
         {
             StyleLibrary lib;
@@ -910,6 +938,270 @@ public:
 };
 
 static TimingTests timingTests;
+class VoiceTests final : public juce::UnitTest
+{
+public:
+    VoiceTests() : juce::UnitTest ("Voice", "VocalEngine") {}
+
+    static constexpr int dim = 8;
+
+    // Stand-in content encoder: [1,1,N] audio -> [1,F,dim] features (frame energy in feature 0).
+    struct FakeEncoder final : ml::InferenceBackend
+    {
+        juce::String getName() const override { return "fake encoder"; }
+        juce::Result loadModel (const juce::File&) override { return juce::Result::ok(); }
+        juce::Result loadModel (const void*, size_t) override { return juce::Result::ok(); }
+        std::vector<ml::TensorInfo> getInputs() const override { return { { "source", 3 } }; }
+        std::vector<ml::TensorInfo> getOutputs() const override { return { { "embed", 3 } }; }
+        juce::Result run (const std::vector<ml::Tensor>& in, std::vector<ml::Tensor>& out) override
+        {
+            if (in.size() != 1 || in[0].shape.size() != 3) return juce::Result::fail ("bad encoder input");
+            const int N = (int) in[0].shape[2];
+            const int F = juce::jmax (0, (N - 400) / 320 + 1);
+            auto t = ml::Tensor::makeFloat ("embed", { 1, F, dim }, std::vector<float> ((size_t) F * dim, 0.0f));
+            for (int f = 0; f < F; ++f)
+            {
+                double e = 0.0;
+                for (int i = 0; i < 400; ++i) { const double x = in[0].data[(size_t) (f * 320 + i)]; e += x * x; }
+                t.data[(size_t) f * dim] = (float) std::sqrt (e / 400.0);
+                t.data[(size_t) f * dim + 1] = 1.0f;
+            }
+            out = { t };
+            ++calls;
+            return juce::Result::ok();
+        }
+        int calls = 0;
+    };
+
+    // Stand-in synthesiser: sings a sine at pitchf, `hop` samples per frame.
+    struct FakeSynth final : ml::InferenceBackend
+    {
+        explicit FakeSynth (int h, bool withPitch = true) : hop (h), pitchInput (withPitch) {}
+        juce::String getName() const override { return "fake synth"; }
+        juce::Result loadModel (const juce::File&) override { return juce::Result::ok(); }
+        juce::Result loadModel (const void*, size_t) override { return juce::Result::ok(); }
+        std::vector<ml::TensorInfo> getInputs() const override
+        {
+            std::vector<ml::TensorInfo> v { { "phone", 3 }, { "phone_lengths", 1 }, { "pitchf", 2 }, { "ds", 1 }, { "rnd", 3 } };
+            if (pitchInput) v.push_back ({ "pitch", 2 });
+            return v;
+        }
+        std::vector<ml::TensorInfo> getOutputs() const override { return { { "audio", 3 } }; }
+        juce::Result run (const std::vector<ml::Tensor>& in, std::vector<ml::Tensor>& out) override
+        {
+            const ml::Tensor *phone = nullptr, *pitch = nullptr, *pitchf = nullptr, *rnd = nullptr, *len = nullptr;
+            for (auto& t : in)
+            {
+                if (t.name == "phone") phone = &t;
+                if (t.name == "pitch") pitch = &t;
+                if (t.name == "pitchf") pitchf = &t;
+                if (t.name == "rnd") rnd = &t;
+                if (t.name == "phone_lengths") len = &t;
+            }
+            if (! phone || ! pitch || ! pitchf || ! rnd || ! len) return juce::Result::fail ("missing input");
+            const int T = (int) pitchf->shape[1];
+            shapesOk = shapesOk && phone->shape == std::vector<std::int64_t> { 1, T, dim } && rnd->shape == std::vector<std::int64_t> { 1, 192, T }
+                       && len->ints == std::vector<std::int64_t> { T } && pitch->type == ml::Tensor::Type::int64;
+            for (auto p : pitch->ints) { minCoarse = std::min (minCoarse, p); maxCoarse = std::max (maxCoarse, p); }
+
+            auto t = ml::Tensor::makeFloat ("audio", { 1, 1, (std::int64_t) T * hop }, std::vector<float> ((size_t) T * (size_t) hop, 0.0f));
+            double phase = 0.0;
+            for (int i = 0; i < T * hop; ++i)
+            {
+                const float f = pitchf->data[(size_t) (i / hop)];
+                phase += 2.0 * juce::MathConstants<double>::pi * f / (hop * 100.0);
+                t.data[(size_t) i] = f > 0.0f ? 0.3f * (float) std::sin (phase) : 0.0f;
+            }
+            out = { t };
+            ++calls;
+            return juce::Result::ok();
+        }
+        int hop, calls = 0;
+        bool pitchInput, shapesOk = true;
+        std::int64_t minCoarse = 1000, maxCoarse = -1;
+    };
+
+    static VoiceModelInfo testModel()
+    {
+        VoiceModelInfo m;
+        m.id = "test"; m.name = "Test"; m.sampleRate = 40000.0; m.featureDim = dim; m.version = "v1";
+        return m;
+    }
+
+    static float centsAt (const PitchTrack& t, double sec, float hz)
+    {
+        const auto f = t.frames[(size_t) juce::jmin ((int) t.frames.size() - 1, (int) (sec * t.sampleRate / t.hopSize))].f0;
+        return f > 0.0f ? 1200.0f * std::log2 (f / hz) : 9999.0f;
+    }
+
+    void runTest() override
+    {
+        beginTest ("RVC pitch bins");
+        {
+            expect (VoiceConverter::coarsePitch (0.0f) == 1);
+            expect (VoiceConverter::coarsePitch (50.0f) == 1);
+            expect (VoiceConverter::coarsePitch (1100.0f) == 255);
+            expect (VoiceConverter::coarsePitch (5000.0f) == 255);
+            bool mono = true;
+            for (float hz = 60.0f; hz < 1000.0f; hz *= 1.05f)
+                mono = mono && VoiceConverter::coarsePitch (hz * 1.05f) >= VoiceConverter::coarsePitch (hz);
+            expect (mono);
+        }
+
+        beginTest ("Conversion follows the planned pitch across chunk joins, at the model's rate");
+        {
+            const double sr = 48000.0;
+            const int n = (int) (3.2 * sr);
+            std::vector<float> in ((size_t) n);
+            for (int i = 0; i < n; ++i) in[(size_t) i] = 0.3f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 220.0 * i / sr);
+            const float target = 246.9417f; // B3
+            std::vector<float> f0 ((size_t) n, target);
+            for (int i = (int) (1.4 * sr); i < (int) (1.6 * sr); ++i) f0[(size_t) i] = 0.0f; // a breath
+
+            FakeEncoder enc;
+            FakeSynth syn (400);
+            const auto model = testModel();
+            VoiceConverter vc (enc, syn, model);
+            expect (vc.validate().isEmpty(), vc.validate());
+            VoiceConverter::Settings st;
+            st.chunkSeconds = 1.0;
+            std::vector<float> out;
+            const auto r = vc.convert (in.data(), n, sr, f0, st, nullptr, out);
+            expect (r.wasOk(), r.getErrorMessage());
+            expectEquals ((int) out.size(), (int) std::llround (n * 40000.0 / sr));
+            expect (syn.calls >= 4, "should run in chunks");
+            expect (syn.shapesOk, "synth inputs shaped like an RVC export");
+            expect (syn.minCoarse >= 1 && syn.maxCoarse <= 255 && syn.maxCoarse > 1);
+
+            juce::AudioBuffer<float> ob (1, (int) out.size());
+            ob.copyFrom (0, 0, out.data(), (int) out.size());
+            PitchTrack t;
+            expect (PitchTracker::track (ob, 40000.0, {}, nullptr, t).wasOk());
+            for (double sec : { 0.3, 0.88, 0.95, 1.0, 1.85, 2.6, 2.7 })  // includes chunk overlaps
+                expectWithinAbsoluteError (centsAt (t, sec, target), 0.0f, 10.0f);
+            const float breath = ob.getRMSLevel (0, (int) (1.45 * 40000), (int) (0.1 * 40000));
+            expect (breath < 0.02f, "unvoiced planned pitch stays quiet");
+        }
+
+        beginTest ("Models without a pitch input are refused");
+        {
+            FakeEncoder enc;
+            FakeSynth syn (400, false);
+            VoiceConverter vc (enc, syn, testModel());
+            expect (vc.validate().contains ("pitch"));
+            std::vector<float> in (48000, 0.1f), f0 (48000, 200.0f), out;
+            expect (vc.convert (in.data(), 48000, 48000.0, f0, {}, nullptr, out).failed());
+        }
+
+        beginTest ("Feature bank round trip and nearest-neighbour retrieval");
+        {
+            const std::vector<float> v { 0, 0,  10, 0,  0, 10 };
+            const auto mb = FeatureBank::serialise (v, 2);
+            FeatureBank bank;
+            expect (bank.loadFromMemory (mb.getData(), mb.getSize()));
+            expectEquals (bank.size(), 3);
+            const float q[2] = { 9.9f, 0.1f };
+            float o[2];
+            bank.retrieve (q, o, 1);
+            expectWithinAbsoluteError (o[0], 10.0f, 1.0e-4f);
+            bank.retrieve (q, o, 3);
+            expect (o[0] > 9.0f, "closest vector dominates the blend");
+            expect (! bank.loadFromMemory ("nope", 4));
+        }
+
+        beginTest ("voice.json loads, and broken voices are reported");
+        {
+            auto root = tempFolder ("voices");
+            auto good = root.getChildFile ("dominic");
+            good.createDirectory();
+            good.getChildFile ("synth.onnx").replaceWithText ("x");
+            good.getChildFile ("enc.onnx").replaceWithText ("x");
+            good.getChildFile ("voice.json").replaceWithText (R"({"name": "Dominic", "format": "rvc-v2", "sampleRate": 48000, "contentEncoder": "enc.onnx"})");
+            auto bad = root.getChildFile ("broken");
+            bad.createDirectory();
+            bad.getChildFile ("voice.json").replaceWithText (R"({"name": "Broken"})");
+
+            VoiceLibrary lib;
+            const auto problems = lib.scan (root);
+            expectEquals ((int) lib.list().size(), 1);
+            expectEquals (problems.size(), 1);
+            VoiceModelInfo m;
+            expect (lib.get ("dominic", m));
+            expectEquals (m.name, juce::String ("Dominic"));
+            expectEquals (m.hopSize(), 480);
+            expect (m.version.isNotEmpty());
+
+            // Plan hash changes with the voice and its version.
+            NotePlan none;
+            const auto a = RenderPlan::forNotes (none, {}, "dominic", "v1");
+            const auto b = RenderPlan::forNotes (none, {}, "dominic", "v2");
+            expect (a.rendererId == RenderPlan::voiceConvertId);
+            expect (a.hash() != b.hash() && a.hash() != RenderPlan::identity().hash());
+        }
+
+        beginTest ("Voice renderer: plan -> pitch/timing -> model -> engine rate");
+        {
+            const double sr = 44100.0;
+            auto folder = tempFolder ("voice-render");
+            juce::AudioBuffer<float> take (1, (int) (2.0 * sr));
+            take.clear();
+            NoteTests::addVoiceNote (take, sr, 0.2, 1.2, 57.0f, -30.0f);
+            expect (TakeImporter::writeWav (folder.getChildFile ("take.wav"), take, sr).wasOk());
+            PitchTrack track;
+            expect (PitchTracker::track (take, sr, {}, nullptr, track).wasOk());
+            expect (folder.getChildFile ("take_pitch.bin").replaceWithData (track.serialise().getData(), track.serialise().getSize()));
+            auto notes = NoteSegmenter::segment (track, {});
+            expectEquals ((int) notes.size(), 1);
+            for (auto& nn : notes) nn.correction = 1.0f;
+
+            RegionDescriptor d;
+            d.id = "r1";
+            d.vocalFile = folder.getChildFile ("take.wav");
+            d.pitchFile = folder.getChildFile ("take_pitch.bin");
+            d.captureSampleRate = sr;
+            d.lengthSamples = take.getNumSamples();
+            d.plan = RenderPlan::forNotes ({ notes }, {}, "test", "v1");
+            d.planHash = d.plan.hash();
+
+            int made = 0;
+            VoiceRenderer vr ([&made]() -> std::unique_ptr<ml::InferenceBackend>
+                              {
+                                  ++made;
+                                  if (made % 2 == 1) return std::make_unique<FakeEncoder>();
+                                  return std::make_unique<FakeSynth> (400);
+                              },
+                              [] (const juce::String& id, VoiceModelInfo& m) { if (id != "test") return false; m = testModel(); return true; });
+            JobQueue q (1, std::make_unique<ImmediateDispatcher>());
+            RenderedAudio out;
+            juce::Result res = juce::Result::ok();
+            q.submit ("render", {}, JobPriority::normal, [&] (JobContext& ctx) { res = vr.render (d, d.plan, 48000.0, ctx, out); return res; }, {});
+            q.waitUntilIdle (60000);
+            expect (res.wasOk(), res.getErrorMessage());
+            expectEquals (out.sampleRate, 48000.0);
+            expectEquals (out.audio.getNumSamples(), (int) std::llround (take.getNumSamples() * 48000.0 / sr));
+
+            PitchTrack t2;
+            expect (PitchTracker::track (out.audio, 48000.0, {}, nullptr, t2).wasOk());
+            const float cents = centsAt (t2, 0.8, 220.0f);
+            logMessage ("Voice-rendered note is " + juce::String (cents, 1) + " cents from A3 (sung -30)");
+            expectWithinAbsoluteError (cents, 0.0f, 10.0f);
+
+            // A second render reuses the loaded models.
+            RenderedAudio again;
+            q.submit ("render", {}, JobPriority::normal, [&] (JobContext& ctx) { return vr.render (d, d.plan, 48000.0, ctx, again); }, {});
+            q.waitUntilIdle (60000);
+            expectEquals (made, 2);
+
+            RenderPlan missing = d.plan; missing.voiceId = "nobody";
+            RenderedAudio none;
+            q.submit ("render", {}, JobPriority::normal, [&] (JobContext& ctx) { res = vr.render (d, missing, 48000.0, ctx, none); return res; }, {});
+            q.waitUntilIdle (60000);
+            expect (res.failed() && res.getErrorMessage().contains ("not installed"));
+        }
+    }
+};
+
+static VoiceTests voiceTests;
 static StyleTests styleTests;
 static ImportTests importTests;
 static CoreTests coreTests;

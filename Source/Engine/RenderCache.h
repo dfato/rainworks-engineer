@@ -18,16 +18,18 @@ namespace ve
     {
         static constexpr const char* capturedId = "captured";
         static constexpr const char* pitchCorrectId = "pitch-correct";
+        static constexpr const char* voiceConvertId = "voice-convert";
 
         juce::String rendererId = capturedId;
         int rendererVersion = 1;
         NotePlan notes;        // Stage 2
         StyleProfile style;    // Stage 3: how the notes are performed
+        juce::String voiceId, voiceVersion;  // Stage 5: render in this voice model (empty = the recorded voice)
 
         std::uint64_t hash() const noexcept;
         static RenderPlan identity() { return {}; }
         // Picks the renderer for a note plan: captured audio if nothing would change.
-        static RenderPlan forNotes (NotePlan, StyleProfile style = {});
+        static RenderPlan forNotes (NotePlan, StyleProfile style = {}, juce::String voiceId = {}, juce::String voiceVersion = {});
     };
 
     // Everything a renderer needs to know about a region. Plain data.
