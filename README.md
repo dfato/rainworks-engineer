@@ -36,10 +36,10 @@ There is no pitch correction or ML rendering yet.
 
 ## Build on Windows (MSVC)
 
-Needs Visual Studio 2022 (Desktop development with C++) and CMake 3.22+ (bundled with VS).
+Needs Visual Studio 2022 or newer (Desktop development with C++) and CMake 3.22+ (bundled with VS). Without `-G`, CMake picks the newest Visual Studio installed.
 
 ```
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake -S . -B build -A x64
 cmake --build build --config Release --parallel
 ctest --test-dir build -C Release --output-on-failure
 ```
@@ -53,12 +53,12 @@ Install the VST3 by copying the whole `.vst3` folder to `C:\Program Files\Common
 ### Optional: ONNX Runtime smoke test
 
 ```
-cmake -S . -B build-onnx -G "Visual Studio 17 2022" -A x64 -DVE_WITH_ONNX=ON
+cmake -S . -B build-onnx -A x64 -DVE_WITH_ONNX=ON
 cmake --build build-onnx --config Release --target VocalEngineOnnxSmokeTest
 ctest --test-dir build-onnx -C Release -R onnx_smoke --output-on-failure
 ```
 
-CMake downloads the prebuilt ONNX Runtime (`VE_ONNX_VERSION`, default 1.20.1). To use one you already have,
+CMake downloads ONNX Runtime from its NuGet package (`VE_ONNX_VERSION`, default 1.20.1). To use one you already have,
 pass `-DVE_ONNX_ROOT=C:\path\to\onnxruntime-win-x64-1.20.1`. The test builds a tiny `Y = X + X` model in
 memory (no model files ship) and runs one inference on a JobQueue worker. The plugin itself does not link
 ONNX Runtime yet.
@@ -117,6 +117,18 @@ loop on/off with loop points, and sample rate.
    closes a take).
 5. Data folder > Show in file browser: one `_vocal.wav` (and `_sidechain.wav` if the sidechain is routed) per take.
 6. Disarm before moving on, or every play records a new take.
+
+### 4b. Whole song in one go
+
+**Import (fastest).** Export your vocal (and optionally the beat) from FL starting at bar 1, then either click
+**Import song...** and select one or both files, or drag them onto the plugin. A file whose name contains
+beat/inst/music/track/mix is used as the beat; the other is the vocal. The take lands at bar 1 using the
+project's current tempo, the beat feeds sidechain analysis, and nothing has to play. WAV, AIFF, FLAC and Ogg
+work everywhere; MP3 works on Windows.
+
+**Capture during export.** Arm the plugin, then File > Export > WAV with the song range. FL renders faster
+than real time and the plugin captures the whole song as one take while it does (it waits for the disk
+instead of dropping audio during offline renders). Disarm afterwards. You can delete the exported WAV.
 
 ### 5. Rendered playback (Step 4)
 

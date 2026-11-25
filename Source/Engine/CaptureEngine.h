@@ -53,11 +53,14 @@ namespace ve
         void setDataFolder (const juce::File& folder);
         juce::File getDataFolder() const;
 
-        // Audio thread.
+        // Audio thread. When `offline` is true (host is rendering faster than
+        // real time, e.g. FL Studio export) a full FIFO waits for the writer
+        // instead of dropping audio. Never pass true for real-time playback.
         void process (const HostSnapshot& host,
                       const juce::AudioBuffer<float>& mainIn,
                       const juce::AudioBuffer<float>* sidechain,
-                      bool armed) noexcept;
+                      bool armed,
+                      bool offline = false) noexcept;
 
         bool isCapturing() const noexcept { return capturingFlag.load (std::memory_order_relaxed); }
 
@@ -95,6 +98,7 @@ namespace ve
         friend class Writer;
 
         bool pushEvent (const Event&) noexcept;
+        void waitForSpace (int audioFrames, int events) noexcept; // offline only
         bool pushAudio (const juce::AudioBuffer<float>& mainIn, const juce::AudioBuffer<float>* sc, int numSamples) noexcept;
 
         // FIFOs (allocated in prepare).

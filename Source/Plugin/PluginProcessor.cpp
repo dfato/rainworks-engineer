@@ -2,6 +2,7 @@
 #include "PluginEditor.h"
 #include "Engine/EngineConfig.h"
 #include "Engine/SidechainAnalysis.h"
+#include "Engine/TakeImporter.h"
 
 VocalEngineProcessor::BusesProperties VocalEngineProcessor::makeBusesProperties()
 {
@@ -78,6 +79,12 @@ void VocalEngineProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
     const int numSamples = buffer.getNumSamples();
     const auto host = ve::HostContext::read (getPlayHead(), getSampleRate(), numSamples, ++blockCounter);
     hostSnapshots.write (host);
+    if (host.hasBpm) lastHostBpm.store (host.bpm, std::memory_order_relaxed);
+    if (host.hasTimeSig)
+    {
+        lastHostNum.store (host.timeSigNumerator, std::memory_order_relaxed);
+        lastHostDen.store (host.timeSigDenominator, std::memory_order_relaxed);
+    }
 
     const auto mainIn = getBusBuffer (buffer, true, ve::Bus::mainInput);
     mainInputChannels.store (mainIn.getNumChannels(), std::memory_order_relaxed);
@@ -102,7 +109,8 @@ void VocalEngineProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce:
 
     // Capture reads the input before playback may overwrite the shared channels.
     capture.process (host, mainIn, scOn ? &scBuffer : nullptr,
-                     armed.load (std::memory_order_relaxed) && mode != ve::MonitoringMode::bypass);
+                     armed.load (std::memory_order_relaxed) && mode != ve::MonitoringMode::bypass,
+                     isNonRealtime()); // e.g. FL export: wait for the disk instead of dropping
 
     // Main output shares channels with main input, so passthrough is implicit.
     auto mainOut = getBusBuffer (buffer, false, ve::Bus::mainOutput);
@@ -273,6 +281,44 @@ void VocalEngineProcessor::setDataFolder (const juce::File& f)
         missing += d.missingFiles ? 1 : 0;
     postMessage ("Data folder set to " + f.getFullPathName()
                  + (missing > 0 ? " (" + juce::String (missing) + " takes still missing)" : juce::String()));
+}
+
+void VocalEngineProcessor::importTake (const juce::File& vocal, const juce::File& beat)
+{
+    if (! vocal.existsAsFile())
+        return;
+
+    ve::TempoPoint tempo;
+    tempo.bpm = lastHostBpm.load();
+    tempo.numerator = lastHostNum.load();
+    tempo.denominator = lastHostDen.load();
+
+    const double rate = engineSampleRate.load() > 0.0 ? engineSampleRate.load() : 48000.0;
+    const auto folder = session.getDataFolder();
+    auto result = std::make_shared<ve::CapturedRegion>();
+
+    postMessage ("Importing " + vocal.getFileName() + (beat.existsAsFile() ? " + " + beat.getFileName() : juce::String()));
+
+    jobs->submit ("Import song", {}, ve::JobPriority::high,
+        [vocal, beat, folder, rate, tempo, result] (ve::JobContext& ctx)
+        {
+            return ve::TakeImporter::importTake (vocal, beat, folder, rate, tempo, &ctx, *result);
+        },
+        [this, result, name = vocal.getFileName()] (const ve::JobResult& res)
+        {
+            if (! res.success)
+            {
+                if (! res.cancelled)
+                    postMessage ("Import failed: " + res.error);
+                return;
+            }
+            session.addRegion (*result);
+            const auto d = session.getRegionDescriptor (session.findRegion (result->id));
+            scheduleRender (d);
+            scheduleAnalysis (d);
+            postMessage ("Imported " + name + " as a take from bar 1 ("
+                         + juce::String ((double) result->lengthSamples / result->sampleRate, 1) + " s)");
+        });
 }
 
 void VocalEngineProcessor::analyseAll()

@@ -337,12 +337,15 @@ namespace ve
     void CaptureEngine::process (const HostSnapshot& host,
                                  const juce::AudioBuffer<float>& mainIn,
                                  const juce::AudioBuffer<float>* sidechain,
-                                 bool armed) noexcept
+                                 bool armed,
+                                 bool offline) noexcept
     {
         if (! prepared.load (std::memory_order_relaxed))
             return;
 
         const int n = mainIn.getNumSamples();
+        if (offline)
+            waitForSpace (n, 4);
         const bool want = armed && host.isPlaying && host.hasTimelinePosition() && n > 0;
 
         auto makeEvent = [&] (Event::Type t)
@@ -428,6 +431,20 @@ namespace ve
 
         liveFrames.fetch_add (n, std::memory_order_relaxed);
         expectedNextSample = host.timeInSamples + n;
+    }
+
+    void CaptureEngine::waitForSpace (int frames, int events) noexcept
+    {
+        // Offline rendering only: the host is not waiting on a sound card, so
+        // letting the writer catch up is better than dropping audio.
+        for (int i = 0; i < 10000; ++i) // gives up after ~10 s
+        {
+            if (audioFifo->getFreeSpace() >= frames && eventFifo->getFreeSpace() >= events)
+                return;
+            if (writer != nullptr)
+                writer->notify();
+            juce::Thread::sleep (1);
+        }
     }
 
     CaptureEngine::LiveStatus CaptureEngine::getLiveStatus() const noexcept
