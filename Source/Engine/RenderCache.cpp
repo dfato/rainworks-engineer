@@ -15,7 +15,20 @@ namespace ve
         const auto id = rendererId.toStdString();
         mix (id.data(), id.size());
         mix (&rendererVersion, sizeof (rendererVersion));
+        if (rendererId != capturedId)
+        {
+            const auto n = notes.hash();
+            mix (&n, sizeof (n));
+        }
         return h;
+    }
+
+    RenderPlan RenderPlan::forNotes (NotePlan n)
+    {
+        RenderPlan p;
+        p.rendererId = n.isIdentity() ? capturedId : pitchCorrectId;
+        p.notes = std::move (n);
+        return p;
     }
 
     std::shared_ptr<const WaveformPeaks> WaveformPeaks::compute (const juce::AudioBuffer<float>& b, double sr, int spp)
@@ -117,6 +130,14 @@ namespace ve
         std::lock_guard<std::mutex> lock (mutex);
         auto it = entries.find ({ id, hash });
         return it != entries.end() ? it->second : nullptr;
+    }
+
+    std::shared_ptr<const RenderedAudio> RenderCache::findAny (const juce::String& id) const
+    {
+        std::lock_guard<std::mutex> lock (mutex);
+        for (auto& [k, v] : entries)
+            if (k.first == id) return v;
+        return nullptr;
     }
 
     void RenderCache::store (std::shared_ptr<const RenderedAudio> r)

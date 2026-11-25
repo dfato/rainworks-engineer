@@ -171,7 +171,13 @@ namespace ve
         if (sc.isNotEmpty())
             d.sidechainFile = folder.getChildFile (sc);
         d.tempoMap = readTempoMap (r);
-        d.planHash = (std::uint64_t) r.getProperty (IDs::planHash).toString().getHexValue64();
+        const auto pitch = r.getProperty (IDs::pitchFile).toString();
+        if (pitch.isNotEmpty())
+            d.pitchFile = folder.getChildFile (pitch);
+        d.plan = RenderPlan::forNotes (getNotePlan (d.id));
+        if (d.plan.rendererId != RenderPlan::capturedId && ! d.pitchFile.existsAsFile())
+            d.plan = RenderPlan::identity(); // can't correct without the pitch track
+        d.planHash = d.plan.hash();
         d.missingFiles = ! d.vocalFile.existsAsFile();
         return d;
     }

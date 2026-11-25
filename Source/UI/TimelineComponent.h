@@ -45,12 +45,15 @@ namespace ve::ui
 
         std::function<void (const juce::String&)> onDeleteRegion;
         std::function<void (const juce::String&)> onAnalyseRegion;
+        std::function<void (const juce::String&, int, const Note&)> onNoteChanged;
 
         void paint (juce::Graphics&) override;
         void resized() override;
         void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
         void mouseDown (const juce::MouseEvent&) override;
         void mouseDrag (const juce::MouseEvent&) override;
+        void mouseUp (const juce::MouseEvent&) override;
+        void mouseDoubleClick (const juce::MouseEvent&) override;
 
         // Reserved lane geometry so Stage 2 note blobs drop straight in.
         juce::Rectangle<int> getNoteLaneBounds() const noexcept { return noteLane; }
@@ -65,6 +68,9 @@ namespace ve::ui
         void drawChords (juce::Graphics&);
         void drawNotes (juce::Graphics&);
         const TimelineRegion* regionAt (juce::Point<int>) const;
+        struct NoteHit { int region = -1, note = -1; };
+        NoteHit noteAt (juce::Point<int>) const;
+        juce::Rectangle<float> noteBounds (const TimelineRegion&, const Note&, bool target) const;
 
         static constexpr int gutter = 64;
 
@@ -77,6 +83,12 @@ namespace ve::ui
         double pxPerPpq = 24.0;
         double dragStartView = 0.0;
         bool followPlayhead = true;
+
+        // Note lane geometry from the last paint, and the note being dragged.
+        float noteLo = 48.0f, noteRowH = 4.0f, noteH = 6.0f;
+        NoteHit dragNote;
+        float dragStartTarget = 0.0f;
+        bool noteDragged = false;
 
         juce::Rectangle<int> ruler, takesLane, chordLane, noteLane;
         juce::ScrollBar hScroll { false };

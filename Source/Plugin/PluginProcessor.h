@@ -77,6 +77,11 @@ public:
     void analyseRegion (const juce::String& regionId);
     void deleteRegion (const juce::String& regionId);
 
+    // Stage 2 note editing. Re-render is debounced so dragging stays smooth.
+    void setGlobalCorrection (float amount01);  // all notes the user hasn't edited individually
+    float getGlobalCorrection() const;
+    void updateNote (const juce::String& regionId, int noteIndex, const ve::Note&);
+
     const ve::SessionModel& getSession() const noexcept { return session; }
     const ve::RenderCache& getRenderCache() const noexcept { return cache; }
     bool isRegionLoading (const juce::String& id) const { return loadingRegions.count (id) > 0; }
@@ -121,7 +126,10 @@ private:
     // ---- message-thread state -----------------------------------------------
     ve::SessionModel session;
     ve::RenderCache cache;
-    std::shared_ptr<ve::RegionRenderer> renderer;
+    std::shared_ptr<ve::RegionRenderer> renderer;            // captured audio
+    std::shared_ptr<ve::RegionRenderer> pitchRenderer;       // Stage 2 pitch correction
+    std::set<juce::String> pendingRerender;                  // debounced after edits
+    juce::uint32 lastEditMs = 0;
     std::set<juce::String> loadingRegions;
     juce::String lastMessage;
     bool stateDirty = true;

@@ -12,7 +12,14 @@ namespace ve::ui
         armButton.onClick = [this] { if (onArmChanged) onArmChanged (armButton.getToggleState()); };
         addAndMakeVisible (armButton);
 
-        for (auto* l : { &modeLabel, &keyLabel })
+        correctionSlider.setRange (0.0, 100.0, 1.0);
+        correctionSlider.setTextValueSuffix ("%");
+        correctionSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 44, 20);
+        correctionSlider.setTooltip ("Pitch correction for every note you haven't edited by hand. 0% = as sung, 100% = on the key.");
+        correctionSlider.onValueChange = [this] { if (onCorrectionChanged) onCorrectionChanged ((float) correctionSlider.getValue() / 100.0f); };
+        addAndMakeVisible (correctionSlider);
+
+        for (auto* l : { &modeLabel, &keyLabel, &correctionLabel })
         {
             l->setColour (juce::Label::textColourId, Theme::textDim);
             l->setJustificationType (juce::Justification::centredRight);
@@ -59,6 +66,7 @@ namespace ve::ui
     void ControlBar::setMode (int m) { modeBox.setSelectedId (m + 1, juce::dontSendNotification); }
     void ControlBar::setKeyOverride (int k) { keyBox.setSelectedId (k + 2, juce::dontSendNotification); }
     void ControlBar::setEstimatedKeyText (const juce::String& t) { keyBox.changeItemText (1, "Auto (" + t + ")"); if (keyBox.getSelectedId() == 1) keyBox.setSelectedId (1, juce::dontSendNotification); }
+    void ControlBar::setCorrection (float a) { correctionSlider.setValue (a * 100.0, juce::dontSendNotification); }
     void ControlBar::setDataFolderText (const juce::String& t) { folderText = t; folderButton.setTooltip (t); }
 
     void ControlBar::paint (juce::Graphics& g)
@@ -76,7 +84,10 @@ namespace ve::ui
         modeBox.setBounds (r.removeFromLeft (110));
         r.removeFromLeft (8);
         keyLabel.setBounds (r.removeFromLeft (36));
-        keyBox.setBounds (r.removeFromLeft (160));
+        keyBox.setBounds (r.removeFromLeft (150));
+        r.removeFromLeft (8);
+        correctionLabel.setBounds (r.removeFromLeft (52));
+        correctionSlider.setBounds (r.removeFromLeft (150));
         r.removeFromLeft (8);
         folderButton.setBounds (r.removeFromRight (100));
         r.removeFromRight (8);

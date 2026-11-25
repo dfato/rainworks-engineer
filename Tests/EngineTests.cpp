@@ -12,6 +12,7 @@
 #include "Engine/TakeImporter.h"
 #include "Engine/NotePlan.h"
 #include "Engine/PitchTracker.h"
+#include "Engine/PitchCorrectRenderer.h"
 #include "Engine/TempoMap.h"
 #include "Engine/TripleBuffer.h"
 #include "State/SessionModel.h"
@@ -628,6 +629,47 @@ public:
             const auto h0 = plan.hash();
             plan.notes[0].correction = 1.0f;
             expect (! plan.isIdentity() && plan.hash() != h0);
+        }
+
+        beginTest ("PSOLA pitch correction moves a note to its target and leaves the rest bit-exact");
+        {
+            juce::AudioBuffer<float> b (1, (int) (sr * 2.0));
+            b.clear();
+            addVoiceNote (b, sr, 0.10, 0.60, 57.0f, -40.0f); // A3, 40 cents flat
+            addVoiceNote (b, sr, 1.00, 0.60, 60.0f, 0.0f);   // C4 untouched
+            PitchTrack t;
+            expect (PitchTracker::track (b, sr, {}, nullptr, t).wasOk());
+            KeyEstimate cMajor; cMajor.tonic = 0;
+            auto notes = NoteSegmenter::segment (t, cMajor);
+            expectEquals ((int) notes.size(), 2);
+            if (notes.size() != 2) return;
+            notes[0].correction = 1.0f; // pull A3 up to 57
+
+            const int n = b.getNumSamples();
+            std::vector<float> f0 ((size_t) n);
+            for (int i = 0; i < n; ++i) f0[(size_t) i] = t.frames[(size_t) juce::jmin ((int) t.frames.size() - 1, i / t.hopSize)].f0;
+            NotePlan plan { notes };
+            const auto shift = PitchCorrectRenderer::buildShiftCurve (plan, n, sr);
+            juce::AudioBuffer<float> out;
+            PitchCorrectRenderer::psolaShift (b, out, sr, f0, shift);
+            expectEquals (out.getNumSamples(), n);
+
+            PitchTrack t2;
+            expect (PitchTracker::track (out, sr, {}, nullptr, t2).wasOk());
+            const int mid = (int) (0.40 * sr / t2.hopSize);
+            const float cents = 1200.0f * std::log2 (t2.frames[(size_t) mid].f0 / 220.0f);
+            logMessage ("Corrected note is " + juce::String (cents, 1) + " cents from A3 (was -40)");
+            expectWithinAbsoluteError (cents, 0.0f, 8.0f);
+
+            bool exact = true;
+            for (int i = (int) (1.2 * sr); i < (int) (1.5 * sr); ++i)
+                exact = exact && juce::exactlyEqual (out.getSample (0, i), b.getSample (0, i));
+            expect (exact, "uncorrected note must be untouched");
+
+            // Level stays sensible (no OLA gain blow-up).
+            const float inRms = b.getRMSLevel (0, (int) (0.2 * sr), (int) (0.4 * sr));
+            const float outRms = out.getRMSLevel (0, (int) (0.2 * sr), (int) (0.4 * sr));
+            expectWithinAbsoluteError (outRms / inRms, 1.0f, 0.25f);
         }
 
         beginTest ("Snap to key");
