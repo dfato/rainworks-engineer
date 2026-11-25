@@ -19,6 +19,16 @@ namespace ve::ui
         correctionSlider.onValueChange = [this] { if (onCorrectionChanged) onCorrectionChanged ((float) correctionSlider.getValue() / 100.0f); };
         addAndMakeVisible (correctionSlider);
 
+        amountSlider.setRange (0.0, 200.0, 1.0);
+        amountSlider.setValue (100.0, juce::dontSendNotification);
+        amountSlider.setDoubleClickReturnValue (true, 100.0);
+        amountSlider.setTextValueSuffix ("%");
+        amountSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 44, 20);
+        amountSlider.setTooltip ("How strongly the style is applied: its vibrato, scoops, runs, falls and tone. "
+                                 "0% = tuning only, 100% = as designed, 200% = exaggerated. Double-click for 100%.");
+        amountSlider.onValueChange = [this] { if (onStyleAmountChanged) onStyleAmountChanged ((float) amountSlider.getValue() / 100.0f); };
+        addAndMakeVisible (amountSlider);
+
         styleBox.setTooltip ("Genre style: how hard notes snap, how fast, slides, scoops and vibrato. Picking one sets Correct to its default.");
         styleBox.onChange = [this]
         {
@@ -68,7 +78,7 @@ namespace ve::ui
         addAndMakeVisible (voiceBox);
         setVoices ({}, false, {});
 
-        for (auto* l : { &modeLabel, &keyLabel, &correctionLabel, &styleLabel, &voiceLabel })
+        for (auto* l : { &modeLabel, &keyLabel, &correctionLabel, &styleLabel, &voiceLabel, &amountLabel })
         {
             l->setColour (juce::Label::textColourId, Theme::textDim);
             l->setJustificationType (juce::Justification::centredRight);
@@ -191,6 +201,7 @@ namespace ve::ui
     void ControlBar::setIntent (bool on) { intentButton.setToggleState (on, juce::dontSendNotification); }
 
     void ControlBar::setCorrection (float a) { correctionSlider.setValue (a * 100.0, juce::dontSendNotification); }
+    void ControlBar::setStyleAmount (float a) { amountSlider.setValue (a * 100.0, juce::dontSendNotification); }
     void ControlBar::setDataFolderText (const juce::String& t) { folderText = t; folderButton.setTooltip (t); }
 
     void ControlBar::paint (juce::Graphics& g)
@@ -212,6 +223,9 @@ namespace ve::ui
         r.removeFromLeft (8);
         styleLabel.setBounds (r.removeFromLeft (40));
         styleBox.setBounds (r.removeFromLeft (136));
+        r.removeFromLeft (4);
+        amountLabel.setBounds (r.removeFromLeft (52));
+        amountSlider.setBounds (r.removeFromLeft (110));
         r.removeFromLeft (8);
         voiceLabel.setBounds (r.removeFromLeft (40));
         voiceBox.setBounds (r.removeFromLeft (130));

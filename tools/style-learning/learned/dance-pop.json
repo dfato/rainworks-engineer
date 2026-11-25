@@ -5,7 +5,7 @@
   "inherits": "pop",
   "description": "Bright and tight for four-on-the-floor tracks. Tuned from 1 openly licensed reference vocal.",
   "pitch": {
-    "correction": 0.85,
+    "correction": 0.89,
     "retuneMs": 2.88,
     "keepVariation": 0.25,
     "scale": "key"
@@ -25,6 +25,22 @@
     "quantize": 0.4,
     "grid": 16,
     "swing": 0.0
+  },
+  "ornaments": {
+    "runs": 0.0,
+    "runNotes": 4,
+    "runNoteMs": 80.0,
+    "fallCents": 0.0,
+    "fallMs": 0.0
+  },
+  "tone": {
+    "brightness": 0.5,
+    "warmth": 0.0,
+    "grit": 0.0,
+    "breath": 0.05
+  },
+  "dynamics": {
+    "compress": 0.7
   },
   "learned": {
     "takes": 1,

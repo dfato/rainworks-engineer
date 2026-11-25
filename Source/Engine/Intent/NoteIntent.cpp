@@ -124,7 +124,11 @@ namespace ve::NoteIntent
         }
 
         // Spoken / rapped: the tracker isn't sure, or the pitch wanders without being vibrato.
-        if (median (conf) < s.spokenMinConfidence || (! isVibrato && ! (out.flags & slide) && spreadCents > s.spokenMaxSpreadCents))
+        // Only the first is left alone: a clearly pitched note that wanders is most often a
+        // singer not holding the note, which is exactly what correction is for, so it is still
+        // pulled in (most of the way; the drift itself is smoothed by the expression layer).
+        const bool unpitched = median (conf) < s.spokenMinConfidence;
+        if (unpitched || (! isVibrato && ! (out.flags & slide) && spreadCents > s.spokenMaxSpreadCents))
             out.flags |= spoken;
 
         // Quiet: ad-lib / ghost note.
@@ -141,7 +145,7 @@ namespace ve::NoteIntent
         }
 
         float scale = 1.0f;
-        if (out.flags & spoken)  scale = juce::jmin (scale, 0.0f);
+        if (out.flags & spoken)  scale = juce::jmin (scale, unpitched ? 0.0f : 0.8f);
         if (out.flags & slide)   scale = juce::jmin (scale, 0.4f);
         if (out.flags & passing) scale = juce::jmin (scale, 0.5f);
         if (out.flags & quiet)   scale = juce::jmin (scale, 0.6f);

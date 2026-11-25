@@ -5,7 +5,7 @@
   "inherits": "natural",
   "description": "Raw, light-touch correction. Tuned from 6 openly licensed reference vocals.",
   "pitch": {
-    "correction": 0.54,
+    "correction": 0.97,
     "retuneMs": 59.81,
     "keepVariation": 1.0,
     "scale": "blues"
@@ -25,6 +25,22 @@
     "quantize": 0.0,
     "grid": 16,
     "swing": 0.0
+  },
+  "ornaments": {
+    "runs": 0.05,
+    "runNotes": 3,
+    "runNoteMs": 90.0,
+    "fallCents": 150.0,
+    "fallMs": 140.0
+  },
+  "tone": {
+    "brightness": 0.3,
+    "warmth": 0.1,
+    "grit": 0.55,
+    "breath": 0.05
+  },
+  "dynamics": {
+    "compress": 0.6
   },
   "learned": {
     "takes": 6,

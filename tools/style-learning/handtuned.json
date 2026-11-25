@@ -7,7 +7,7 @@
    "category": "Basic",
    "description": "Gentle correction that keeps the performance as sung.",
    "pitch": {
-    "correction": 0.6,
+    "correction": 0.91,
     "retuneMs": 40,
     "keepVariation": 1.0,
     "scale": "key"
@@ -27,6 +27,22 @@
     "quantize": 0,
     "grid": 16,
     "swing": 0
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0,
+    "warmth": 0,
+    "grit": 0,
+    "breath": 0
+   },
+   "dynamics": {
+    "compress": 0
    }
   },
   {
@@ -36,7 +52,7 @@
    "inherits": "natural",
    "description": "Fixes only what is clearly off; nothing else changes.",
    "pitch": {
-    "correction": 0.4,
+    "correction": 0.87,
     "retuneMs": 60
    }
   },
@@ -54,6 +70,22 @@
    "timing": {
     "quantize": 0.5,
     "grid": 16
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.2,
+    "warmth": 0,
+    "grit": 0,
+    "breath": 0
+   },
+   "dynamics": {
+    "compress": 0.4
    }
   },
   {
@@ -63,13 +95,29 @@
    "inherits": "natural",
    "description": "Tight, polished modern pop.",
    "pitch": {
-    "correction": 0.9,
+    "correction": 0.98,
     "retuneMs": 15,
     "keepVariation": 0.45,
     "scale": "key"
    },
    "slides": {
     "betweenNotesMs": 30
+   },
+   "ornaments": {
+    "runs": 0.08,
+    "runNotes": 4,
+    "runNoteMs": 85,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.35,
+    "warmth": 0,
+    "grit": 0,
+    "breath": 0.1
+   },
+   "dynamics": {
+    "compress": 0.55
    }
   },
   {
@@ -79,7 +127,7 @@
    "inherits": "pop",
    "description": "Polished but expressive, with vibrato on held notes.",
    "pitch": {
-    "correction": 0.75,
+    "correction": 0.95,
     "retuneMs": 35,
     "keepVariation": 0.8,
     "scale": "key"
@@ -91,6 +139,22 @@
    },
    "slides": {
     "betweenNotesMs": 70
+   },
+   "ornaments": {
+    "runs": 0.15,
+    "runNotes": 4,
+    "runNoteMs": 110,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.2,
+    "warmth": 0.3,
+    "grit": 0,
+    "breath": 0.2
+   },
+   "dynamics": {
+    "compress": 0.45
    }
   },
   {
@@ -100,7 +164,7 @@
    "inherits": "pop",
    "description": "Bright and tight for four-on-the-floor tracks.",
    "pitch": {
-    "correction": 0.95,
+    "correction": 0.99,
     "retuneMs": 8,
     "keepVariation": 0.25,
     "scale": "key"
@@ -111,6 +175,22 @@
    "timing": {
     "quantize": 0.4,
     "grid": 16
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 80,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.5,
+    "warmth": 0,
+    "grit": 0,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.7
    }
   },
   {
@@ -131,6 +211,22 @@
    "timing": {
     "quantize": 0.4,
     "grid": 16
+   },
+   "ornaments": {
+    "runs": 0.05,
+    "runNotes": 3,
+    "runNoteMs": 75,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.6,
+    "warmth": -0.1,
+    "grit": 0,
+    "breath": 0.15
+   },
+   "dynamics": {
+    "compress": 0.7
    }
   },
   {
@@ -150,6 +246,22 @@
    },
    "pitch": {
     "scale": "pentatonic"
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 70,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.8,
+    "warmth": -0.5,
+    "grit": 0.25,
+    "breath": 0
+   },
+   "dynamics": {
+    "compress": 0.85
    }
   },
   {
@@ -159,7 +271,7 @@
    "inherits": "natural",
    "description": "Smooth tuning that keeps runs and slides.",
    "pitch": {
-    "correction": 0.7,
+    "correction": 0.94,
     "retuneMs": 30,
     "keepVariation": 0.85,
     "scale": "blues"
@@ -173,6 +285,22 @@
    "vibrato": {
     "addDepthCents": 20,
     "onsetMs": 280
+   },
+   "ornaments": {
+    "runs": 0.45,
+    "runNotes": 5,
+    "runNoteMs": 80,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.1,
+    "warmth": 0.4,
+    "grit": 0,
+    "breath": 0.25
+   },
+   "dynamics": {
+    "compress": 0.5
    }
   },
   {
@@ -182,10 +310,26 @@
    "inherits": "rnb",
    "description": "Modern R&B: tighter pitch, glossy slides.",
    "pitch": {
-    "correction": 0.85,
+    "correction": 0.97,
     "retuneMs": 18,
     "keepVariation": 0.6,
     "scale": "blues"
+   },
+   "ornaments": {
+    "runs": 0.35,
+    "runNotes": 5,
+    "runNoteMs": 70,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.3,
+    "warmth": 0.2,
+    "grit": 0,
+    "breath": 0.3
+   },
+   "dynamics": {
+    "compress": 0.6
    }
   },
   {
@@ -195,7 +339,7 @@
    "inherits": "rnb",
    "description": "Loose and human, lots of scoops.",
    "pitch": {
-    "correction": 0.45,
+    "correction": 0.88,
     "retuneMs": 60,
     "keepVariation": 1.0,
     "scale": "modal"
@@ -208,6 +352,22 @@
     "quantize": 0.15,
     "grid": 16,
     "swing": 0.5
+   },
+   "ornaments": {
+    "runs": 0.4,
+    "runNotes": 4,
+    "runNoteMs": 100,
+    "fallCents": 60,
+    "fallMs": 180
+   },
+   "tone": {
+    "brightness": -0.3,
+    "warmth": 0.6,
+    "grit": 0.1,
+    "breath": 0.35
+   },
+   "dynamics": {
+    "compress": 0.35
    }
   },
   {
@@ -217,7 +377,7 @@
    "inherits": "rnb",
    "description": "Big vibrato, gentle tuning.",
    "pitch": {
-    "correction": 0.5,
+    "correction": 0.89,
     "retuneMs": 50,
     "scale": "blues"
    },
@@ -225,6 +385,22 @@
     "addDepthCents": 45,
     "rateHz": 5.8,
     "onsetMs": 220
+   },
+   "ornaments": {
+    "runs": 0.5,
+    "runNotes": 5,
+    "runNoteMs": 85,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.1,
+    "warmth": 0.45,
+    "grit": 0.3,
+    "breath": 0.15
+   },
+   "dynamics": {
+    "compress": 0.45
    }
   },
   {
@@ -244,6 +420,22 @@
    },
    "pitch": {
     "scale": "blues"
+   },
+   "ornaments": {
+    "runs": 0.7,
+    "runNotes": 6,
+    "runNoteMs": 70,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.25,
+    "warmth": 0.4,
+    "grit": 0.35,
+    "breath": 0.1
+   },
+   "dynamics": {
+    "compress": 0.5
    }
   },
   {
@@ -253,7 +445,7 @@
    "inherits": "natural",
    "description": "Clean hooks with moderate tuning.",
    "pitch": {
-    "correction": 0.8,
+    "correction": 0.96,
     "retuneMs": 20,
     "keepVariation": 0.5,
     "scale": "pentatonic"
@@ -265,6 +457,22 @@
     "quantize": 0.25,
     "grid": 16,
     "swing": 0.15
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.3,
+    "warmth": 0.2,
+    "grit": 0.1,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.7
    }
   },
   {
@@ -286,6 +494,22 @@
     "quantize": 0.4,
     "grid": 16,
     "swing": 0
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.4,
+    "warmth": 0.1,
+    "grit": 0.15,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.8
    }
   },
   {
@@ -304,6 +528,22 @@
     "maxGapMs": 110,
     "scoopCents": 50,
     "scoopMs": 50
+   },
+   "ornaments": {
+    "runs": 0.05,
+    "runNotes": 3,
+    "runNoteMs": 80,
+    "fallCents": 150,
+    "fallMs": 160
+   },
+   "tone": {
+    "brightness": 0.35,
+    "warmth": 0.1,
+    "grit": 0.1,
+    "breath": 0.15
+   },
+   "dynamics": {
+    "compress": 0.75
    }
   },
   {
@@ -324,6 +564,22 @@
     "quantize": 0.35,
     "grid": 16,
     "swing": 0.3
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 200,
+    "fallMs": 120
+   },
+   "tone": {
+    "brightness": -0.1,
+    "warmth": 0.3,
+    "grit": 0.25,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.85
    }
   },
   {
@@ -339,6 +595,22 @@
    },
    "pitch": {
     "scale": "key"
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 120,
+    "fallMs": 180
+   },
+   "tone": {
+    "brightness": 0.1,
+    "warmth": 0.1,
+    "grit": 0.1,
+    "breath": 0.3
+   },
+   "dynamics": {
+    "compress": 0.7
    }
   },
   {
@@ -348,7 +620,7 @@
    "inherits": "natural",
    "description": "Raw, light-touch correction.",
    "pitch": {
-    "correction": 0.45,
+    "correction": 0.88,
     "retuneMs": 55,
     "keepVariation": 1.0,
     "scale": "blues"
@@ -356,6 +628,22 @@
    "slides": {
     "scoopCents": 55,
     "scoopMs": 70
+   },
+   "ornaments": {
+    "runs": 0.05,
+    "runNotes": 3,
+    "runNoteMs": 90,
+    "fallCents": 150,
+    "fallMs": 140
+   },
+   "tone": {
+    "brightness": 0.3,
+    "warmth": 0.1,
+    "grit": 0.55,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.6
    }
   },
   {
@@ -365,10 +653,65 @@
    "inherits": "rock",
    "description": "Tighter rock tuning for fast, bright vocals.",
    "pitch": {
-    "correction": 0.7,
+    "correction": 0.94,
     "retuneMs": 25,
     "keepVariation": 0.7,
     "scale": "key"
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 100,
+    "fallMs": 120
+   },
+   "tone": {
+    "brightness": 0.5,
+    "warmth": -0.1,
+    "grit": 0.35,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.7
+   }
+  },
+  {
+   "id": "post-hardcore",
+   "name": "Post-Hardcore",
+   "category": "Rock",
+   "inherits": "rock",
+   "description": "Tight, bright and gritty: clean hooks pulled hard to pitch, fast vibrato tails, falls at phrase ends, heavy compression.",
+   "pitch": {
+    "correction": 0.96,
+    "retuneMs": 18,
+    "keepVariation": 0.55,
+    "scale": "key"
+   },
+   "vibrato": {
+    "addDepthCents": 25,
+    "rateHz": 6.6,
+    "onsetMs": 350
+   },
+   "slides": {
+    "betweenNotesMs": 30,
+    "scoopCents": 40,
+    "scoopMs": 50
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 120,
+    "fallMs": 120
+   },
+   "tone": {
+    "brightness": 0.5,
+    "warmth": 0.1,
+    "grit": 0.45,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.85
    }
   },
   {
@@ -378,9 +721,25 @@
    "inherits": "rock",
    "description": "Natural and slightly loose.",
    "pitch": {
-    "correction": 0.3,
+    "correction": 0.85,
     "retuneMs": 80,
     "scale": "key"
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": -0.2,
+    "warmth": 0.2,
+    "grit": 0.1,
+    "breath": 0.3
+   },
+   "dynamics": {
+    "compress": 0.35
    }
   },
   {
@@ -390,7 +749,7 @@
    "inherits": "rock",
    "description": "Clean metal vocals with wide vibrato.",
    "pitch": {
-    "correction": 0.6,
+    "correction": 0.91,
     "retuneMs": 35,
     "scale": "harmonic"
    },
@@ -398,6 +757,22 @@
     "addDepthCents": 40,
     "rateHz": 6.5,
     "onsetMs": 250
+   },
+   "ornaments": {
+    "runs": 0.1,
+    "runNotes": 4,
+    "runNoteMs": 80,
+    "fallCents": 80,
+    "fallMs": 120
+   },
+   "tone": {
+    "brightness": 0.4,
+    "warmth": 0.1,
+    "grit": 0.45,
+    "breath": 0
+   },
+   "dynamics": {
+    "compress": 0.75
    }
   },
   {
@@ -407,7 +782,7 @@
    "inherits": "natural",
    "description": "Clean tuning with twangy scoops.",
    "pitch": {
-    "correction": 0.65,
+    "correction": 0.93,
     "retuneMs": 35,
     "keepVariation": 0.9,
     "scale": "pentatonic"
@@ -420,6 +795,22 @@
    "vibrato": {
     "addDepthCents": 15,
     "onsetMs": 320
+   },
+   "ornaments": {
+    "runs": 0.12,
+    "runNotes": 3,
+    "runNoteMs": 110,
+    "fallCents": 120,
+    "fallMs": 180
+   },
+   "tone": {
+    "brightness": 0.4,
+    "warmth": -0.1,
+    "grit": 0.1,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.45
    }
   },
   {
@@ -429,9 +820,25 @@
    "inherits": "natural",
    "description": "Barely-there correction.",
    "pitch": {
-    "correction": 0.3,
+    "correction": 0.85,
     "retuneMs": 80,
     "scale": "pentatonic"
+   },
+   "ornaments": {
+    "runs": 0.05,
+    "runNotes": 3,
+    "runNoteMs": 120,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": -0.15,
+    "warmth": 0.35,
+    "grit": 0,
+    "breath": 0.25
+   },
+   "dynamics": {
+    "compress": 0.2
    }
   },
   {
@@ -441,9 +848,25 @@
    "inherits": "folk",
    "description": "Intimate and natural, a bit more polish than folk.",
    "pitch": {
-    "correction": 0.45,
+    "correction": 0.88,
     "retuneMs": 55,
     "scale": "key"
+   },
+   "ornaments": {
+    "runs": 0.05,
+    "runNotes": 3,
+    "runNoteMs": 110,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0,
+    "warmth": 0.3,
+    "grit": 0,
+    "breath": 0.2
+   },
+   "dynamics": {
+    "compress": 0.3
    }
   },
   {
@@ -461,6 +884,22 @@
    "timing": {
     "quantize": 0.45,
     "grid": 16
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 80,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.55,
+    "warmth": 0,
+    "grit": 0,
+    "breath": 0.1
+   },
+   "dynamics": {
+    "compress": 0.8
    }
   },
   {
@@ -482,6 +921,22 @@
     "quantize": 0.45,
     "grid": 16,
     "swing": 0.2
+   },
+   "ornaments": {
+    "runs": 0.25,
+    "runNotes": 4,
+    "runNoteMs": 85,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.4,
+    "warmth": 0.2,
+    "grit": 0,
+    "breath": 0.1
+   },
+   "dynamics": {
+    "compress": 0.7
    }
   },
   {
@@ -498,6 +953,22 @@
    "slides": {
     "betweenNotesMs": 60,
     "maxGapMs": 120
+   },
+   "ornaments": {
+    "runs": 0.05,
+    "runNotes": 3,
+    "runNoteMs": 70,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.7,
+    "warmth": -0.2,
+    "grit": 0,
+    "breath": 0.2
+   },
+   "dynamics": {
+    "compress": 0.8
    }
   },
   {
@@ -507,7 +978,7 @@
    "inherits": "hip-hop",
    "description": "Fast retune with short slides.",
    "pitch": {
-    "correction": 0.95,
+    "correction": 0.99,
     "retuneMs": 8,
     "keepVariation": 0.25,
     "scale": "harmonic"
@@ -518,6 +989,22 @@
    "timing": {
     "quantize": 0.35,
     "grid": 16
+   },
+   "ornaments": {
+    "runs": 0.15,
+    "runNotes": 3,
+    "runNoteMs": 80,
+    "fallCents": 100,
+    "fallMs": 120
+   },
+   "tone": {
+    "brightness": 0.45,
+    "warmth": 0.1,
+    "grit": 0.05,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.75
    }
   },
   {
@@ -527,7 +1014,7 @@
    "inherits": "natural",
    "description": "Melodic tuning with smooth, rolling slides.",
    "pitch": {
-    "correction": 0.9,
+    "correction": 0.98,
     "retuneMs": 12,
     "keepVariation": 0.4,
     "scale": "pentatonic"
@@ -540,6 +1027,22 @@
     "quantize": 0.25,
     "grid": 16,
     "swing": 0.35
+   },
+   "ornaments": {
+    "runs": 0.3,
+    "runNotes": 4,
+    "runNoteMs": 80,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.3,
+    "warmth": 0.2,
+    "grit": 0,
+    "breath": 0.1
+   },
+   "dynamics": {
+    "compress": 0.55
    }
   },
   {
@@ -555,6 +1058,22 @@
    },
    "slides": {
     "betweenNotesMs": 25
+   },
+   "ornaments": {
+    "runs": 0.2,
+    "runNotes": 3,
+    "runNoteMs": 80,
+    "fallCents": 150,
+    "fallMs": 130
+   },
+   "tone": {
+    "brightness": 0.4,
+    "warmth": 0.1,
+    "grit": 0.2,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.7
    }
   },
   {
@@ -564,7 +1083,7 @@
    "inherits": "indie",
    "description": "Relaxed and soft, light correction.",
    "pitch": {
-    "correction": 0.4,
+    "correction": 0.87,
     "retuneMs": 70,
     "scale": "modal"
    },
@@ -572,6 +1091,22 @@
     "quantize": 0.2,
     "grid": 16,
     "swing": 0.45
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 60,
+    "fallMs": 200
+   },
+   "tone": {
+    "brightness": -0.6,
+    "warmth": 0.5,
+    "grit": 0.15,
+    "breath": 0.35
+   },
+   "dynamics": {
+    "compress": 0.5
    }
   },
   {
@@ -581,7 +1116,7 @@
    "inherits": "natural",
    "description": "Expressive, scooped phrasing with natural vibrato.",
    "pitch": {
-    "correction": 0.35,
+    "correction": 0.86,
     "retuneMs": 70,
     "keepVariation": 1.0,
     "scale": "modal"
@@ -595,6 +1130,22 @@
     "addDepthCents": 30,
     "rateHz": 5.0,
     "onsetMs": 380
+   },
+   "ornaments": {
+    "runs": 0.3,
+    "runNotes": 4,
+    "runNoteMs": 110,
+    "fallCents": 200,
+    "fallMs": 220
+   },
+   "tone": {
+    "brightness": -0.2,
+    "warmth": 0.5,
+    "grit": 0,
+    "breath": 0.2
+   },
+   "dynamics": {
+    "compress": 0.3
    }
   },
   {
@@ -610,6 +1161,22 @@
    },
    "pitch": {
     "scale": "key"
+   },
+   "ornaments": {
+    "runs": 0.05,
+    "runNotes": 4,
+    "runNoteMs": 100,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.45,
+    "warmth": 0.2,
+    "grit": 0,
+    "breath": 0.05
+   },
+   "dynamics": {
+    "compress": 0.35
    }
   }
  ]

@@ -484,6 +484,8 @@ namespace ve::StyleLearner
         return g;
     }
 
+    static constexpr float minCorrection = 0.8f;
+
     StyleProfile learn (const StyleProfile& base, const TakeStats& stats, int takeCount, float strength)
     {
         const auto g = suggest (stats, takeCount);
@@ -491,7 +493,9 @@ namespace ve::StyleLearner
         auto mix = [k] (float from, float to, float trust) { return from + k * trust * (to - from); };
 
         StyleProfile p = base;
-        p.correction        = mix (base.correction, g.values.correction, g.pitchTrust);
+        // Correct never drops below 80%: references sung loosely make a style looser in how
+        // it moves (retune, kept variation), not a take that stays out of tune.
+        p.correction        = juce::jmax (minCorrection, mix (base.correction, g.values.correction, g.pitchTrust));
         p.retuneMs          = mix (base.retuneMs, g.values.retuneMs, g.pitchTrust);
         p.keepVariation     = mix (base.keepVariation, g.values.keepVariation, g.pitchTrust);
         p.vibratoDepthCents = mix (base.vibratoDepthCents, g.values.vibratoDepthCents, g.vibratoTrust);
@@ -519,7 +523,7 @@ namespace ve::StyleLearner
         auto move = [gain] (float from, float gv, float pv, float trust) { return from + gain * trust * (gv - pv); };
 
         StyleProfile out = base;
-        out.correction        = juce::jlimit (0.2f, 1.0f, move (base.correction, g.values.correction, p.values.correction, g.pitchTrust));
+        out.correction        = juce::jlimit (minCorrection, 1.0f, move (base.correction, g.values.correction, p.values.correction, g.pitchTrust));
         out.retuneMs          = juce::jlimit (0.0f, 150.0f, move (base.retuneMs, g.values.retuneMs, p.values.retuneMs, g.pitchTrust));
         out.keepVariation     = juce::jlimit (0.0f, 1.0f, move (base.keepVariation, g.values.keepVariation, p.values.keepVariation, g.pitchTrust));
         out.vibratoDepthCents = juce::jlimit (0.0f, 80.0f, move (base.vibratoDepthCents, g.values.vibratoDepthCents, p.values.vibratoDepthCents, g.vibratoTrust));
@@ -552,7 +556,7 @@ namespace ve::StyleLearner
         if (p.description.isNotEmpty()) o->setProperty ("description", p.description);
 
         // Tidy numbers for people reading or editing the file.
-        for (auto section : { "pitch", "vibrato", "slides", "timing" })
+        for (auto section : { "pitch", "vibrato", "slides", "timing", "ornaments", "tone", "dynamics" })
             if (auto* sec = o->getProperty (section).getDynamicObject())
                 for (auto& prop : sec->getProperties())
                     if (prop.value.isDouble())

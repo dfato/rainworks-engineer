@@ -145,8 +145,9 @@ def cmd_analyze(args):
 
 
 HANDTUNED = HERE / "handtuned.json"
-ORDER = ["id", "name", "category", "inherits", "description", "pitch", "vibrato", "slides", "timing", "learned"]
-SECTIONS = ("pitch", "vibrato", "slides", "timing")
+ORDER = ["id", "name", "category", "inherits", "description", "pitch", "vibrato", "slides", "timing",
+         "ornaments", "tone", "dynamics", "learned"]
+SECTIONS = ("pitch", "vibrato", "slides", "timing", "ornaments", "tone", "dynamics")
 
 
 def handtuned():

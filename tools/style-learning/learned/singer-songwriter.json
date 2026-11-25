@@ -5,7 +5,7 @@
   "inherits": "folk",
   "description": "Intimate and natural, a bit more polish than folk. Tuned from 20 openly licensed reference vocals.",
   "pitch": {
-    "correction": 0.2,
+    "correction": 0.8,
     "retuneMs": 65.9,
     "keepVariation": 1.0,
     "scale": "key"
@@ -25,6 +25,22 @@
     "quantize": 0.0,
     "grid": 16,
     "swing": 0.0
+  },
+  "ornaments": {
+    "runs": 0.05,
+    "runNotes": 3,
+    "runNoteMs": 110.0,
+    "fallCents": 0.0,
+    "fallMs": 0.0
+  },
+  "tone": {
+    "brightness": 0.0,
+    "warmth": 0.3,
+    "grit": 0.0,
+    "breath": 0.2
+  },
+  "dynamics": {
+    "compress": 0.3
   },
   "learned": {
     "takes": 20,

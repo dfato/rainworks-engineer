@@ -1,5 +1,6 @@
 #include "PitchCorrectRenderer.h"
 #include "Style/ExpressionLayer.h"
+#include "Style/ToneShaper.h"
 
 namespace ve
 {
@@ -104,14 +105,25 @@ namespace ve
             }
         }
         std::vector<double> marks;
-        double lastT = unvoicedPeriod;
+        // The jump check compares the tracker's period with the period used at the previous
+        // mark (never with the snapped step: a step snapped to the wrong peak would otherwise
+        // become the reference and the marks collapse to a few samples apart, leaving the
+        // pitch unshifted there). A jump that lasts longer than ~30 ms is real and is taken.
+        double lastT = unvoicedPeriod, held = 0.0;
         for (double t = 0.0; t < n;)
         {
             marks.push_back (t);
             double T = periodAt (t);
             const bool voiced = f0[(size_t) clampIdx (t)] > 0.0f;
-            if (voiced && lastT > 0.0 && (T > lastT * 1.2 || T < lastT / 1.2) && f0[(size_t) clampIdx (t - lastT)] > 0.0f)
+            if (voiced && (T > lastT * 1.2 || T < lastT / 1.2) && f0[(size_t) clampIdx (t - lastT)] > 0.0f
+                && held < 0.03 * sr)
+            {
                 T = lastT;
+                held += T;
+            }
+            else
+                held = 0.0;
+            lastT = T;
             double next = t + T;
             if (voiced && f0[(size_t) clampIdx (next)] > 0.0f)
             {
@@ -121,7 +133,6 @@ namespace ve
                     if (mono[(size_t) i] > mono[(size_t) best]) best = i;
                 if (best > t + 0.5 * T) next = best;
             }
-            lastT = juce::jmax (1.0, next - t);
             t = next;
         }
 
@@ -282,6 +293,7 @@ namespace ve
         ctx.setProgress (0.8f);
         if (ctx.shouldCancel()) return juce::Result::fail ("cancelled");
 
+        ToneShaper::process (shifted, rate, plan.style);
         resample (shifted, rate, targetRate);
         if (targetRate > 0.0) rate = targetRate;
         out.audio = std::move (shifted);

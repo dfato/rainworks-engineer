@@ -2,6 +2,7 @@
 
 #include <juce_core/juce_core.h>
 #include "../SidechainAnalysis.h"
+#include <cmath>
 #include <map>
 #include <vector>
 
@@ -15,7 +16,10 @@ namespace ve
     //   "pitch":   { "correction": 1.0, "retuneMs": 5, "keepVariation": 0.1, "scale": "pentatonic" },
     //   "vibrato": { "addDepthCents": 0, "rateHz": 5.5, "onsetMs": 300 },
     //   "slides":  { "betweenNotesMs": 25, "maxGapMs": 80, "scoopCents": 0, "scoopMs": 0 },
-    //   "timing":  { "quantize": 0.0, "grid": 16, "swing": 0.0 }
+    //   "timing":  { "quantize": 0.0, "grid": 16, "swing": 0.0 },
+    //   "ornaments": { "runs": 0.3, "runNotes": 4, "runNoteMs": 90, "fallCents": 0, "fallMs": 0 },
+    //   "tone":    { "brightness": 0.2, "warmth": 0.0, "grit": 0.0, "breath": 0.1 },
+    //   "dynamics": { "compress": 0.5 }
     // }
     struct StyleProfile
     {
@@ -44,6 +48,30 @@ namespace ve
         float quantize = 0.0f;       // 0 = as sung, 1 = onsets exactly on the grid
         int grid = 16;               // grid division per whole note (16 = sixteenths)
         float swing = 0.0f;          // 0 = straight, 1 = full triplet swing on every other grid step
+
+        // Ornaments: notes added on top of the sung melody.
+        float runs = 0.0f;           // 0..1, share of long notes that get a run (melisma) through the scale
+        int runNotes = 4;            // notes in a run, 2..8
+        float runNoteMs = 90.0f;     // length of each run note
+        float fallCents = 0.0f;      // pitch falls off this far at the end of a phrase
+        float fallMs = 0.0f;         // over this long
+
+        // Tone of the voice (applied to the whole take after pitch).
+        float brightness = 0.0f;     // -1 darker .. +1 brighter (presence and air)
+        float warmth = 0.0f;         // -1 thinner .. +1 fuller low mids
+        float grit = 0.0f;           // 0..1 rasp / saturation in the mids
+        float breath = 0.0f;         // 0..1 airy breath noise that follows the voice
+        // Dynamics.
+        float compress = 0.0f;       // 0..1, evens out loud and quiet words
+
+        bool hasTone() const noexcept
+        {
+            return std::abs (brightness) > 1.0e-3f || std::abs (warmth) > 1.0e-3f || grit > 1.0e-3f
+                   || breath > 1.0e-3f || compress > 1.0e-3f;
+        }
+        // The style pushed further or pulled back: 0 = no style expression (only the
+        // tuning), 1 = as designed, 2 = twice as strong. Correction and timing are unchanged.
+        StyleProfile withAmount (float amount) const;
 
         juce::var toVar() const;
         std::uint64_t hash() const;

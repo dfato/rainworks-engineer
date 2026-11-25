@@ -82,6 +82,8 @@ public:
     void setGlobalCorrection (float amount01);  // all notes the user hasn't edited individually
     float getGlobalCorrection() const;
     void setStyle (const juce::String& styleId);   // also sets the Correct amount to the style's default
+    void setStyleAmount (float amount02);          // 0 = tuning only, 1 = as designed, 2 = exaggerated
+    float getStyleAmount() const;
     // Measures how the reference vocals are sung, saves a user style built on the
     // current one (Documents/RainWorks/Engineer/Styles) and switches to it.
     void learnStyle (const juce::Array<juce::File>& referenceVocals, const juce::String& name);

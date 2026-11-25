@@ -17,6 +17,7 @@ namespace ve::ui
         std::function<void()> onAnalyse;
         std::function<void()> onImport;
         std::function<void (float)> onCorrectionChanged;  // 0..1
+        std::function<void (float)> onStyleAmountChanged; // 0..2
         std::function<void (const juce::String&)> onStyleChanged;
         std::function<void()> onLearnStyle;               // "Learn style from vocals..." picked
         std::function<void (bool)> onIntentChanged;
@@ -43,6 +44,7 @@ namespace ve::ui
         void setEstimatedKeyText (const juce::String&);
         void setDataFolderText (const juce::String&);
         void setCorrection (float);
+        void setStyleAmount (float);
 
         void resized() override;
         void paint (juce::Graphics&) override;
@@ -70,6 +72,8 @@ namespace ve::ui
         juce::StringArray voiceIds;   // index i = combo id i + 1; "" = as recorded
         juce::String currentVoice;
         juce::Slider correctionSlider { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
+        juce::Label amountLabel { {}, "Amount" };
+        juce::Slider amountSlider { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
         juce::TextButton folderButton { "Data folder" };
         juce::String folderText;
     };

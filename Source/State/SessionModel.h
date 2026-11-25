@@ -20,7 +20,7 @@ namespace ve
         VE_ID (Analysis) VE_ID (keyTonic) VE_ID (keyMinor) VE_ID (keyConfidence) VE_ID (chroma)
         VE_ID (Chords) VE_ID (Chord) VE_ID (endPpq) VE_ID (root) VE_ID (quality) VE_ID (confidence)
         VE_ID (Notes) VE_ID (Note) VE_ID (start) VE_ID (end) VE_ID (detected) VE_ID (target) VE_ID (correction)
-        VE_ID (edited) VE_ID (shift) VE_ID (intent) VE_ID (intentScale) VE_ID (useIntent) VE_ID (voiceGpu) VE_ID (pitchFile) VE_ID (styleId) VE_ID (voiceId)
+        VE_ID (edited) VE_ID (shift) VE_ID (intent) VE_ID (intentScale) VE_ID (useIntent) VE_ID (voiceGpu) VE_ID (pitchFile) VE_ID (styleId) VE_ID (styleAmount) VE_ID (voiceId)
         #undef VE_ID
     }
 
@@ -59,6 +59,8 @@ namespace ve
         // Stage 3 genre style (id in the StyleLibrary).
         juce::String getStyleId() const;
         void setStyleId (const juce::String&);
+        float getStyleAmount() const;               // 0..2, how strongly the style is applied (default 1)
+        void setStyleAmount (float);
         bool getUseIntent() const;                  // Stage 4: per-note intent shapes correction (default on)
         void setUseIntent (bool);
         bool getVoiceGpu() const;                   // render voice models on the GPU when possible (default on)

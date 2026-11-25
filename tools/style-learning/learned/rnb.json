@@ -5,7 +5,7 @@
   "inherits": "natural",
   "description": "Smooth tuning that keeps runs and slides. Tuned from 1 openly licensed reference vocal.",
   "pitch": {
-    "correction": 0.62,
+    "correction": 0.86,
     "retuneMs": 30.0,
     "keepVariation": 0.85,
     "scale": "blues"
@@ -25,6 +25,22 @@
     "quantize": 0.0,
     "grid": 16,
     "swing": 0.0
+  },
+  "ornaments": {
+    "runs": 0.45,
+    "runNotes": 5,
+    "runNoteMs": 80.0,
+    "fallCents": 0.0,
+    "fallMs": 0.0
+  },
+  "tone": {
+    "brightness": 0.1,
+    "warmth": 0.4,
+    "grit": 0.0,
+    "breath": 0.25
+  },
+  "dynamics": {
+    "compress": 0.5
   },
   "learned": {
     "takes": 1,

@@ -26,6 +26,22 @@
     "grid": 16,
     "swing": 0.0
   },
+  "ornaments": {
+    "runs": 0.08,
+    "runNotes": 4,
+    "runNoteMs": 85.0,
+    "fallCents": 0.0,
+    "fallMs": 0.0
+  },
+  "tone": {
+    "brightness": 0.35,
+    "warmth": 0.0,
+    "grit": 0.0,
+    "breath": 0.1
+  },
+  "dynamics": {
+    "compress": 0.55
+  },
   "learned": {
     "takes": 14,
     "notes": 6161,

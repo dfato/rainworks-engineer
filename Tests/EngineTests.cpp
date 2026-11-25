@@ -20,6 +20,7 @@
 #include "Engine/Style/ExpressionLayer.h"
 #include "Engine/Style/StyleProfile.h"
 #include "Engine/Style/StyleLearner.h"
+#include "Engine/Style/ToneShaper.h"
 #include "Engine/TempoMap.h"
 #include "Engine/TripleBuffer.h"
 #include "State/SessionModel.h"
@@ -910,6 +911,7 @@ public:
                 f0[(size_t) i] = PitchTrack::midiToHz (57.3f + 0.3f * std::sin (juce::MathConstants<float>::twoPi * 5.0f * (float) i / (float) sr));
 
             Note note; note.start = 0; note.end = n; note.detectedMidi = 57.3f; note.targetMidi = 57.0f; note.correction = 1.0f;
+            note.intent = NoteIntent::vibrato;   // regular 5 Hz: the intent layer marks it as meant
             NotePlan plan { { note } };
             StyleLibrary lib;
 
@@ -979,6 +981,98 @@ public:
             NotePlan none { { note } }; none.notes[0].correction = 0.0f;
             expect (RenderPlan::forNotes (none, lib.get ("trap")).hash() == RenderPlan::identity().hash());
         }
+
+        beginTest ("Ornaments: runs walk the song's scale, phrase ends fall, style amount scales them");
+        {
+            const double sr = 48000.0;
+            // C major phrase: seven short notes, then a long held E that ends the phrase.
+            std::vector<Note> notes;
+            const int degrees[] = { 60, 62, 64, 65, 67, 69, 71 };
+            std::int64_t t = 0;
+            for (int m : degrees)
+            {
+                Note x; x.start = t; x.end = t + (std::int64_t) (0.3 * sr); x.detectedMidi = x.targetMidi = (float) m; x.correction = 1.0f;
+                notes.push_back (x); t = x.end + (std::int64_t) (0.02 * sr);
+            }
+            Note last; last.start = t; last.end = t + (std::int64_t) (1.2 * sr); last.detectedMidi = last.targetMidi = 64.0f; last.correction = 1.0f;
+            notes.push_back (last);
+            const int n = (int) (last.end + (std::int64_t) (0.2 * sr));
+            std::vector<float> f0 ((size_t) n, 0.0f);
+            for (auto& x : notes)
+                for (auto i = x.start; i < x.end; ++i) f0[(size_t) i] = PitchTrack::midiToHz (x.detectedMidi);
+            NotePlan plan { notes };
+
+            StyleProfile st; st.retuneMs = 0.0f; st.keepVariation = 0.0f;
+            st.runs = 1.0f; st.runNotes = 4; st.runNoteMs = 90.0f;
+            const auto sh = ExpressionLayer::buildShiftCurve (plan, st, f0, sr);
+            float hi = -1e9f;
+            for (auto i = last.start; i < last.end; ++i) hi = juce::jmax (hi, sh[(size_t) i]);
+            // E -> F (a half step in C major, not a whole tone) ... -> lands on C, a scale note.
+            expectWithinAbsoluteError (hi, 1.0f, 0.05f);
+            expectWithinAbsoluteError (sh[(size_t) (last.end - (std::int64_t) (0.04 * sr))], -4.0f, 0.05f);
+            // The held start of the note is untouched.
+            expectWithinAbsoluteError (sh[(size_t) (last.start + (std::int64_t) (0.3 * sr))], 0.0f, 0.01f);
+
+            StyleProfile fall; fall.retuneMs = 0.0f; fall.keepVariation = 0.0f; fall.fallCents = 200.0f; fall.fallMs = 200.0f;
+            const auto fs = ExpressionLayer::buildShiftCurve (plan, fall, f0, sr);
+            expectLessThan (fs[(size_t) (last.end - (std::int64_t) (0.02 * sr))], -1.5f);
+            expectWithinAbsoluteError (fs[(size_t) (notes[2].end - (std::int64_t) (0.02 * sr))], 0.0f, 0.01f); // mid-phrase: no fall
+
+            // Amount 0 keeps only the tuning; amount 2 doubles the expression.
+            const auto none = ExpressionLayer::buildShiftCurve (plan, st.withAmount (0.0f), f0, sr);
+            float most = 0.0f;
+            for (auto v : none) most = juce::jmax (most, std::abs (v));
+            expectLessThan (most, 0.01f);
+            expectWithinAbsoluteError (fall.withAmount (2.0f).fallCents, 400.0f, 0.01f);
+            expect (st.hash() != st.withAmount (0.5f).hash());
+        }
+
+        beginTest ("Tone shaping changes the sound, keeps the loudness, and is off by default");
+        {
+            const double sr = 48000.0;
+            const int n = (int) sr;
+            juce::AudioBuffer<float> voice (1, n);
+            juce::Random rng (7);
+            for (int i = 0; i < n; ++i)
+            {
+                const float env = 0.5f + 0.5f * std::sin (juce::MathConstants<float>::twoPi * 2.0f * (float) i / (float) sr);
+                voice.setSample (0, i, env * (0.4f * std::sin (juce::MathConstants<float>::twoPi * 220.0f * (float) i / (float) sr)
+                                              + 0.05f * (rng.nextFloat() * 2.0f - 1.0f)));
+            }
+            auto highEnergy = [] (const juce::AudioBuffer<float>& b)
+            {
+                double e = 0.0;
+                for (int i = 1; i < b.getNumSamples(); ++i) { const double d = b.getSample (0, i) - b.getSample (0, i - 1); e += d * d; }
+                return e;
+            };
+            const double rmsIn = voice.getRMSLevel (0, 0, n);
+
+            auto plain = voice;
+            ToneShaper::process (plain, sr, StyleProfile {});
+            float maxDiff = 0.0f;
+            for (int i = 0; i < n; ++i) maxDiff = juce::jmax (maxDiff, std::abs (plain.getSample (0, i) - voice.getSample (0, i)));
+            expectEquals (maxDiff, 0.0f);
+
+            StyleProfile bright; bright.brightness = 1.0f;
+            StyleProfile dark; dark.brightness = -1.0f;
+            auto b = voice, d = voice;
+            ToneShaper::process (b, sr, bright);
+            ToneShaper::process (d, sr, dark);
+            expectGreaterThan (highEnergy (b), highEnergy (voice) * 1.3);
+            expectLessThan (highEnergy (d), highEnergy (voice) * 0.8);
+
+            StyleProfile rough; rough.grit = 0.8f; rough.breath = 0.5f; rough.compress = 0.8f;
+            auto g = voice;
+            ToneShaper::process (g, sr, rough);
+            expectWithinAbsoluteError ((double) g.getRMSLevel (0, 0, n), rmsIn, rmsIn * 0.02);
+            expectLessThan (g.getMagnitude (0, 0, n), 0.99f);
+            expectGreaterThan (highEnergy (g), highEnergy (voice) * 1.2);
+
+            StyleLibrary lib;
+            expect (lib.get ("gospel").runs > lib.get ("pop").runs);
+            expect (lib.get ("rock").grit > 0.3f && lib.get ("lo-fi").brightness < 0.0f);
+            expect (lib.get ("natural").hasTone() == false);
+        }
     }
 };
 
@@ -1040,6 +1134,38 @@ public:
             for (size_t i = 1; i < w2.anchors.size(); ++i)
                 expect (w2.anchors[i].out > w2.anchors[i - 1].out);
             expectWithinAbsoluteError (w2.anchors.back().out, (double) len, 1.0e-6);
+        }
+
+        beginTest ("PSOLA follows a legato leap (period jump guard lets real jumps through)");
+        {
+            // 220 Hz, then straight up a fourth-plus to 300 Hz with no gap: a >20% period jump
+            // that is real, not a tracker error. The marks must follow it, or the second note
+            // is rebuilt with the first note's period and the shift is lost.
+            const double sr = 44100.0;
+            const int n = (int) (sr * 1.6), leap = (int) (sr * 0.6);
+            juce::AudioBuffer<float> in (1, n), out;
+            std::vector<float> f0 ((size_t) n), shift ((size_t) n, 0.3f);
+            double phase = 0.0;
+            for (int i = 0; i < n; ++i)
+            {
+                const double hz = i < leap ? 220.0 : 300.0;
+                f0[(size_t) i] = (float) hz;
+                phase += juce::MathConstants<double>::twoPi * hz / sr;
+                in.setSample (0, i, (float) (0.5 * std::sin (phase) + 0.25 * std::sin (2.0 * phase + 0.3)));
+            }
+            PitchCorrectRenderer::psolaShift (in, out, sr, f0, shift);
+            PitchTrack b;
+            expect (PitchTracker::track (out, sr, {}, nullptr, b).wasOk());
+            std::vector<float> v;
+            for (auto& f : b.frames)
+            {
+                const auto at = (int) ((&f - b.frames.data()) * b.hopSize);
+                if (at > (int) (sr * 0.9) && at < (int) (sr * 1.5) && f.f0 > 0.0f) v.push_back (PitchTrack::hzToMidi (f.f0));
+            }
+            std::sort (v.begin(), v.end());
+            expect (! v.empty());
+            if (! v.empty())
+                expectWithinAbsoluteError (v[v.size() / 2], PitchTrack::hzToMidi (300.0f) + 0.3f, 0.06f);
         }
 
         beginTest ("Nudged note is re-timed by PSOLA with pitch kept; untouched audio is bit-exact");
