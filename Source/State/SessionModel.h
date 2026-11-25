@@ -20,7 +20,7 @@ namespace ve
         VE_ID (Analysis) VE_ID (keyTonic) VE_ID (keyMinor) VE_ID (keyConfidence) VE_ID (chroma)
         VE_ID (Chords) VE_ID (Chord) VE_ID (endPpq) VE_ID (root) VE_ID (quality) VE_ID (confidence)
         VE_ID (Notes) VE_ID (Note) VE_ID (start) VE_ID (end) VE_ID (detected) VE_ID (target) VE_ID (correction)
-        VE_ID (edited) VE_ID (pitchFile)
+        VE_ID (edited) VE_ID (pitchFile) VE_ID (styleId)
         #undef VE_ID
     }
 
@@ -55,6 +55,10 @@ namespace ve
 
         MonitoringMode getMonitoringMode() const;
         void setMonitoringMode (MonitoringMode);
+
+        // Stage 3 genre style (id in the StyleLibrary).
+        juce::String getStyleId() const;
+        void setStyleId (const juce::String&);
 
         // -1 = automatic, 0..11 major tonic, 12..23 minor tonic.
         int getKeyOverride() const;

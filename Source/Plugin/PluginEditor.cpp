@@ -1,6 +1,7 @@
 #include "PluginEditor.h"
 #include "UI/Theme.h"
 #include "Engine/TakeImporter.h"
+#include "Engine/Style/StyleProfile.h"
 
 VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
     : juce::AudioProcessorEditor (p),
@@ -49,13 +50,20 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
     timeline.onAnalyseRegion = [this] (const juce::String& id) { processor.analyseRegion (id); };
     timeline.onNoteChanged = [this] (const juce::String& id, int idx, const ve::Note& n) { processor.updateNote (id, idx, n); };
     controls.onCorrectionChanged = [this] (float a) { processor.setGlobalCorrection (a); };
+    controls.onStyleChanged = [this] (const juce::String& id) { processor.setStyle (id); };
+    {
+        std::vector<ve::ui::ControlBar::StyleItem> items;
+        for (auto& e : ve::sharedStyleLibrary().list())
+            items.push_back ({ e.id, e.name, e.category });
+        controls.setStyles (items);
+    }
 
     processor.addChangeListener (this);
     rebuildFromSession();
 
     setResizable (true, true);
-    setResizeLimits (980, 520, 3000, 1800);
-    setSize (1200, 680);
+    setResizeLimits (1180, 520, 3000, 1800);
+    setSize (1280, 700);
     startTimerHz (30);
 }
 
@@ -137,6 +145,7 @@ void VocalEngineEditor::rebuildFromSession()
     controls.setKeyOverride (session.getKeyOverride());
     controls.setDataFolderText (session.getDataFolder().getFullPathName());
     controls.setCorrection (processor.getGlobalCorrection());
+    controls.setStyle (session.getStyleId());
 
     const auto est = session.getEstimatedKey();
     controls.setEstimatedKeyText (est.isValid() ? ve::Analysis::keyName (est.tonic, est.minor) : "not analysed");

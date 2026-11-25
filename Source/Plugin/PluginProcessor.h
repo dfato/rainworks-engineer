@@ -80,6 +80,7 @@ public:
     // Stage 2 note editing. Re-render is debounced so dragging stays smooth.
     void setGlobalCorrection (float amount01);  // all notes the user hasn't edited individually
     float getGlobalCorrection() const;
+    void setStyle (const juce::String& styleId);   // also sets the Correct amount to the style's default
     void updateNote (const juce::String& regionId, int noteIndex, const ve::Note&);
 
     const ve::SessionModel& getSession() const noexcept { return session; }

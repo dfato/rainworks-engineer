@@ -17,6 +17,11 @@ namespace ve::ui
         std::function<void()> onAnalyse;
         std::function<void()> onImport;
         std::function<void (float)> onCorrectionChanged;  // 0..1
+        std::function<void (const juce::String&)> onStyleChanged;
+
+        struct StyleItem { juce::String id, name, category; };
+        void setStyles (const std::vector<StyleItem>&);
+        void setStyle (const juce::String& id);
         std::function<void()> onOpenDataFolder;
         std::function<void()> onLocateDataFolder;
 
@@ -36,9 +41,12 @@ namespace ve::ui
         juce::ComboBox modeBox;
         juce::Label keyLabel { {}, "Key" };
         juce::ComboBox keyBox;
-        juce::TextButton analyseButton { "Analyse sidechain" };
+        juce::TextButton analyseButton { "Analyse beat" };
         juce::TextButton importButton { "Import song..." };
         juce::Label correctionLabel { {}, "Correct" };
+        juce::Label styleLabel { {}, "Style" };
+        juce::ComboBox styleBox;
+        juce::StringArray styleIds;
         juce::Slider correctionSlider { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
         juce::TextButton folderButton { "Data folder" };
         juce::String folderText;

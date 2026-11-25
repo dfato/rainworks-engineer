@@ -13,6 +13,8 @@
 #include "Engine/NotePlan.h"
 #include "Engine/PitchTracker.h"
 #include "Engine/PitchCorrectRenderer.h"
+#include "Engine/Style/ExpressionLayer.h"
+#include "Engine/Style/StyleProfile.h"
 #include "Engine/TempoMap.h"
 #include "Engine/TripleBuffer.h"
 #include "State/SessionModel.h"
@@ -683,6 +685,106 @@ public:
 };
 
 static NoteTests noteTests;
+
+//==============================================================================
+class StyleTests final : public juce::UnitTest
+{
+public:
+    StyleTests() : juce::UnitTest ("Styles", "VocalEngine") {}
+
+    void runTest() override
+    {
+        beginTest ("Built-in library loads 30+ genres with inheritance resolved");
+        {
+            StyleLibrary lib;
+            int genres = 0;
+            for (auto& e : lib.list()) genres += e.category != "Basic" ? 1 : 0;
+            expectGreaterOrEqual (genres, 30);
+
+            const auto trap = lib.get ("trap");
+            expectEquals (trap.name, juce::String ("Trap"));
+            expectEquals (trap.category, juce::String ("Hip-hop"));
+            expectWithinAbsoluteError (trap.retuneMs, 4.0f, 1e-6f);
+            expectWithinAbsoluteError (trap.slideMs, 20.0f, 1e-6f);       // own value
+            expectWithinAbsoluteError (trap.vibratoRateHz, 5.5f, 1e-6f);  // from natural, via hip-hop
+
+            const auto emo = lib.get ("emo-rap"); // emo-rap -> melodic-rap -> trap -> hip-hop -> natural
+            expectWithinAbsoluteError (emo.scoopCents, 50.0f, 1e-6f);
+            expectWithinAbsoluteError (emo.vibratoDepthCents, 15.0f, 1e-6f);
+            expectWithinAbsoluteError (emo.correction, 1.0f, 1e-6f);
+
+            expectEquals (lib.get ("does-not-exist").id, juce::String ("natural"));
+            expect (lib.get ("trap").hash() != lib.get ("pop").hash());
+        }
+
+        beginTest ("User JSON styles override and inherit; bad JSON is reported");
+        {
+            StyleLibrary lib;
+            expect (lib.addJson (R"({"id":"my-trap","name":"My Trap","inherits":"trap","vibrato":{"addDepthCents":40}})").isEmpty());
+            const auto mine = lib.get ("my-trap");
+            expectWithinAbsoluteError (mine.vibratoDepthCents, 40.0f, 1e-6f);
+            expectWithinAbsoluteError (mine.retuneMs, 4.0f, 1e-6f);
+            expect (lib.addJson ("{ not json").isNotEmpty());
+            expect (lib.addJson (R"({"name":"no id"})").isNotEmpty());
+            expect (lib.addJson (R"({"id":"loop-a","inherits":"loop-b"})").isEmpty());
+            expect (lib.addJson (R"({"id":"loop-b","inherits":"loop-a"})").isEmpty());
+            lib.get ("loop-a"); // must not hang
+        }
+
+        beginTest ("Expression layer: hard tune flattens vibrato, natural keeps it, slides glide");
+        {
+            const double sr = 48000.0;
+            const int n = (int) sr;
+            std::vector<float> f0 ((size_t) n);
+            for (int i = 0; i < n; ++i) // 57.3 MIDI with +-30 cent vibrato
+                f0[(size_t) i] = PitchTrack::midiToHz (57.3f + 0.3f * std::sin (juce::MathConstants<float>::twoPi * 5.0f * (float) i / (float) sr));
+
+            Note note; note.start = 0; note.end = n; note.detectedMidi = 57.3f; note.targetMidi = 57.0f; note.correction = 1.0f;
+            NotePlan plan { { note } };
+            StyleLibrary lib;
+
+            auto spread = [&] (const StyleProfile& st)
+            {
+                const auto sh = ExpressionLayer::buildShiftCurve (plan, st, f0, sr);
+                float lo = 1e9f, hi = -1e9f;
+                for (int i = n / 4; i < n * 3 / 4; ++i)
+                {
+                    const float out = PitchTrack::hzToMidi (f0[(size_t) i]) + sh[(size_t) i];
+                    lo = juce::jmin (lo, out); hi = juce::jmax (hi, out);
+                }
+                return std::make_pair (lo, hi);
+            };
+
+            const auto hard = spread (lib.get ("hard-tune"));
+            expectWithinAbsoluteError (hard.first, 57.0f, 0.01f);
+            expectWithinAbsoluteError (hard.second, 57.0f, 0.01f);
+
+            const auto nat = spread (lib.get ("natural"));
+            expectWithinAbsoluteError (nat.second - nat.first, 0.6f, 0.05f);           // vibrato kept
+            expectWithinAbsoluteError ((nat.second + nat.first) * 0.5f, 57.0f, 0.05f); // centred on target
+
+            // Two corrected notes with a short gap: the slide moves the pitch before the second note starts.
+            Note a = note; a.end = n / 2 - 960;  a.detectedMidi = 57.3f; a.targetMidi = 57.0f;
+            Note b = note; b.start = n / 2;      b.detectedMidi = 57.3f; b.targetMidi = 60.0f;
+            NotePlan two { { a, b } };
+            auto st = lib.get ("hard-tune");
+            st.slideMs = 80.0f;
+            const auto sh = ExpressionLayer::buildShiftCurve (two, st, f0, sr);
+            const int justBefore = (int) a.end - 10;
+            const float outBefore = PitchTrack::hzToMidi (f0[(size_t) justBefore]) + sh[(size_t) justBefore];
+            expect (outBefore > 57.2f && outBefore < 60.0f, "slide should be under way at the end of note A: " + juce::String (outBefore));
+
+            // Style changes the render plan hash once notes are corrected.
+            const auto p1 = RenderPlan::forNotes (plan, lib.get ("trap"));
+            const auto p2 = RenderPlan::forNotes (plan, lib.get ("pop"));
+            expect (p1.hash() != p2.hash());
+            NotePlan none { { note } }; none.notes[0].correction = 0.0f;
+            expect (RenderPlan::forNotes (none, lib.get ("trap")).hash() == RenderPlan::identity().hash());
+        }
+    }
+};
+
+static StyleTests styleTests;
 static ImportTests importTests;
 static CoreTests coreTests;
 static CaptureTests captureTests;
