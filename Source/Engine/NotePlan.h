@@ -15,6 +15,7 @@ namespace ve
         float targetMidi = 0.0f;     // pitch the correction pulls toward
         float correction = 0.0f;     // 0 = leave as sung, 1 = fully on target
         bool userEdited = false;     // set when the user moved it; automatic re-snaps leave it alone
+        std::int64_t timeShift = 0;  // user timing nudge in samples (+ = later); applied by time-stretching
 
         float centsOff() const noexcept { return (detectedMidi - targetMidi) * 100.0f; }
     };

@@ -14,7 +14,7 @@ namespace ve
     //   "pitch":   { "correction": 1.0, "retuneMs": 5, "keepVariation": 0.1 },
     //   "vibrato": { "addDepthCents": 0, "rateHz": 5.5, "onsetMs": 300 },
     //   "slides":  { "betweenNotesMs": 25, "maxGapMs": 80, "scoopCents": 0, "scoopMs": 0 },
-    //   "timing":  { "quantize": 0.0, "grid": 16 }
+    //   "timing":  { "quantize": 0.0, "grid": 16, "swing": 0.0 }
     // }
     struct StyleProfile
     {
@@ -36,9 +36,10 @@ namespace ve
         float scoopCents = 0.0f;     // start each note this far below and scoop up
         float scoopMs = 0.0f;
 
-        // Timing (stored now, applied in a later step: needs time-stretching).
-        float quantize = 0.0f;
-        int grid = 16;
+        // Timing: pull corrected note onsets toward the host grid (time-stretched).
+        float quantize = 0.0f;       // 0 = as sung, 1 = onsets exactly on the grid
+        int grid = 16;               // grid division per whole note (16 = sixteenths)
+        float swing = 0.0f;          // 0 = straight, 1 = full triplet swing on every other grid step
 
         juce::var toVar() const;
         std::uint64_t hash() const;

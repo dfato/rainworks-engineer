@@ -7,7 +7,7 @@ namespace ve
     bool NotePlan::isIdentity() const noexcept
     {
         for (auto& n : notes)
-            if (n.correction > 0.0f && std::abs (n.targetMidi - n.detectedMidi) > 1.0e-4f)
+            if ((n.correction > 0.0f && std::abs (n.targetMidi - n.detectedMidi) > 1.0e-4f) || n.timeShift != 0)
                 return false;
         return true;
     }
@@ -22,12 +22,13 @@ namespace ve
         };
         for (auto& n : notes)
         {
-            if (n.correction <= 0.0f) continue; // uncorrected notes don't change the audio
+            if (n.correction <= 0.0f && n.timeShift == 0) continue; // untouched notes don't change the audio
             mix (&n.start, sizeof (n.start));
             mix (&n.end, sizeof (n.end));
             mix (&n.detectedMidi, sizeof (float));
             mix (&n.targetMidi, sizeof (float));
             mix (&n.correction, sizeof (float));
+            if (n.timeShift != 0) mix (&n.timeShift, sizeof (n.timeShift)); // keeps old hashes stable
         }
         return h;
     }

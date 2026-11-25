@@ -40,6 +40,7 @@ set(VE_ENGINE_SOURCES
     Source/Engine/Style/ExpressionLayer.cpp
     Source/Engine/Style/StyleProfile.cpp
     Source/Engine/TempoMap.cpp
+    Source/Engine/TimeWarp.cpp
     Source/Engine/ML/OnnxBackend.cpp
     Source/Engine/ML/SmokeTestModel.cpp
     Source/State/SessionModel.cpp

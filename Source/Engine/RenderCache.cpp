@@ -1,4 +1,5 @@
 #include "RenderCache.h"
+#include "TimeWarp.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 
 namespace ve
@@ -21,6 +22,14 @@ namespace ve
             mix (&n, sizeof (n));
             const auto st = style.hash();
             mix (&st, sizeof (st));
+            // When timing moves, every note is a warp anchor, corrected or not.
+            if (TimeWarp::movesTime (notes, style))
+                for (auto& note : notes.notes)
+                {
+                    mix (&note.start, sizeof (note.start));
+                    mix (&note.end, sizeof (note.end));
+                    mix (&note.correction, sizeof (float));
+                }
         }
         return h;
     }
@@ -29,7 +38,7 @@ namespace ve
     {
         RenderPlan p;
         p.style = std::move (style);
-        p.rendererId = n.isIdentity() ? capturedId : pitchCorrectId;
+        p.rendererId = n.isIdentity() && ! TimeWarp::movesTime (n, p.style) ? capturedId : pitchCorrectId;
         p.notes = std::move (n);
         return p;
     }

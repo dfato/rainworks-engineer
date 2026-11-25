@@ -34,28 +34,54 @@ namespace ve
     }
 
     void PitchCorrectRenderer::psolaShift (const juce::AudioBuffer<float>& in, juce::AudioBuffer<float>& out,
-                                           double sr, const std::vector<float>& f0, const std::vector<float>& shift)
+                                           double sr, const std::vector<float>& f0, const std::vector<float>& shift,
+                                           const TimeWarp& warp)
     {
         const int n = in.getNumSamples();
         const int chs = in.getNumChannels();
         out.makeCopyOf (in);
         if (n == 0) return;
 
+        const bool warped = ! warp.isIdentity();
+        auto inputAt = [&] (double t) { return warped ? warp.inputAt (t) : t; };
+        auto clampIdx = [n] (double t) { return juce::jlimit (0, n - 1, (int) t); };
+
         const double unvoicedPeriod = sr * 0.005;
-        auto periodAt = [&] (double t)
+        auto periodAt = [&] (double u)
         {
-            const int i = juce::jlimit (0, n - 1, (int) t);
-            return f0[(size_t) i] > 0.0f ? sr / (double) f0[(size_t) i] : unvoicedPeriod;
+            const float f = f0[(size_t) clampIdx (u)];
+            return f > 0.0f ? sr / (double) f : unvoicedPeriod;
         };
 
-        // Only process stretches that are actually shifted (plus a margin).
-        std::vector<char> active ((size_t) n, 0);
-        const int margin = (int) (sr * 0.03);
+        // Output samples that differ from the input: shifted, or read from another time.
+        std::vector<char> moved ((size_t) n, 0), shifted ((size_t) n, 0);
         for (int i = 0; i < n; ++i)
-            if (std::abs (shift[(size_t) i]) > 0.0f)
-                for (int j = juce::jmax (0, i - margin); j <= juce::jmin (n - 1, i + margin); ++j) active[(size_t) j] = 1;
+        {
+            const double u = inputAt ((double) i);
+            shifted[(size_t) i] = std::abs (shift[(size_t) clampIdx (u)]) > 0.0f ? 1 : 0;
+            moved[(size_t) i] = warped && std::abs (u - (double) i) > 0.25 ? 1 : 0;
+        }
 
-        // Analysis pitch marks across the whole take.
+        // Process those stretches plus a margin.
+        std::vector<char> active ((size_t) n, 0);
+        {
+            const int margin = (int) (sr * 0.03);
+            // Two sweeps give a symmetric dilation without the O(n * margin) loop.
+            int lastOn = -margin - 1;
+            for (int i = 0; i < n; ++i)
+            {
+                if (shifted[(size_t) i] || moved[(size_t) i]) lastOn = i;
+                if (i - lastOn <= margin) active[(size_t) i] = 1;
+            }
+            int nextOn = n + margin + 1;
+            for (int i = n - 1; i >= 0; --i)
+            {
+                if (shifted[(size_t) i] || moved[(size_t) i]) nextOn = i;
+                if (nextOn - i <= margin) active[(size_t) i] = 1;
+            }
+        }
+
+        // Analysis pitch marks across the whole take (input time).
         std::vector<double> marks;
         for (double t = 0.0; t < n; t += periodAt (t))
             marks.push_back (t);
@@ -72,14 +98,16 @@ namespace ve
             int segEnd = seg;
             while (segEnd < n && active[(size_t) segEnd]) ++segEnd;
 
-            // Synthesis marks: spaced by the analysis period divided by the pitch ratio.
+            // Synthesis marks in output time, spaced by the local period divided by the
+            // pitch ratio; each takes the analysis grain nearest to where it reads from.
             size_t m = 0;
             for (double ts = seg; ts < segEnd;)
             {
-                while (m + 1 < marks.size() && std::abs (marks[m + 1] - ts) <= std::abs (marks[m] - ts)) ++m;
+                const double u = inputAt (ts);
+                while (m + 1 < marks.size() && std::abs (marks[m + 1] - u) <= std::abs (marks[m] - u)) ++m;
                 const double ta = marks[m];
                 const double T = periodAt (ta);
-                const float sft = shift[(size_t) juce::jlimit (0, n - 1, (int) ts)];
+                const float sft = shift[(size_t) clampIdx (u)];
                 const double ratio = std::pow (2.0, (double) sft / 12.0);
 
                 // Hann grain of length 2T centred on the analysis mark, placed at ts.
@@ -94,38 +122,51 @@ namespace ve
                         acc.addSample (ch, dst, in.getSample (ch, src) * w);
                     wsum[(size_t) dst] += w;
                 }
-                ts += f0[(size_t) juce::jlimit (0, n - 1, (int) ts)] > 0.0f ? T / ratio : T;
+                ts += f0[(size_t) clampIdx (u)] > 0.0f ? T / ratio : T;
             }
             seg = segEnd;
         }
 
-        // Normalise and crossfade: shifted where the curve is non-zero, original elsewhere.
+        // Crossfade mask: processed where shifted or moved, original elsewhere. The moved
+        // part is dilated first so the fade happens where input and output line up again.
         const int fade = juce::jmax (1, (int) (sr * 0.01));
-        std::vector<float> mix ((size_t) n, 0.0f);
-        for (int i = 0; i < n; ++i) mix[(size_t) i] = std::abs (shift[(size_t) i]) > 0.0f ? 1.0f : 0.0f;
-        // Smooth the mask with a moving window so joins don't click.
+        auto smooth = [n, fade] (std::vector<float>& v)
         {
             std::vector<float> sm ((size_t) n, 0.0f);
             double run = 0.0;
             for (int i = 0; i < n + fade; ++i)
             {
-                if (i < n) run += mix[(size_t) i];
-                if (i - 2 * fade >= 0) run -= mix[(size_t) (i - 2 * fade)];
+                if (i < n) run += v[(size_t) i];
+                if (i - 2 * fade >= 0) run -= v[(size_t) (i - 2 * fade)];
                 const int c = i - fade;
                 if (c >= 0 && c < n) sm[(size_t) c] = (float) (run / (2 * fade));
             }
-            mix.swap (sm);
+            v.swap (sm);
+        };
+        std::vector<float> mix ((size_t) n, 0.0f);
+        for (int i = 0; i < n; ++i) mix[(size_t) i] = shifted[(size_t) i] ? 1.0f : 0.0f;
+        smooth (mix);
+        if (warped)
+        {
+            std::vector<float> mv ((size_t) n, 0.0f);
+            int lastOn = -fade - 1;
+            for (int i = 0; i < n; ++i) { if (moved[(size_t) i]) lastOn = i; if (i - lastOn <= fade) mv[(size_t) i] = 1.0f; }
+            int nextOn = n + fade + 1;
+            for (int i = n - 1; i >= 0; --i) { if (moved[(size_t) i]) nextOn = i; if (nextOn - i <= fade) mv[(size_t) i] = 1.0f; }
+            smooth (mv);
+            for (int i = 0; i < n; ++i) mix[(size_t) i] = juce::jmax (mix[(size_t) i], mv[(size_t) i]);
         }
 
         for (int i = 0; i < n; ++i)
         {
             const float m = mix[(size_t) i];
-            if (m <= 0.0f || wsum[(size_t) i] < 1.0e-3f) continue;
-            const float inv = 1.0f / wsum[(size_t) i];
+            if (m <= 0.0f) continue;
+            const bool hasGrains = wsum[(size_t) i] >= 1.0e-3f;
+            const float inv = hasGrains ? 1.0f / wsum[(size_t) i] : 0.0f;
             for (int ch = 0; ch < chs; ++ch)
             {
-                const float shifted = acc.getSample (ch, i) * inv;
-                out.setSample (ch, i, (1.0f - m) * in.getSample (ch, i) + m * shifted);
+                const float processed = hasGrains ? acc.getSample (ch, i) * inv : 0.0f;
+                out.setSample (ch, i, (1.0f - m) * in.getSample (ch, i) + m * processed);
             }
         }
     }
@@ -159,8 +200,9 @@ namespace ve
         if (ctx.shouldCancel()) return juce::Result::fail ("cancelled");
 
         const auto shift = ExpressionLayer::buildShiftCurve (plan.notes, plan.style, f0, rate);
+        const auto warp = TimeWarp::build (plan.notes, plan.style, region.tempoMap, n);
         juce::AudioBuffer<float> shifted;
-        psolaShift (audio, shifted, rate, f0, shift);
+        psolaShift (audio, shifted, rate, f0, shift, warp);
         ctx.setProgress (0.8f);
         if (ctx.shouldCancel()) return juce::Result::fail ("cancelled");
 
