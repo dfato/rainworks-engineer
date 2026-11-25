@@ -43,8 +43,7 @@ Install the VST3 by copying the whole `.vst3` folder to `C:\Program Files\Common
 ### Routing the instrumental into the sidechain
 
 1. Route your instrumental (beat) to its own mixer insert, say insert 2.
-2. Select **insert 2** in the mixer. At the bottom of the vocal insert (insert 1) right-click the small routing arrow/knob and choose **Sidechain to this track only** (or, with insert 2 selected, right-click the arrow under insert 1 and choose "Sidechain to this track"). Insert 2 still goes to Master; it now also feeds insert 1 as a sidechain source.
-3. Open the plugin wrapper on insert 1 (the gear/cog icon at the top-left of the plugin window), go to the **Processing** tab, and in the input section set the plugin's **Sidechain** input port to the number of the sidechain source (FL lists it as the sidechain source track, e.g. "2").
-   - In recent FL versions the VST3 wrapper also shows a **Sidechain** selector directly; pick insert 2 there.
+2. In the mixer, select **insert 2** (the source). Right-click the small routing arrow at the bottom of **insert 1** (the vocal) and choose **Sidechain to this track**. Insert 2 still feeds Master; it now also feeds insert 1 as a sidechain source.
+3. Open the plugin window on insert 1, click the wrapper's cog icon (top-left), go to the **Processing** tab and find the **Connections** section. Set the plugin's sidechain input (the second input port, labelled Sidechain) to insert 2.
 4. Press play. The plugin's status line should turn green: "Sidechain: receiving signal (-x dBFS peak)". Stop or mute insert 2 and it goes yellow ("enabled, no signal").
 5. Remove the sidechain routing: the plugin must keep passing the vocal through with no errors.
