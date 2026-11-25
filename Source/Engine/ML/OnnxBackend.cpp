@@ -7,6 +7,9 @@
  #define ORT_API_MANUAL_INIT 1
  #include <onnxruntime_cxx_api.h>
  #if JUCE_WINDOWS
+  #ifndef NOMINMAX
+   #define NOMINMAX
+  #endif
   #include <windows.h>
  #endif
 #endif

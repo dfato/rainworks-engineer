@@ -9,27 +9,31 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Configure
-        run: cmake -S . -B build -A x64
+      - name: Configure (with ONNX Runtime for voice models)
+        run: cmake -S . -B build -A x64 -DVE_WITH_ONNX=ON
       - name: Build
         run: cmake --build build --config Release --parallel
-      - name: Engine tests
+      - name: Engine tests + ONNX smoke test
         run: ctest --test-dir build -C Release --output-on-failure
+      - name: Check onnxruntime.dll ships inside the VST3 bundle
+        shell: pwsh
+        run: |
+          $dll = Get-ChildItem -Recurse build/VocalEngine_artefacts/Release/VST3 -Filter onnxruntime.dll
+          if (-not $dll) { throw "onnxruntime.dll missing from the VST3 bundle" }
+          $dll.FullName
       - uses: actions/upload-artifact@v4
         with:
           name: EngineByRainWorks-VST3-win64
           path: build/VocalEngine_artefacts/Release/VST3/
 
-  windows-onnx-smoke:
+  windows-no-onnx:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Configure (VE_WITH_ONNX=ON)
-        run: cmake -S . -B build -A x64 -DVE_WITH_ONNX=ON
-      - name: Build smoke test
-        run: cmake --build build --config Release --target VocalEngineOnnxSmokeTest --parallel
-      - name: Run smoke test
-        run: ctest --test-dir build -C Release -R onnx_smoke --output-on-failure
+      - name: Configure (VE_WITH_ONNX=OFF)
+        run: cmake -S . -B build -A x64
+      - name: Build plugin
+        run: cmake --build build --config Release --target VocalEngine_VST3 --parallel
 
   linux:
     runs-on: ubuntu-24.04
