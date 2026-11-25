@@ -171,7 +171,13 @@ namespace ve
         if (sc.isNotEmpty())
             d.sidechainFile = folder.getChildFile (sc);
         d.tempoMap = readTempoMap (r);
-        d.planHash = (std::uint64_t) r.getProperty (IDs::planHash).toString().getHexValue64();
+        const auto pitch = r.getProperty (IDs::pitchFile).toString();
+        if (pitch.isNotEmpty())
+            d.pitchFile = folder.getChildFile (pitch);
+        d.plan = RenderPlan::forNotes (getNotePlan (d.id));
+        if (d.plan.rendererId != RenderPlan::capturedId && ! d.pitchFile.existsAsFile())
+            d.plan = RenderPlan::identity(); // can't correct without the pitch track
+        d.planHash = d.plan.hash();
         d.missingFiles = ! d.vocalFile.existsAsFile();
         return d;
     }
@@ -224,6 +230,51 @@ namespace ve
                              (int) c.getProperty (IDs::root, -1), (ChordQuality) (int) c.getProperty (IDs::quality, 0),
                              (float) c.getProperty (IDs::confidence, 0.0f) });
         return out;
+    }
+
+    void SessionModel::setNotes (const juce::String& regionId, const std::vector<Note>& notes, const juce::String& pitchFile)
+    {
+        auto r = findRegion (regionId);
+        if (! r.isValid()) return;
+        if (pitchFile.isNotEmpty())
+            r.setProperty (IDs::pitchFile, pitchFile, nullptr);
+
+        r.removeChild (r.getChildWithName (IDs::Notes), nullptr);
+        juce::ValueTree list (IDs::Notes);
+        for (auto& n : notes)
+        {
+            juce::ValueTree v (IDs::Note);
+            v.setProperty (IDs::start, juce::String (n.start), nullptr);
+            v.setProperty (IDs::end, juce::String (n.end), nullptr);
+            v.setProperty (IDs::detected, n.detectedMidi, nullptr);
+            v.setProperty (IDs::target, n.targetMidi, nullptr);
+            v.setProperty (IDs::correction, n.correction, nullptr);
+            v.setProperty (IDs::edited, n.userEdited, nullptr);
+            list.appendChild (v, nullptr);
+        }
+        r.appendChild (list, nullptr);
+    }
+
+    bool SessionModel::hasNotes (const juce::String& regionId) const
+    {
+        return findRegion (regionId).getChildWithName (IDs::Notes).isValid();
+    }
+
+    NotePlan SessionModel::getNotePlan (const juce::String& regionId) const
+    {
+        NotePlan plan;
+        for (auto v : findRegion (regionId).getChildWithName (IDs::Notes))
+        {
+            Note n;
+            n.start = getInt64 (v, IDs::start);
+            n.end = getInt64 (v, IDs::end);
+            n.detectedMidi = v.getProperty (IDs::detected);
+            n.targetMidi = v.getProperty (IDs::target);
+            n.correction = v.getProperty (IDs::correction, 0.0f);
+            n.userEdited = v.getProperty (IDs::edited, false);
+            plan.notes.push_back (n);
+        }
+        return plan;
     }
 
     KeyEstimate SessionModel::getEstimatedKey() const

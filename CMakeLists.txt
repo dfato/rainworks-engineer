@@ -29,6 +29,9 @@ set(VE_ENGINE_SOURCES
     Source/Engine/CaptureEngine.cpp
     Source/Engine/HostContext.cpp
     Source/Engine/JobQueue.cpp
+    Source/Engine/NotePlan.cpp
+    Source/Engine/PitchCorrectRenderer.cpp
+    Source/Engine/PitchTracker.cpp
     Source/Engine/PlaybackEngine.cpp
     Source/Engine/RenderCache.cpp
     Source/Engine/SidechainAnalysis.cpp

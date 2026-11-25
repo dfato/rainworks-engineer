@@ -51,7 +51,7 @@ namespace ve::ui
         auto r = getLocalBounds();
         hScroll.setBounds (r.removeFromBottom (12).withTrimmedLeft (gutter));
         ruler = r.removeFromTop (24).withTrimmedLeft (gutter);
-        noteLane = r.removeFromBottom (40).withTrimmedLeft (gutter);
+        noteLane = r.removeFromBottom (120).withTrimmedLeft (gutter);
         r.removeFromBottom (2);
         chordLane = r.removeFromBottom (28).withTrimmedLeft (gutter);
         r.removeFromBottom (2);
@@ -94,6 +94,52 @@ namespace ve::ui
         repaint();
     }
 
+    juce::Rectangle<float> TimelineComponent::noteBounds (const TimelineRegion& r, const Note& n, bool target) const
+    {
+        const auto lane = noteLane.reduced (0, 4).toFloat();
+        const float midi = target ? n.detectedMidi + (n.targetMidi - n.detectedMidi) * n.correction : n.detectedMidi;
+        const float y = lane.getBottom() - (midi - noteLo) * noteRowH;
+        const float x0 = ppqToX (r.tempoMap.sampleToPpq ((double) n.start));
+        const float x1 = ppqToX (r.tempoMap.sampleToPpq ((double) n.end));
+        return { x0, y - juce::jmax (noteH, 8.0f) * 0.5f, juce::jmax (4.0f, x1 - x0), juce::jmax (noteH, 8.0f) };
+    }
+
+    TimelineComponent::NoteHit TimelineComponent::noteAt (juce::Point<int> p) const
+    {
+        if (! noteLane.contains (p)) return {};
+        for (int ri = (int) data.regions.size() - 1; ri >= 0; --ri)
+        {
+            const auto& r = data.regions[(size_t) ri];
+            for (int ni = 0; ni < (int) r.notes.size(); ++ni)
+                if (noteBounds (r, r.notes[(size_t) ni], true).contains (p.toFloat()))
+                    return { ri, ni };
+        }
+        return {};
+    }
+
+    void TimelineComponent::mouseUp (const juce::MouseEvent&)
+    {
+        if (dragNote.region >= 0 && noteDragged && onNoteChanged)
+        {
+            const auto& r = data.regions[(size_t) dragNote.region];
+            onNoteChanged (r.id, dragNote.note, r.notes[(size_t) dragNote.note]);
+        }
+        dragNote = {};
+        noteDragged = false;
+    }
+
+    void TimelineComponent::mouseDoubleClick (const juce::MouseEvent& e)
+    {
+        const auto hit = noteAt (e.getPosition());
+        if (hit.region < 0) return;
+        auto& r = data.regions[(size_t) hit.region];
+        auto n = r.notes[(size_t) hit.note];
+        n.correction = n.correction > 0.0f ? 0.0f : 1.0f;
+        r.notes[(size_t) hit.note] = n;
+        repaint();
+        if (onNoteChanged) onNoteChanged (r.id, hit.note, n);
+    }
+
     const TimelineRegion* TimelineComponent::regionAt (juce::Point<int> p) const
     {
         if (! takesLane.contains (p))
@@ -108,6 +154,38 @@ namespace ve::ui
     void TimelineComponent::mouseDown (const juce::MouseEvent& e)
     {
         dragStartView = viewStartPpq;
+
+        if (const auto hit = noteAt (e.getPosition()); hit.region >= 0)
+        {
+            auto& r = data.regions[(size_t) hit.region];
+            const auto n = r.notes[(size_t) hit.note];
+            if (e.mods.isPopupMenu())
+            {
+                juce::PopupMenu m;
+                m.addSectionHeader (Analysis::pitchClassName (((int) std::round (n.detectedMidi)) % 12) + "  "
+                                    + juce::String (n.centsOff() >= 0 ? "+" : "") + juce::String (juce::roundToInt (n.centsOff())) + " cents from target");
+                m.addItem (1, "Correct fully (100%)");
+                m.addItem (2, "Correct halfway (50%)");
+                m.addItem (3, "Leave as sung (0%)");
+                m.addItem (4, "Reset target to key");
+                m.showMenuAsync (juce::PopupMenu::Options(), [this, id = r.id, idx = hit.note, n] (int res)
+                {
+                    if (res == 0 || ! onNoteChanged) return;
+                    auto edited = n;
+                    if (res == 1) edited.correction = 1.0f;
+                    if (res == 2) edited.correction = 0.5f;
+                    if (res == 3) edited.correction = 0.0f;
+                    if (res == 4) edited.targetMidi = std::round (n.detectedMidi), edited.correction = juce::jmax (n.correction, 1.0f);
+                    onNoteChanged (id, idx, edited);
+                });
+                return;
+            }
+            dragNote = hit;
+            dragStartTarget = n.targetMidi;
+            noteDragged = false;
+            return;
+        }
+
         if (! e.mods.isPopupMenu())
             return;
 
@@ -129,6 +207,18 @@ namespace ve::ui
     void TimelineComponent::mouseDrag (const juce::MouseEvent& e)
     {
         if (e.mods.isPopupMenu()) return;
+
+        if (dragNote.region >= 0)
+        {
+            // Vertical drag moves the target in semitones (Alt for fine/cents).
+            auto& n = data.regions[(size_t) dragNote.region].notes[(size_t) dragNote.note];
+            const float steps = (float) -e.getDistanceFromDragStartY() / juce::jmax (1.0f, noteRowH);
+            n.targetMidi = e.mods.isAltDown() ? dragStartTarget + steps : std::round (dragStartTarget + steps);
+            n.correction = 1.0f;
+            noteDragged = true;
+            repaint();
+            return;
+        }
         // Drag to scroll (on empty space or the ruler).
         viewStartPpq = juce::jmax (0.0, dragStartView - e.getDistanceFromDragStartX() / pxPerPpq);
         followPlayhead = false;
@@ -239,6 +329,80 @@ namespace ve::ui
             }
     }
 
+    void TimelineComponent::drawNotes (juce::Graphics& g)
+    {
+        // Pitch range over all notes so blobs fill the lane.
+        float lo = 1000.0f, hi = -1000.0f;
+        bool any = false, tracking = false;
+        for (auto& r : data.regions)
+        {
+            tracking = tracking || r.trackingPitch;
+            for (auto& n : r.notes) { lo = juce::jmin (lo, n.detectedMidi, n.targetMidi); hi = juce::jmax (hi, n.detectedMidi, n.targetMidi); any = true; }
+        }
+        if (! any)
+        {
+            g.setColour (Theme::textDim.withAlpha (0.6f));
+            g.setFont (Theme::font (11.0f));
+            g.drawText (tracking ? "Tracking pitch..." : "Notes appear here after a take is analysed",
+                        noteLane.reduced (8, 0), juce::Justification::centredLeft);
+            return;
+        }
+        lo = std::floor (lo) - 1.0f;
+        hi = std::ceil (hi) + 1.0f;
+        const auto lane = noteLane.reduced (0, 4).toFloat();
+        const float rowH = lane.getHeight() / juce::jmax (1.0f, hi - lo);
+        if (dragNote.region < 0) { noteLo = lo; noteRowH = rowH; } // keep the scale stable while dragging
+        auto yFor = [&] (float midi) { return lane.getBottom() - (midi - noteLo) * noteRowH; };
+
+        // Octave C lines with labels.
+        g.setFont (Theme::font (10.0f));
+        for (int m = (int) lo; m <= (int) hi; ++m)
+        {
+            if (m % 12 != 0) continue;
+            const float y = yFor ((float) m);
+            g.setColour (Theme::gridBeat);
+            g.drawHorizontalLine ((int) y, lane.getX(), lane.getRight());
+            g.setColour (Theme::textDim);
+            g.drawText ("C" + juce::String (m / 12 - 1), (int) lane.getX() + 2, (int) y - 12, 30, 12, juce::Justification::bottomLeft);
+        }
+
+        const float h = juce::jlimit (3.0f, 12.0f, noteRowH * 0.8f);
+        noteH = h;
+        for (auto& r : data.regions)
+            for (auto& n : r.notes)
+            {
+                const float x0 = ppqToX (r.tempoMap.sampleToPpq ((double) n.start));
+                const float x1 = ppqToX (r.tempoMap.sampleToPpq ((double) n.end));
+                if (x1 < lane.getX() || x0 > lane.getRight()) continue;
+
+                const float cents = std::abs (n.centsOff());
+                const auto colour = cents < 15.0f ? Theme::good : (cents < 35.0f ? Theme::warn : Theme::bad);
+
+                // Target pitch as an outline, detected pitch as the filled blob.
+                if (std::abs (n.targetMidi - n.detectedMidi) > 0.05f)
+                {
+                    g.setColour (Theme::text.withAlpha (0.35f));
+                    g.drawRoundedRectangle (juce::Rectangle<float> (x0, yFor (n.targetMidi) - h * 0.5f, juce::jmax (2.0f, x1 - x0), h), h * 0.4f, 1.0f);
+                }
+                // Corrected notes are drawn at their target (where they will sound), with a
+                // faint ghost where they were sung.
+                const bool corrected = n.correction > 0.0f;
+                const float shown = n.detectedMidi + (n.targetMidi - n.detectedMidi) * n.correction;
+                if (corrected)
+                {
+                    g.setColour (colour.withAlpha (0.25f));
+                    g.fillRoundedRectangle (juce::Rectangle<float> (x0, yFor (n.detectedMidi) - h * 0.5f, juce::jmax (2.0f, x1 - x0), h), h * 0.4f);
+                }
+                g.setColour ((corrected ? Theme::accent : colour).withAlpha (0.9f));
+                g.fillRoundedRectangle (juce::Rectangle<float> (x0, yFor (shown) - h * 0.5f, juce::jmax (2.0f, x1 - x0), h), h * 0.4f);
+                if (n.userEdited)
+                {
+                    g.setColour (Theme::text);
+                    g.drawRoundedRectangle (juce::Rectangle<float> (x0, yFor (shown) - h * 0.5f, juce::jmax (2.0f, x1 - x0), h), h * 0.4f, 1.0f);
+                }
+            }
+    }
+
     void TimelineComponent::paint (juce::Graphics& g)
     {
         g.fillAll (Theme::panel);
@@ -281,10 +445,8 @@ namespace ve::ui
 
             drawChords (g);
 
-            // Reserved lane for Stage 2 note blobs.
-            g.setColour (Theme::textDim.withAlpha (0.5f));
-            g.setFont (Theme::font (11.0f));
-            g.drawText ("Note blobs arrive in Stage 2", noteLane.reduced (8, 0), juce::Justification::centredLeft);
+            drawGrid (g, noteLane, false);
+            drawNotes (g);
 
             // Playhead.
             if (host.hasPpq)

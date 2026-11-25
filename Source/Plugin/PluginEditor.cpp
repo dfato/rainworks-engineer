@@ -47,13 +47,15 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
 
     timeline.onDeleteRegion = [this] (const juce::String& id) { processor.deleteRegion (id); };
     timeline.onAnalyseRegion = [this] (const juce::String& id) { processor.analyseRegion (id); };
+    timeline.onNoteChanged = [this] (const juce::String& id, int idx, const ve::Note& n) { processor.updateNote (id, idx, n); };
+    controls.onCorrectionChanged = [this] (float a) { processor.setGlobalCorrection (a); };
 
     processor.addChangeListener (this);
     rebuildFromSession();
 
     setResizable (true, true);
-    setResizeLimits (820, 420, 3000, 1800);
-    setSize (1100, 560);
+    setResizeLimits (980, 520, 3000, 1800);
+    setSize (1200, 680);
     startTimerHz (30);
 }
 
@@ -134,6 +136,7 @@ void VocalEngineEditor::rebuildFromSession()
     controls.setMode ((int) processor.getMonitoringMode());
     controls.setKeyOverride (session.getKeyOverride());
     controls.setDataFolderText (session.getDataFolder().getFullPathName());
+    controls.setCorrection (processor.getGlobalCorrection());
 
     const auto est = session.getEstimatedKey();
     controls.setEstimatedKeyText (est.isValid() ? ve::Analysis::keyName (est.tonic, est.minor) : "not analysed");
@@ -161,6 +164,8 @@ void VocalEngineEditor::rebuildFromSession()
             r.renderedRate = rendered->sampleRate;
         }
         r.chords = session.getChords (desc.id);
+        r.notes = session.getNotePlan (desc.id).notes;
+        r.trackingPitch = ! session.hasNotes (desc.id) && ! desc.missingFiles;
         d.regions.push_back (std::move (r));
     }
     std::sort (d.regions.begin(), d.regions.end(), [] (auto& a, auto& b) { return a.order < b.order; });

@@ -167,6 +167,23 @@ Chord vocabulary: major, minor, 7, sus2, sus4, dim, or N.C. Beats follow the hos
 - Right-click a take to re-analyse or remove it from the session (its files stay on disk).
 - The bottom lane is reserved for Stage 2 note blobs.
 
+### 9. Notes and pitch correction (Stage 2)
+
+1. Record or import a take. After it loads, "Track pitch" runs and the **Notes** lane fills with blobs: one per
+   sung note, at the pitch you sang. Colour = how far it is from the nearest in-key note
+   (green < 15 cents, yellow < 35, red beyond). An outline shows the target when it differs.
+2. Set Monitor to **Rendered** and raise **Correct** (top bar). Every note you haven't touched moves toward its
+   target by that amount and the take re-renders in the background (you keep hearing the previous render until
+   the new one is ready). Corrected notes turn blue; a faint ghost shows where they were sung.
+3. Per note: drag a blob up/down to choose another target (semitone steps, hold Alt for cents), double-click to
+   toggle correction on/off, right-click for 100% / 50% / 0% / reset. Edited notes get a white outline and the
+   Correct slider no longer changes them.
+4. Change the key (Key menu): untouched notes re-snap to the new scale.
+5. Save and reopen the project: notes, edits and the corrected sound come back.
+
+Correction moves each note as a whole (vibrato and slides are kept) using TD-PSOLA. Audio outside corrected
+notes is passed through untouched.
+
 ## Known limitations (to fix after the full build)
 
 - Takes are aligned by sample position. If you change the project tempo after recording, takes stay at their
@@ -175,3 +192,5 @@ Chord vocabulary: major, minor, 7, sus2, sus4, dim, or N.C. Beats follow the hos
 - Standalone has no host transport, so capture and Rendered playback do nothing there.
 - The session id is copied when you "Save as" an FL project, so both projects share one data folder.
 - No crossfades at take boundaries yet (punch-ins can click).
+- Stage 2 corrects pitch only; note timing edits and splitting/merging blobs come next.
+- Heavily breathy or polyphonic material confuses the pitch tracker (it assumes one voice).

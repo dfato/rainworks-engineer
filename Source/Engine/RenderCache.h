@@ -3,6 +3,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include "JobQueue.h"
 #include "TempoMap.h"
+#include "NotePlan.h"
 #include <map>
 #include <memory>
 #include <mutex>
@@ -14,12 +15,17 @@ namespace ve
     // whenever the plan does, which is what triggers selective re-rendering.
     struct RenderPlan
     {
-        juce::String rendererId = "captured";
+        static constexpr const char* capturedId = "captured";
+        static constexpr const char* pitchCorrectId = "pitch-correct";
+
+        juce::String rendererId = capturedId;
         int rendererVersion = 1;
-        // Stage 2+: note plan, style profile id, expression params...
+        NotePlan notes;   // Stage 2. Stage 3 adds style profile + expression params.
 
         std::uint64_t hash() const noexcept;
         static RenderPlan identity() { return {}; }
+        // Picks the renderer for a note plan: captured audio if nothing would change.
+        static RenderPlan forNotes (NotePlan);
     };
 
     // Everything a renderer needs to know about a region. Plain data.
@@ -35,7 +41,9 @@ namespace ve
         juce::File vocalFile;
         juce::File sidechainFile;       // may be empty
         TempoMap tempoMap;
-        std::uint64_t planHash = 0;
+        juce::File pitchFile;           // Stage 2 pitch track, may be empty
+        RenderPlan plan;
+        std::uint64_t planHash = 0;     // == plan.hash()
         bool missingFiles = false;
     };
 
@@ -84,6 +92,8 @@ namespace ve
     {
     public:
         std::shared_ptr<const RenderedAudio> find (const juce::String& regionId, std::uint64_t planHash) const;
+        // Any cached render of the region (used to keep playing the old render while a new one is built).
+        std::shared_ptr<const RenderedAudio> findAny (const juce::String& regionId) const;
         void store (std::shared_ptr<const RenderedAudio>);
         // Drops every entry for the region whose hash differs from keepHash.
         void removeStale (const juce::String& regionId, std::uint64_t keepHash);
