@@ -112,3 +112,10 @@ $TOOL --base rnb --id my-rnb --name "My R&B" --out my-rnb.json take1.wav take2.w
 
 `@92` gives that file's tempo so timing can be learned too. Put the JSON in
 `Documents/RainWorks/Engineer/Styles/` to use it.
+
+To hear a style on a vocal without the plugin (pitch and expression only, no timing moves):
+
+```
+$TOOL --render pop-ballad out.wav my-take.wav
+```
+

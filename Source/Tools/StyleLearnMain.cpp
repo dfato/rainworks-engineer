@@ -15,10 +15,16 @@
 //   --stats-dir <dir>  also write <input>.stats.json per audio input
 //   --out <file>       write the profile JSON here (default: stdout)
 //   --stats-only       print the combined statistics and stop
+//   --render <style> <out.wav>
+//                      instead of learning: correct the first input with <style> (pitch and
+//                      expression, no timing moves) and write the result, to audition a style
 
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "Engine/Style/StyleLearner.h"
 #include "Engine/Style/StyleProfile.h"
+#include "Engine/Style/ExpressionLayer.h"
+#include "Engine/PitchCorrectRenderer.h"
+#include "Engine/SidechainAnalysis.h"
 #include <iostream>
 
 using namespace ve;
@@ -48,6 +54,7 @@ int main (int argc, char* argv[])
     juce::String baseId = "natural", id, name, category, outPath, statsDir;
     float strength = 1.0f;
     bool statsOnly = false;
+    juce::String renderStyle, renderOut;
     juce::StringArray inputs;
 
     for (int i = 1; i < argc; ++i)
@@ -62,6 +69,7 @@ int main (int argc, char* argv[])
         else if (a == "--out")        outPath = next();
         else if (a == "--stats-dir")  statsDir = next();
         else if (a == "--stats-only") statsOnly = true;
+        else if (a == "--render")     { renderStyle = next(); renderOut = next(); }
         else if (a == "--help" || a == "-h") { std::cout << "See the comment at the top of Source/Tools/StyleLearnMain.cpp" << std::endl; return 0; }
         else inputs.add (a);
     }
@@ -69,6 +77,53 @@ int main (int argc, char* argv[])
 
     juce::AudioFormatManager formats;
     formats.registerBasicFormats();
+
+    if (renderStyle.isNotEmpty())
+    {
+        auto& lib = sharedStyleLibrary();
+        if (! lib.contains (renderStyle)) return fail ("unknown style " + renderStyle);
+        const auto style = lib.get (renderStyle);
+        const auto path = inputs[0].containsChar ('@') ? inputs[0].upToLastOccurrenceOf ("@", false, false) : inputs[0];
+        const auto file = juce::File::getCurrentWorkingDirectory().getChildFile (path);
+        juce::AudioBuffer<float> audio;
+        double sr = 0.0;
+        if (! readMono (formats, file, audio, sr)) return fail ("could not read audio " + file.getFullPathName());
+
+        PitchTrack track;
+        if (PitchTracker::track (audio, sr, {}, nullptr, track).failed()) return fail ("pitch tracking failed");
+        auto notes = NoteSegmenter::segment (track, {});
+        // Key from the sung notes, weighted by length.
+        Chroma chroma {};
+        for (auto& n : notes) chroma[(size_t) (((int) std::lround (n.detectedMidi) % 12 + 12) % 12)] += (float) (n.end - n.start);
+        const auto key = Analysis::estimateKey (chroma);
+        NoteSegmenter::resnap (notes, key);
+        for (auto& n : notes) n.correction = style.correction;
+
+        const int len = audio.getNumSamples();
+        std::vector<float> f0 ((size_t) len, 0.0f);
+        for (int i = 0; i < len; ++i)
+        {
+            const double fi = (double) i / track.hopSize;
+            const int a = juce::jlimit (0, (int) track.frames.size() - 1, (int) fi);
+            const int b = juce::jmin (a + 1, (int) track.frames.size() - 1);
+            const float fa = track.frames[(size_t) a].f0, fb = track.frames[(size_t) b].f0;
+            f0[(size_t) i] = (fa > 0.0f && fb > 0.0f) ? fa + (fb - fa) * (float) (fi - a) : (fa > 0.0f ? fa : fb);
+        }
+        NotePlan plan { notes };
+        const auto shift = ExpressionLayer::buildShiftCurve (plan, style, f0, sr);
+        juce::AudioBuffer<float> out;
+        PitchCorrectRenderer::psolaShift (audio, out, sr, f0, shift);
+
+        auto outFile = juce::File::getCurrentWorkingDirectory().getChildFile (renderOut);
+        outFile.deleteFile();
+        std::unique_ptr<juce::OutputStream> os = std::make_unique<juce::FileOutputStream> (outFile);
+        juce::WavAudioFormat wav;
+        auto w = wav.createWriterFor (os, juce::AudioFormatWriterOptions{}.withSampleRate (sr).withNumChannels (1).withBitsPerSample (16));
+        if (w == nullptr) return fail ("cannot write " + renderOut);
+        w->writeFromAudioSampleBuffer (out, 0, out.getNumSamples());
+        std::cerr << "rendered " << style.name << " (" << (int) notes.size() << " notes, key " << key.tonic << (key.minor ? "m" : "") << ")" << std::endl;
+        return 0;
+    }
 
     std::vector<StyleLearner::TakeStats> takes;
     for (auto& in : inputs)
