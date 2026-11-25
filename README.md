@@ -257,6 +257,11 @@ Training a model is covered in [tools/voice-training/README.md](tools/voice-trai
 
 If ONNX Runtime can't load, the Voice menu is greyed out and its tooltip says why.
 
+**GPU.** Voice models render on the GPU through DirectML (any DirectX 12 GPU, including the RTX 3060).
+The Voice menu's **Render on GPU** item switches between GPU and CPU. When a render finishes, the status
+bar says where it ran, for example "on GPU (DirectML)". If the GPU can't be used, it says "CPU (GPU failed: ...)"
+and the render still completes on the CPU.
+
 ## Known limitations (to fix after the full build)
 
 - Takes are aligned by sample position. If you change the project tempo after recording, takes stay at their
@@ -269,8 +274,7 @@ If ONNX Runtime can't load, the Voice menu is greyed out and its tooltip says wh
   (gaps squeeze to a quarter of their length at most). Very long gaps of breath noise can sound grainy when
   stretched a lot.
 - Quantize uses the tempo recorded with the take; it ignores tempo changes made after recording.
-- Voice models run on the CPU only for now (a DirectML GPU option comes next), and the
-  content encoder isn't bundled yet: export it once with the training tools.
+- The content encoder isn't bundled yet: export it once with the training tools.
 - Voice rendering has only been tested with stand-in models; no real trained voice has been
   run through the plugin yet.
 - Heavily breathy or polyphonic material confuses the pitch tracker (it assumes one voice).

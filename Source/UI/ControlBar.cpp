@@ -41,6 +41,13 @@ namespace ve::ui
             const int sel = voiceBox.getSelectedId();
             if (sel == rescanId) { setVoice (currentVoice); if (onRescanVoices) onRescanVoices(); return; }
             if (sel == openFolderId) { setVoice (currentVoice); if (onOpenVoicesFolder) onOpenVoicesFolder(); return; }
+            if (sel == gpuId)
+            {
+                setVoice (currentVoice);
+                setGpu (! gpuOn, gpuSupported);
+                if (onGpuChanged) onGpuChanged (gpuOn);
+                return;
+            }
             const int idx = sel - 1;
             if (idx >= 0 && idx < voiceIds.size())
             {
@@ -138,10 +145,26 @@ namespace ve::ui
         voiceBox.addSeparator();
         voiceBox.addItem ("Rescan voices folder", rescanId);
         voiceBox.addItem ("Open voices folder...", openFolderId);
+        voiceBox.addItem (gpuLabel(), gpuId);
+        voiceBox.setItemEnabled (gpuId, gpuSupported);
         voiceBox.setTooltip (available
             ? juce::String ("Re-sing every take in a trained voice model, following the notes, style and timing. Models live in Documents\\RainWorks\\Engineer\\Voices.")
             : "Voice models can't run in this build: " + reason);
         setVoice (currentVoice);
+    }
+
+    juce::String ControlBar::gpuLabel() const
+    {
+        if (! gpuSupported) return "Render on GPU: not in this build";
+        return gpuOn ? "Render on GPU: on (click for CPU)" : "Render on GPU: off (click to use GPU)";
+    }
+
+    void ControlBar::setGpu (bool on, bool supported)
+    {
+        gpuOn = on;
+        gpuSupported = supported;
+        voiceBox.changeItemText (gpuId, gpuLabel());
+        voiceBox.setItemEnabled (gpuId, gpuSupported);
     }
 
     void ControlBar::setVoice (const juce::String& id)

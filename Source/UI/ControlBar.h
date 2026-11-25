@@ -28,6 +28,8 @@ namespace ve::ui
         struct VoiceItem { juce::String id, name; };
         std::function<void (const juce::String&)> onVoiceChanged;
         std::function<void()> onRescanVoices, onOpenVoicesFolder;
+        std::function<void (bool)> onGpuChanged;
+        void setGpu (bool on, bool supported);
         void setVoices (const std::vector<VoiceItem>&, bool available, const juce::String& unavailableReason);
         void setVoice (const juce::String& id);
 
@@ -56,7 +58,9 @@ namespace ve::ui
         juce::Label styleLabel { {}, "Style" };
         juce::ComboBox styleBox;
         juce::StringArray styleIds;
-        static constexpr int rescanId = 9001, openFolderId = 9002;
+        static constexpr int rescanId = 9001, openFolderId = 9002, gpuId = 9003;
+        bool gpuOn = true, gpuSupported = false;
+        juce::String gpuLabel() const;
         juce::TextButton intentButton { "Intent" };
         juce::Label voiceLabel { {}, "Voice" };
         juce::ComboBox voiceBox;

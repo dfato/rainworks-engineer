@@ -62,6 +62,7 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
         controls.setStyles (items);
     }
 
+    controls.onGpuChanged = [this] (bool on) { processor.setVoiceGpu (on); };
     controls.onIntentChanged = [this] (bool on) { processor.setUseIntent (on); };
     controls.onVoiceChanged = [this] (const juce::String& id) { processor.setVoice (id); };
     controls.onRescanVoices = [this] { processor.rescanVoices(); refreshVoices(); };
@@ -171,6 +172,7 @@ void VocalEngineEditor::rebuildFromSession()
     controls.setStyle (session.getStyleId());
     controls.setVoice (session.getVoiceId());
     controls.setIntent (session.getUseIntent());
+    controls.setGpu (session.getVoiceGpu(), ve::ml::isGpuSupported());
 
     const auto est = session.getEstimatedKey();
     controls.setEstimatedKeyText (est.isValid() ? ve::Analysis::keyName (est.tonic, est.minor) : "not analysed");

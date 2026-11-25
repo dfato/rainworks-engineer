@@ -15,12 +15,14 @@ jobs:
         run: cmake --build build --config Release --parallel
       - name: Engine tests + ONNX smoke test
         run: ctest --test-dir build -C Release --output-on-failure
-      - name: Check onnxruntime.dll ships inside the VST3 bundle
+      - name: Check ONNX Runtime + DirectML ship inside the VST3 bundle
         shell: pwsh
         run: |
-          $dll = Get-ChildItem -Recurse build/VocalEngine_artefacts/Release/VST3 -Filter onnxruntime.dll
-          if (-not $dll) { throw "onnxruntime.dll missing from the VST3 bundle" }
-          $dll.FullName
+          foreach ($name in "onnxruntime.dll", "DirectML.dll") {
+            $dll = Get-ChildItem -Recurse build/VocalEngine_artefacts/Release/VST3 -Filter $name
+            if (-not $dll) { throw "$name missing from the VST3 bundle" }
+            $dll.FullName
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: EngineByRainWorks-VST3-win64
