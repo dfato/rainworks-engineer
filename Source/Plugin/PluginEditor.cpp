@@ -55,12 +55,16 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
     timeline.onMergeNote = [this] (const juce::String& id, int idx) { processor.mergeNoteWithNext (id, idx); };
     controls.onCorrectionChanged = [this] (float a) { processor.setGlobalCorrection (a); };
     controls.onStyleChanged = [this] (const juce::String& id) { processor.setStyle (id); };
+    controls.onLearnStyle = [this]
     {
-        std::vector<ve::ui::ControlBar::StyleItem> items;
-        for (auto& e : ve::sharedStyleLibrary().list())
-            items.push_back ({ e.id, e.name, e.category });
-        controls.setStyles (items);
-    }
+        chooser = std::make_unique<juce::FileChooser> ("Choose dry vocals sung the way you want (only the singing style is learned)",
+                                                       juce::File::getSpecialLocation (juce::File::userMusicDirectory),
+                                                       "*.wav;*.aif;*.aiff;*.flac;*.ogg;*.mp3");
+        chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles
+                                  | juce::FileBrowserComponent::canSelectMultipleItems,
+                              [this] (const juce::FileChooser& fc) { askToLearnStyle (fc.getResults()); });
+    };
+    refreshStyles();
 
     controls.onGpuChanged = [this] (bool on) { processor.setVoiceGpu (on); };
     controls.onIntentChanged = [this] (bool on) { processor.setUseIntent (on); };
@@ -160,9 +164,43 @@ void VocalEngineEditor::refreshVoices()
     controls.setVoices (items, ve::ml::isOnnxAvailable(), ve::ml::onnxUnavailableReason());
 }
 
+void VocalEngineEditor::refreshStyles()
+{
+    shownStyleListVersion = processor.getStyleListVersion();
+    std::vector<ve::ui::ControlBar::StyleItem> items;
+    for (auto& e : ve::sharedStyleLibrary().list())
+        items.push_back ({ e.id, e.name, e.category });
+    controls.setStyles (items);
+}
+
+void VocalEngineEditor::askToLearnStyle (const juce::Array<juce::File>& files)
+{
+    if (files.isEmpty())
+        return;
+    learnDialog = std::make_unique<juce::AlertWindow> ("Learn style from vocals",
+        "Engineer measures how these vocals are sung (pitch moves, vibrato, scoops, slides) and saves it as a style "
+        "built on the current one. It does not copy the voice.",
+        juce::MessageBoxIconType::NoIcon, this);
+    learnDialog->addTextEditor ("name", files[0].getFileNameWithoutExtension() + " style", "Style name");
+    learnDialog->addButton ("Learn", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    learnDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    learnDialog->enterModalState (true, juce::ModalCallbackFunction::create ([this, files] (int result)
+    {
+        const auto name = learnDialog != nullptr ? learnDialog->getTextEditorContents ("name") : juce::String();
+        if (result == 1)
+            processor.learnStyle (files, name);
+        juce::MessageManager::callAsync ([safe = juce::Component::SafePointer<VocalEngineEditor> (this)]
+        {
+            if (safe != nullptr) safe->learnDialog.reset();
+        });
+    }), false);
+}
+
 void VocalEngineEditor::rebuildFromSession()
 {
     const auto& session = processor.getSession();
+    if (shownStyleListVersion != processor.getStyleListVersion())
+        refreshStyles();
 
     controls.setArmed (processor.isArmed());
     controls.setMode ((int) processor.getMonitoringMode());

@@ -1,0 +1,33 @@
+{
+  "id": "rock",
+  "name": "Rock",
+  "category": "Rock",
+  "pitch": {
+    "correction": 0.59,
+    "retuneMs": 49.18,
+    "keepVariation": 1.0
+  },
+  "vibrato": {
+    "addDepthCents": 2.47,
+    "rateHz": 5.55,
+    "onsetMs": 218.64
+  },
+  "slides": {
+    "betweenNotesMs": 32.11,
+    "maxGapMs": 80.0,
+    "scoopCents": 28.11,
+    "scoopMs": 53.8
+  },
+  "timing": {
+    "quantize": 0.0,
+    "grid": 16,
+    "swing": 0.0
+  },
+  "description": "Raw, light-touch correction. Tuned from 6 openly licensed reference vocals.",
+  "learned": {
+    "takes": 6,
+    "notes": 2391,
+    "voicedMinutes": 14.54
+  },
+  "inherits": "natural"
+}

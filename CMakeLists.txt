@@ -20,6 +20,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(JUCE)
 
 option(VE_BUILD_TESTS "Build the headless engine tests" ON)
+option(VE_BUILD_TOOLS "Build command-line tools (style learning)" ON)
 option(VE_WITH_ONNX   "Build the optional ONNX Runtime inference backend + smoke test" OFF)
 set(VE_ONNX_VERSION "1.20.1" CACHE STRING "Prebuilt ONNX Runtime version to download when VE_WITH_ONNX=ON")
 set(VE_ONNX_ROOT "" CACHE PATH "Optional: an extracted ONNX Runtime release zip (has include/ and lib/). Skips the download.")
@@ -40,6 +41,7 @@ set(VE_ENGINE_SOURCES
     Source/Engine/TakeImporter.cpp
     Source/Engine/Style/BuiltinStyles.cpp
     Source/Engine/Style/ExpressionLayer.cpp
+    Source/Engine/Style/StyleLearner.cpp
     Source/Engine/Style/StyleProfile.cpp
     Source/Engine/Intent/NoteIntent.cpp
     Source/Engine/Voice/VoiceConverter.cpp
@@ -228,5 +230,20 @@ if(VE_BUILD_TESTS)
         # Put the runtime next to the executable so it is found at launch.
         ve_copy_runtime(VocalEngineOnnxSmokeTest)
         add_test(NAME onnx_smoke COMMAND VocalEngineOnnxSmokeTest)
+    endif()
+endif()
+
+# ---- Command-line tools ----
+# EngineerStyleLearn: measures how reference vocals are sung and writes a style profile.
+# tools/style-learning uses it to tune the built-in genre styles.
+if(VE_BUILD_TOOLS)
+    juce_add_console_app(EngineerStyleLearn PRODUCT_NAME "EngineerStyleLearn")
+    target_sources(EngineerStyleLearn PRIVATE Source/Tools/StyleLearnMain.cpp ${VE_ENGINE_SOURCES})
+    ve_configure_engine_target(EngineerStyleLearn)
+    target_compile_definitions(EngineerStyleLearn PRIVATE JUCE_USE_CURL=0 JUCE_WEB_BROWSER=0 JUCE_STANDALONE_APPLICATION=1)
+    target_link_libraries(EngineerStyleLearn PRIVATE ${VE_ENGINE_MODULES}
+        PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+    if(VE_WITH_ONNX)
+        target_link_libraries(EngineerStyleLearn PRIVATE ve_onnxruntime)
     endif()
 endif()

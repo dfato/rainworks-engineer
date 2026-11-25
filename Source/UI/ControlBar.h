@@ -18,6 +18,7 @@ namespace ve::ui
         std::function<void()> onImport;
         std::function<void (float)> onCorrectionChanged;  // 0..1
         std::function<void (const juce::String&)> onStyleChanged;
+        std::function<void()> onLearnStyle;               // "Learn style from vocals..." picked
         std::function<void (bool)> onIntentChanged;
         void setIntent (bool);
 
@@ -58,6 +59,8 @@ namespace ve::ui
         juce::Label styleLabel { {}, "Style" };
         juce::ComboBox styleBox;
         juce::StringArray styleIds;
+        juce::String currentStyleId;
+        static constexpr int learnStyleId = 9101;
         static constexpr int rescanId = 9001, openFolderId = 9002, gpuId = 9003;
         bool gpuOn = true, gpuSupported = false;
         juce::String gpuLabel() const;

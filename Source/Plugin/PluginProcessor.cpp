@@ -1,10 +1,12 @@
 #include "PluginProcessor.h"
+#include <juce_audio_formats/juce_audio_formats.h>
 #include "PluginEditor.h"
 #include "Engine/EngineConfig.h"
 #include "Engine/SidechainAnalysis.h"
 #include "Engine/TakeImporter.h"
 #include "Engine/NotePlan.h"
 #include "Engine/PitchTracker.h"
+#include "Engine/Style/StyleLearner.h"
 #include "Engine/PitchCorrectRenderer.h"
 #include "Engine/Intent/NoteIntent.h"
 #include "Engine/ML/InferenceBackend.h"
@@ -380,6 +382,68 @@ void VocalEngineProcessor::setStyle (const juce::String& id)
     session.setStyleId (style.id);
     setGlobalCorrection (style.correction); // marks every take for re-render
     postMessage ("Style: " + style.name + (style.description.isNotEmpty() ? " - " + style.description : juce::String()));
+}
+
+void VocalEngineProcessor::learnStyle (const juce::Array<juce::File>& refs, const juce::String& requestedName)
+{
+    if (refs.isEmpty())
+        return;
+
+    const auto base = ve::sharedStyleLibrary().get (session.getStyleId());
+    const auto name = requestedName.trim().isNotEmpty() ? requestedName.trim() : base.name + " (learned)";
+    auto stats = std::make_shared<std::vector<ve::StyleLearner::TakeStats>>();
+    postMessage ("Learning a style from " + juce::String (refs.size()) + " vocal" + (refs.size() == 1 ? "" : "s") + "...");
+
+    jobs->submit ("Learn style", {}, ve::JobPriority::normal,
+        [refs, stats] (ve::JobContext& ctx)
+        {
+            juce::AudioFormatManager formats;
+            formats.registerBasicFormats();
+            for (auto& f : refs)
+            {
+                if (ctx.shouldCancel()) return juce::Result::fail ("cancelled");
+                std::unique_ptr<juce::AudioFormatReader> r (formats.createReaderFor (f));
+                if (r == nullptr) continue;
+                const int len = (int) juce::jmin<juce::int64> (r->lengthInSamples, (juce::int64) (r->sampleRate * 60 * 15));
+                juce::AudioBuffer<float> audio ((int) r->numChannels, len);
+                r->read (&audio, 0, len, 0, true, true);
+                // Tempo of a reference file is unknown, so timing (swing/quantize) is not learned here.
+                auto st = ve::StyleLearner::analyseAudio (audio, r->sampleRate, 0.0, &ctx);
+                if (st.notes > 0) stats->push_back (st);
+            }
+            return stats->empty() ? juce::Result::fail ("no singing found in those files") : juce::Result::ok();
+        },
+        [this, stats, base, name] (const ve::JobResult& res)
+        {
+            if (! res.success)
+            {
+                if (! res.cancelled) postMessage ("Learn style failed: " + res.error);
+                return;
+            }
+            const auto combined = ve::StyleLearner::combine (*stats);
+            auto learned = ve::StyleLearner::learn (base, combined, (int) stats->size());
+            juce::String slug;
+            for (auto c : name.toLowerCase()) slug << (juce::CharacterFunctions::isLetterOrDigit (c) ? juce::String::charToString (c) : juce::String ("-"));
+            learned.id = "user-" + slug;
+            learned.name = name;
+            learned.category = "My styles";
+            learned.description = "Learned from " + juce::String ((int) stats->size()) + " reference vocal"
+                                  + (stats->size() == 1 ? "" : "s") + ", starting from " + base.name + ".";
+            const auto json = ve::StyleLearner::toJson (learned, base.id, combined, (int) stats->size());
+
+            auto folder = ve::StyleLibrary::userStylesFolder();
+            folder.createDirectory();
+            folder.getChildFile (learned.id + ".json").replaceWithText (json);
+            if (auto err = ve::sharedStyleLibrary().addJson (json); err.isNotEmpty())
+            {
+                postMessage ("Learn style failed: " + err);
+                return;
+            }
+            ++styleListVersion;
+            setStyle (learned.id);
+            postMessage ("Learned style \"" + name + "\" from " + juce::String ((int) stats->size()) + " vocal"
+                         + (stats->size() == 1 ? "" : "s") + ". Saved to Documents/RainWorks/Engineer/Styles.");
+        });
 }
 
 float VocalEngineProcessor::getGlobalCorrection() const

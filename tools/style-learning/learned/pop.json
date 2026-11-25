@@ -1,0 +1,33 @@
+{
+  "id": "pop",
+  "name": "Pop",
+  "category": "Pop",
+  "pitch": {
+    "correction": 0.84,
+    "retuneMs": 28.31,
+    "keepVariation": 0.78
+  },
+  "vibrato": {
+    "addDepthCents": 1.92,
+    "rateHz": 5.41,
+    "onsetMs": 218.97
+  },
+  "slides": {
+    "betweenNotesMs": 49.73,
+    "maxGapMs": 80.0,
+    "scoopCents": 7.38,
+    "scoopMs": 43.53
+  },
+  "timing": {
+    "quantize": 0.0,
+    "grid": 16,
+    "swing": 0.0
+  },
+  "description": "Tight, polished modern pop. Tuned from 14 openly licensed reference vocals.",
+  "learned": {
+    "takes": 14,
+    "notes": 6161,
+    "voicedMinutes": 30.79
+  },
+  "inherits": "natural"
+}

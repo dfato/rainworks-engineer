@@ -209,6 +209,18 @@ Fields: `pitch` (`correction` 0-1, `retuneMs`, `keepVariation` 0-1), `vibrato` (
 `onsetMs`), `slides` (`betweenNotesMs`, `maxGapMs`, `scoopCents`, `scoopMs`), `timing` (`quantize` 0-1, `grid` divisions per whole note, `swing` 0-1).
 A file with the same `id` as a built-in replaces it.
 
+**Learn a style from vocals.** At the bottom of the Style menu, pick **Learn style from vocals...**, choose
+one or more dry, solo vocals sung the way you want, and name the style. Engineer measures how they are sung
+(how close notes sit to pitch, how fast the voice moves between notes, vibrato rate/depth/onset and how
+often it is used, scoops into notes) and saves a new style built on the one currently selected, under
+**My styles** (also written to `Documents\RainWorks\Engineer\Styles\`). Only those numbers are kept: it
+does not copy the voice, words or melody, so it shapes your take toward the reference's phrasing without
+making you sound like that singer. Several references (ideally different songs) give a steadier result.
+Timing (swing/quantize) is not learned here because a reference file's tempo is unknown.
+
+The built-in genre styles were tuned the same way from openly licensed singing (see
+`tools/style-learning/README.md` for the sources, licences and which genres had data).
+
 ### 11. Timing: quantize, swing and note nudges
 
 1. Pick **Trap**, **EDM**, **Hyperpop** or **Hard Tune** on a take sung slightly off the beat. Corrected notes
