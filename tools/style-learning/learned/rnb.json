@@ -1,0 +1,33 @@
+{
+  "id": "rnb",
+  "name": "R&B",
+  "category": "R&B / Soul",
+  "pitch": {
+    "correction": 0.69,
+    "retuneMs": 31.75,
+    "keepVariation": 0.88
+  },
+  "vibrato": {
+    "addDepthCents": 13.7,
+    "rateHz": 5.65,
+    "onsetMs": 277.66
+  },
+  "slides": {
+    "betweenNotesMs": 62.92,
+    "maxGapMs": 100.0,
+    "scoopCents": 36.06,
+    "scoopMs": 57.88
+  },
+  "timing": {
+    "quantize": 0.0,
+    "grid": 16,
+    "swing": 0.0
+  },
+  "description": "Smooth tuning that keeps runs and slides. Tuned from 1 openly licensed reference vocal.",
+  "learned": {
+    "takes": 1,
+    "notes": 493,
+    "voicedMinutes": 2.34
+  },
+  "inherits": "natural"
+}

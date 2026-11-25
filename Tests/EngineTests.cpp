@@ -18,6 +18,7 @@
 #include "Engine/Voice/VoiceRenderer.h"
 #include "Engine/Style/ExpressionLayer.h"
 #include "Engine/Style/StyleProfile.h"
+#include "Engine/Style/StyleLearner.h"
 #include "Engine/TempoMap.h"
 #include "Engine/TripleBuffer.h"
 #include "State/SessionModel.h"
@@ -687,7 +688,156 @@ public:
     }
 };
 
+//==============================================================================
+class StyleLearnerTests final : public juce::UnitTest
+{
+public:
+    StyleLearnerTests() : juce::UnitTest ("Style learning", "VocalEngine") {}
+
+    // A synthetic "singer": long notes with a scoop and vibrato on the beat, short flat
+    // notes on swung off-16ths, the whole take 10 cents sharp. Built as a pitch track so
+    // every measured value is known exactly.
+    static void buildTake (PitchTrack& t, std::vector<Note>& notes, double bpm, double swing)
+    {
+        const double sr = 48000.0;
+        t.sampleRate = sr;
+        t.hopSize = 240;
+        const double beat = 60.0 / bpm, step = beat / 4.0;
+        const double total = 18.0 * beat + 1.0;
+        t.frames.assign ((size_t) (total * sr / t.hopSize), {});
+        auto frameTime = [&] (size_t i) { return (double) i * t.hopSize / sr; };
+
+        auto addNote = [&] (double start, double len, float midi, bool expressive)
+        {
+            for (size_t i = 0; i < t.frames.size(); ++i)
+            {
+                const double x = frameTime (i) - start;
+                if (x < 0.0 || x >= len) continue;
+                double cents = midi * 100.0 + 10.0;
+                if (expressive)
+                {
+                    if (x < 0.06) cents -= 80.0 * (1.0 - x / 0.06);                              // scoop
+                    if (x > 0.15) cents += 40.0 * std::sin (juce::MathConstants<double>::twoPi * 5.5 * (x - 0.15)); // vibrato
+                }
+                else
+                    cents += 3.0 * std::sin (juce::MathConstants<double>::twoPi * 1.3 * x);    // small drift
+                t.frames[i].f0 = PitchTrack::midiToHz ((float) (cents / 100.0));
+                t.frames[i].confidence = 0.9f;
+                t.frames[i].rms = 0.1f;
+            }
+            Note n;
+            n.start = (std::int64_t) (start * sr);
+            n.end = (std::int64_t) ((start + len) * sr);
+            n.detectedMidi = NoteEdit::medianMidi (t, n.start, n.end, midi);
+            n.targetMidi = midi;
+            notes.push_back (n);
+        };
+
+        const float melody[] = { 60, 64, 67, 65, 64, 62, 60, 62 };
+        for (int m = 0; m < 16; ++m)
+        {
+            const double bar = 0.3 + m * beat;           // one long + one short note per beat
+            addNote (bar, 2.4 * step, melody[m % 8], true);
+            addNote (bar + 2.0 * step + step * (1.0 + swing / 3.0), 0.6 * step, melody[(m + 3) % 8], false);
+        }
+    }
+
+    void runTest() override
+    {
+        beginTest ("Style learner measures scoops, vibrato, tuning and swing from a pitch track");
+        {
+            PitchTrack t; std::vector<Note> notes;
+            buildTake (t, notes, 60.0, 0.5);   // slow tempo so the long notes can show vibrato
+            const auto s = StyleLearner::analyse (t, notes, 60.0);
+            logMessage (juce::JSON::toString (s.toVar(), true));
+
+            expectWithinAbsoluteError (s.tuningOffsetCents, 10.0f, 2.0f);
+            expectLessThan (s.inTuneCents, 3.0f);
+            expectEquals (s.longNotes, 16);
+            expectGreaterOrEqual (s.vibratoNotes, 14);
+            expectWithinAbsoluteError (s.vibratoRateHz, 5.5f, 0.3f);
+            expectWithinAbsoluteError (s.vibratoDepthCents, 40.0f, 8.0f);
+            // Long notes that follow a lower note within 80 ms are approached by a slide, not a scoop.
+            expectGreaterOrEqual (s.scoopedNotes, 8);
+            expectEquals (s.scoopedNotes, s.scoopCandidates);
+            expectWithinAbsoluteError (s.scoopCents, 70.0f, 15.0f);
+            expectWithinAbsoluteError (s.scoopMs, 52.0f, 12.0f);
+            expectWithinAbsoluteError (s.vibratoOnsetMs, 150.0f, 50.0f);
+            expect (s.timingValid, "onsets sit on the grid");
+            expectWithinAbsoluteError (s.swing, 0.5f, 0.11f);
+            expectLessThan (s.onsetSpreadMs, 8.0f);
+        }
+
+        beginTest ("Straight timing reads as no swing");
+        {
+            PitchTrack t; std::vector<Note> notes;
+            buildTake (t, notes, 60.0, 0.0);
+            const auto s = StyleLearner::analyse (t, notes, 60.0);
+            expect (s.timingValid);
+            expectLessThan (s.swing, 0.11f);
+        }
+
+        beginTest ("Learning moves a style toward the measurements, by evidence and strength");
+        {
+            PitchTrack t; std::vector<Note> notes;
+            buildTake (t, notes, 60.0, 0.5);
+            const auto s = StyleLearner::analyse (t, notes, 60.0);
+            std::vector<StyleLearner::TakeStats> takes { s, s, s, s };
+            const auto combined = StyleLearner::combine (takes);
+            expectEquals (combined.longNotes, 4 * s.longNotes);
+
+            StyleLibrary lib;
+            const auto base = lib.get ("natural");
+            const auto same = StyleLearner::learn (base, combined, 4, 0.0f);
+            expectEquals (same.scoopCents, base.scoopCents);
+            expectEquals (same.swing, base.swing);
+
+            const auto learned = StyleLearner::learn (base, combined, 4, 1.0f);
+            expectGreaterThan (learned.scoopCents, base.scoopCents + 20.0f);
+            expectGreaterThan (learned.vibratoDepthCents, base.vibratoDepthCents + 5.0f);
+            expectGreaterThan (learned.swing, 0.1f);
+            expectGreaterThan (learned.correction, base.correction);   // it sings dead in tune
+
+            auto named = learned;
+            named.id = "my-style"; named.name = "My Style";
+            const auto json = StyleLearner::toJson (named, "natural", combined, 4);
+            expect (lib.addJson (json).isEmpty(), json);
+            const auto back = lib.get ("my-style");
+            expectEquals (back.name, juce::String ("My Style"));
+            expectWithinAbsoluteError (back.scoopCents, learned.scoopCents, 0.01f);
+            expectWithinAbsoluteError (back.swing, learned.swing, 0.01f);
+
+            const auto restored = StyleLearner::TakeStats::fromVar (juce::JSON::parse (juce::JSON::toString (s.toVar())));
+            expectEquals (restored.vibratoNotes, s.vibratoNotes);
+            expectWithinAbsoluteError (restored.swing, s.swing, 0.01f);
+        }
+
+        beginTest ("Style learner finds vibrato in real audio");
+        {
+            const double sr = 48000.0;
+            juce::AudioBuffer<float> b (1, (int) (sr * 2.0));
+            b.clear();
+            double phase = 0.0;
+            for (int i = (int) (0.2 * sr); i < (int) (1.8 * sr); ++i)
+            {
+                const double x = i / sr - 0.2;
+                const double cents = 40.0 * std::sin (juce::MathConstants<double>::twoPi * 5.0 * x);
+                phase += juce::MathConstants<double>::twoPi * 220.0 * std::pow (2.0, cents / 1200.0) / sr;
+                float v = 0.0f;
+                for (int h = 1; h <= 6; ++h) v += (float) (std::sin (phase * h) / (h * h));
+                b.setSample (0, i, 0.3f * v * (float) juce::jmin (1.0, juce::jmin (x, 1.6 - x) / 0.01));
+            }
+            const auto s = StyleLearner::analyseAudio (b, sr, 0.0);
+            logMessage (juce::JSON::toString (s.toVar(), true));
+            expectEquals (s.vibratoNotes, 1);
+            expectWithinAbsoluteError (s.vibratoRateHz, 5.0f, 0.3f);
+            expectWithinAbsoluteError (s.vibratoDepthCents, 40.0f, 10.0f);
+        }
+    }
+};
+
 static NoteTests noteTests;
+static StyleLearnerTests styleLearnerTests;
 
 //==============================================================================
 class StyleTests final : public juce::UnitTest

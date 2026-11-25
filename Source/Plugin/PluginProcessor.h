@@ -81,6 +81,10 @@ public:
     void setGlobalCorrection (float amount01);  // all notes the user hasn't edited individually
     float getGlobalCorrection() const;
     void setStyle (const juce::String& styleId);   // also sets the Correct amount to the style's default
+    // Measures how the reference vocals are sung, saves a user style built on the
+    // current one (Documents/RainWorks/Engineer/Styles) and switches to it.
+    void learnStyle (const juce::Array<juce::File>& referenceVocals, const juce::String& name);
+    int getStyleListVersion() const noexcept { return styleListVersion; }
     void setVoice (const juce::String& voiceId);   // empty = the recorded voice
     void rescanVoices();
     void updateNote (const juce::String& regionId, int noteIndex, const ve::Note&);
@@ -147,6 +151,7 @@ private:
 
     // Declared last so it is destroyed first: workers stop before anything they touch.
     std::unique_ptr<ve::JobQueue> jobs;
+    int styleListVersion = 0;   // bumped when a style is added (message thread)
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VocalEngineProcessor)
 };

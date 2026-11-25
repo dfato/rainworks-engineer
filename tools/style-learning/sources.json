@@ -1,0 +1,468 @@
+{
+  "_comment": "Openly licensed singing used to tune the built-in styles. Only these statistics are kept: no audio is committed or shipped. Genre labels marked 'ours' were assigned by us from the song performed, not by the dataset authors.",
+  "datasets": [
+    {
+      "id": "ursing",
+      "title": "University of Rochester Audio-Visual Solo Singing Performance (URSing) Dataset",
+      "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "page": "https://zenodo.org/records/6404999",
+      "doi": "10.5281/zenodo.6404999",
+      "citation": "B. Li, Y. Wang, Z. Duan. Audiovisual singing voice separation. TISMIR 4(1), 2021.",
+      "zip": "https://zenodo.org/records/6404999/files/data.zip",
+      "notes": "Solo vocals of 22 singers (covers). The released vocals were pitch-refined in Melodyne, compressed and have reverb: they reflect a produced pop vocal.",
+      "genreSource": "ours",
+      "items": [
+        {
+          "member": "data/ACGN/Vocal.wav",
+          "id": "ursing-ACGN",
+          "title": "阿楚姑娘",
+          "genre": "folk"
+        },
+        {
+          "member": "data/ADDJ/Vocal.wav",
+          "id": "ursing-ADDJ",
+          "title": "爱的代价",
+          "genre": "singer-songwriter"
+        },
+        {
+          "member": "data/AJFO/Vocal.wav",
+          "id": "ursing-AJFO",
+          "title": "A Sky Full of Stars",
+          "genre": "pop"
+        },
+        {
+          "member": "data/ALLO/Vocal.wav",
+          "id": "ursing-ALLO",
+          "title": "All of Me",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/ANHE/Vocal.wav",
+          "id": "ursing-ANHE",
+          "title": "安河桥",
+          "genre": "folk"
+        },
+        {
+          "member": "data/CARO/Vocal.wav",
+          "id": "ursing-CARO",
+          "title": "Caro mio ben",
+          "genre": null
+        },
+        {
+          "member": "data/CELI/Vocal.wav",
+          "id": "ursing-CELI",
+          "title": "侧脸",
+          "genre": "pop"
+        },
+        {
+          "member": "data/CHEN/Vocal.wav",
+          "id": "ursing-CHEN",
+          "title": "趁早",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/CHFI/Vocal.wav",
+          "id": "ursing-CHFI",
+          "title": "Can't Help Falling in Love",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/CONG/Vocal.wav",
+          "id": "ursing-CONG",
+          "title": "从前慢",
+          "genre": "folk"
+        },
+        {
+          "member": "data/DAYU/Vocal.wav",
+          "id": "ursing-DAYU",
+          "title": "大鱼",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/DNXK/Vocal.wav",
+          "id": "ursing-DNXK",
+          "title": "等你下课",
+          "genre": "pop"
+        },
+        {
+          "member": "data/DWKM/Vocal.wav",
+          "id": "ursing-DWKM",
+          "title": "大碗宽面",
+          "genre": "hip-hop"
+        },
+        {
+          "member": "data/GFZJ/Vocal.wav",
+          "id": "ursing-GFZJ",
+          "title": "贵妃醉酒",
+          "genre": null
+        },
+        {
+          "member": "data/GOOD/Vocal.wav",
+          "id": "ursing-GOOD",
+          "title": "Goodbye My Lover",
+          "genre": "singer-songwriter"
+        },
+        {
+          "member": "data/GQTY/Vocal.wav",
+          "id": "ursing-GQTY",
+          "title": "共青团员之歌",
+          "genre": null
+        },
+        {
+          "member": "data/GYGD/Vocal.wav",
+          "id": "ursing-GYGD",
+          "title": "关于孤独我想说的话",
+          "genre": "folk"
+        },
+        {
+          "member": "data/HEYJ/Vocal.wav",
+          "id": "ursing-HEYJ",
+          "title": "Hey Jude",
+          "genre": "rock"
+        },
+        {
+          "member": "data/HUAA/Vocal.wav",
+          "id": "ursing-HUAA",
+          "title": "画",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/HYGL/Vocal.wav",
+          "id": "ursing-HYGL",
+          "title": "欢迎光临",
+          "genre": "pop"
+        },
+        {
+          "member": "data/IAMY/Vocal.wav",
+          "id": "ursing-IAMY",
+          "title": "I'm Yours",
+          "genre": "singer-songwriter"
+        },
+        {
+          "member": "data/IIAG/Vocal.wav",
+          "id": "ursing-IIAG",
+          "title": "If I Ain't Got You",
+          "genre": "rnb"
+        },
+        {
+          "member": "data/IKYW/Vocal.wav",
+          "id": "ursing-IKYW",
+          "title": "I Knew You Were Trouble",
+          "genre": "pop"
+        },
+        {
+          "member": "data/INEE/Vocal.wav",
+          "id": "ursing-INEE",
+          "title": "I Need You",
+          "genre": "country"
+        },
+        {
+          "member": "data/JUAN/Vocal.wav",
+          "id": "ursing-JUAN",
+          "title": "卷珠帘",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/LBIG/Vocal.wav",
+          "id": "ursing-LBIG",
+          "title": "Listen Before I Go",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/LVXI/Vocal.wav",
+          "id": "ursing-LVXI",
+          "title": "旅行",
+          "genre": "folk"
+        },
+        {
+          "member": "data/LWKU/Vocal.wav",
+          "id": "ursing-LWKU",
+          "title": "Love Will Keep Us Alive",
+          "genre": "rock"
+        },
+        {
+          "member": "data/NBWG/Vocal.wav",
+          "id": "ursing-NBWG",
+          "title": "你把我灌醉",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/NEED/Vocal.wav",
+          "id": "ursing-NEED",
+          "title": "Need You Now",
+          "genre": "country"
+        },
+        {
+          "member": "data/NLCH/Vocal.wav",
+          "id": "ursing-NLCH",
+          "title": "逆流成河",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/NOOO/Vocal.wav",
+          "id": "ursing-NOOO",
+          "title": "No",
+          "genre": "dance-pop"
+        },
+        {
+          "member": "data/NRAH/Vocal.wav",
+          "id": "ursing-NRAH",
+          "title": "你若安好便是晴天",
+          "genre": "pop"
+        },
+        {
+          "member": "data/NSYW/Vocal.wav",
+          "id": "ursing-NSYW",
+          "title": "年少有为",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/NVER/Vocal.wav",
+          "id": "ursing-NVER",
+          "title": "女儿情",
+          "genre": "folk"
+        },
+        {
+          "member": "data/PAOM/Vocal.wav",
+          "id": "ursing-PAOM",
+          "title": "泡沫",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/PERF/Vocal.wav",
+          "id": "ursing-PERF",
+          "title": "Perfect",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/SEAT/Vocal.wav",
+          "id": "ursing-SEAT",
+          "title": "Seattle Alone",
+          "genre": "k-pop"
+        },
+        {
+          "member": "data/SHBK/Vocal.wav",
+          "id": "ursing-SHBK",
+          "title": "说好不哭",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/SHEN/Vocal.wav",
+          "id": "ursing-SHEN",
+          "title": "神奇",
+          "genre": "pop"
+        },
+        {
+          "member": "data/SPEE/Vocal.wav",
+          "id": "ursing-SPEE",
+          "title": "Speechless",
+          "genre": "musical-theatre"
+        },
+        {
+          "member": "data/SQBM/Vocal.wav",
+          "id": "ursing-SQBM",
+          "title": "身骑白马",
+          "genre": "pop"
+        },
+        {
+          "member": "data/SSJR/Vocal.wav",
+          "id": "ursing-SSJR",
+          "title": "说散就散 (rap)",
+          "genre": "hip-hop"
+        },
+        {
+          "member": "data/SSJS/Vocal.wav",
+          "id": "ursing-SSJS",
+          "title": "说散就散",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/STAY/Vocal.wav",
+          "id": "ursing-STAY",
+          "title": "Stay",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/SUNF/Vocal.wav",
+          "id": "ursing-SUNF",
+          "title": "Sunflower",
+          "genre": "pop"
+        },
+        {
+          "member": "data/SUPE/Vocal.wav",
+          "id": "ursing-SUPE",
+          "title": "Supermarket Flowers",
+          "genre": "singer-songwriter"
+        },
+        {
+          "member": "data/THES/Vocal.wav",
+          "id": "ursing-THES",
+          "title": "The Scientist",
+          "genre": "rock"
+        },
+        {
+          "member": "data/TIMI/Vocal.wav",
+          "id": "ursing-TIMI",
+          "title": "体面",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/VSTC/Vocal.wav",
+          "id": "ursing-VSTC",
+          "title": "Vois sur ton chemin",
+          "genre": "musical-theatre"
+        },
+        {
+          "member": "data/WDXH/Vocal.wav",
+          "id": "ursing-WDXH",
+          "title": "我多喜欢你，你会知道",
+          "genre": "pop"
+        },
+        {
+          "member": "data/WHXN/Vocal.wav",
+          "id": "ursing-WHXN",
+          "title": "我好想你",
+          "genre": "indie"
+        },
+        {
+          "member": "data/WUKO/Vocal.wav",
+          "id": "ursing-WUKO",
+          "title": "悟空",
+          "genre": "rock"
+        },
+        {
+          "member": "data/WUWE/Vocal.wav",
+          "id": "ursing-WUWE",
+          "title": "无问",
+          "genre": "folk"
+        },
+        {
+          "member": "data/XFYY/Vocal.wav",
+          "id": "ursing-XFYY",
+          "title": "像风一样",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/XING/Vocal.wav",
+          "id": "ursing-XING",
+          "title": "星晴",
+          "genre": "pop"
+        },
+        {
+          "member": "data/XNDY/Vocal.wav",
+          "id": "ursing-XNDY",
+          "title": "想你的夜",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/XWZY/Vocal.wav",
+          "id": "ursing-XWZY",
+          "title": "像我这样的人",
+          "genre": "folk"
+        },
+        {
+          "member": "data/YELL/Vocal.wav",
+          "id": "ursing-YELL",
+          "title": "Yellow",
+          "genre": "rock"
+        },
+        {
+          "member": "data/YEST/Vocal.wav",
+          "id": "ursing-YEST",
+          "title": "Yesterday",
+          "genre": "singer-songwriter"
+        },
+        {
+          "member": "data/YGXX/Vocal.wav",
+          "id": "ursing-YGXX",
+          "title": "一个像夏天一个像秋天",
+          "genre": "pop"
+        },
+        {
+          "member": "data/YTKL/Vocal.wav",
+          "id": "ursing-YTKL",
+          "title": "阴天快乐",
+          "genre": "pop"
+        },
+        {
+          "member": "data/YUUU/Vocal.wav",
+          "id": "ursing-YUUU",
+          "title": "鱼",
+          "genre": "pop-ballad"
+        },
+        {
+          "member": "data/YWCB/Vocal.wav",
+          "id": "ursing-YWCB",
+          "title": "一万次悲伤",
+          "genre": "rock"
+        },
+        {
+          "member": "data/ZLZW/Vocal.wav",
+          "id": "ursing-ZLZW",
+          "title": "直来直往",
+          "genre": "pop"
+        }
+      ]
+    },
+    {
+      "id": "lm-ssd",
+      "title": "Larynx Microphone Singer-Songwriter Dataset (LM-SSD)",
+      "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "page": "https://zenodo.org/records/20287765",
+      "doi": "10.5281/zenodo.20287765",
+      "citation": "S. Schwär et al. A Dataset of Larynx Microphone Recordings for Singing Voice Reconstruction. TISMIR 7(1), 2024.",
+      "zip": "https://zenodo.org/records/20287765/files/lm-ssd_v1.zip",
+      "notes": "Popular songs sung by four amateur singers with guitar. Close-up microphone tracks without guitar crosstalk (C0), first such take per singer and song.",
+      "genreSource": "ours",
+      "match": {
+        "regex": "^LM-SSD/audio/SSD\\d+_(?P<song>[A-Z]{2})_CM_C0_(?P<singer>\\w\\w)_T\\d\\.wav$",
+        "onePer": [
+          "song",
+          "singer"
+        ],
+        "genre": "singer-songwriter"
+      }
+    },
+    {
+      "id": "albumdb",
+      "title": "AlbumDB: A multitrack dataset of a ten-song album",
+      "authors": "Thomas McKenzie, Eloi Moliner, Alec Wright",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "page": "https://zenodo.org/records/19683001",
+      "doi": "10.5281/zenodo.19683001",
+      "citation": "T. McKenzie, E. Moliner, A. Wright. A multitrack dataset of a ten-song album with stereo and immersive 7.1.4 masters. AES 160th Convention, 2026. Album 'Extraordinary' by Tom McKenzie.",
+      "zip": "https://zenodo.org/records/19683001/files/stems_mixed_dry.zip",
+      "notes": "Lead vocal stems (mixed, no reverb or delay) of an indie rock/folk album by one singer.",
+      "genreSource": "dataset",
+      "match": {
+        "regex": "^stems_mixed_dry/(?P<song>[^/]+)/vox_lead\\.wav$",
+        "onePer": [
+          "song"
+        ],
+        "genre": "indie"
+      }
+    },
+    {
+      "id": "vocadito",
+      "title": "vocadito: A dataset of solo vocals with f0, note, and lyric annotations",
+      "authors": "Rachel Bittner, Katherine Pasalo, Juan José Bosch, Gabriel Meseguer-Brocal, David Rubinstein",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "page": "https://zenodo.org/records/5578807",
+      "doi": "10.5281/zenodo.5578807",
+      "zip": "https://zenodo.org/records/5578807/files/vocadito.zip",
+      "notes": "40 short unaccompanied excerpts, 7 languages, mixed training levels. Used only as an untreated-singing reference, not for any genre.",
+      "genreSource": "none",
+      "match": {
+        "regex": "^(?:.*/)?vocadito_\\d+\\.wav$",
+        "onePer": [],
+        "genre": "reference"
+      }
+    }
+  ]
+}

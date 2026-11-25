@@ -1,0 +1,33 @@
+{
+  "id": "folk",
+  "name": "Folk",
+  "category": "Country / Folk",
+  "pitch": {
+    "correction": 0.54,
+    "retuneMs": 58.14,
+    "keepVariation": 1.0
+  },
+  "vibrato": {
+    "addDepthCents": 2.05,
+    "rateHz": 5.44,
+    "onsetMs": 220.83
+  },
+  "slides": {
+    "betweenNotesMs": 27.01,
+    "maxGapMs": 80.0,
+    "scoopCents": 10.74,
+    "scoopMs": 43.53
+  },
+  "timing": {
+    "quantize": 0.0,
+    "grid": 16,
+    "swing": 0.0
+  },
+  "description": "Barely-there correction. Tuned from 8 openly licensed reference vocals.",
+  "learned": {
+    "takes": 8,
+    "notes": 2985,
+    "voicedMinutes": 17.62
+  },
+  "inherits": "natural"
+}

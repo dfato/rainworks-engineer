@@ -1,0 +1,33 @@
+{
+  "id": "indie",
+  "name": "Indie",
+  "category": "Rock",
+  "pitch": {
+    "correction": 0.49,
+    "retuneMs": 58.23,
+    "keepVariation": 1.0
+  },
+  "vibrato": {
+    "addDepthCents": 4.33,
+    "rateHz": 5.61,
+    "onsetMs": 222.88
+  },
+  "slides": {
+    "betweenNotesMs": 36.25,
+    "maxGapMs": 80.0,
+    "scoopCents": 25.47,
+    "scoopMs": 60.43
+  },
+  "timing": {
+    "quantize": 0.0,
+    "grid": 16,
+    "swing": 0.0
+  },
+  "description": "Natural and slightly loose. Tuned from 11 openly licensed reference vocals.",
+  "learned": {
+    "takes": 11,
+    "notes": 4455,
+    "voicedMinutes": 21.39
+  },
+  "inherits": "rock"
+}

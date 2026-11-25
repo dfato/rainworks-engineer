@@ -42,6 +42,11 @@ private:
     ve::ui::StatusBar statusBar;
     juce::TooltipWindow tooltips { this };
     std::unique_ptr<juce::FileChooser> chooser;
+    std::unique_ptr<juce::AlertWindow> learnDialog;
+    int shownStyleListVersion = -1;
+
+    void refreshStyles();
+    void askToLearnStyle (const juce::Array<juce::File>&);
 
     ve::HostSnapshot lastHost;
     bool dragHover = false;

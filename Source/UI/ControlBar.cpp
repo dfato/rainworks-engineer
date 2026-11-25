@@ -22,8 +22,18 @@ namespace ve::ui
         styleBox.setTooltip ("Genre style: how hard notes snap, how fast, slides, scoops and vibrato. Picking one sets Correct to its default.");
         styleBox.onChange = [this]
         {
+            if (styleBox.getSelectedId() == learnStyleId)
+            {
+                setStyle (currentStyleId);   // the menu entry is an action, not a style
+                if (onLearnStyle) onLearnStyle();
+                return;
+            }
             const int idx = styleBox.getSelectedId() - 1;
-            if (idx >= 0 && idx < styleIds.size() && onStyleChanged) onStyleChanged (styleIds[idx]);
+            if (idx >= 0 && idx < styleIds.size())
+            {
+                currentStyleId = styleIds[idx];
+                if (onStyleChanged) onStyleChanged (styleIds[idx]);
+            }
         };
         addAndMakeVisible (styleBox);
 
@@ -104,10 +114,14 @@ namespace ve::ui
             styleIds.add (it.id);
             styleBox.addItem (it.name, styleIds.size());
         }
+        styleBox.addSeparator();
+        styleBox.addItem ("Learn style from vocals...", learnStyleId);
+        setStyle (currentStyleId);
     }
 
     void ControlBar::setStyle (const juce::String& id)
     {
+        currentStyleId = id;
         const int idx = styleIds.indexOf (id);
         styleBox.setSelectedId (idx >= 0 ? idx + 1 : 0, juce::dontSendNotification);
     }

@@ -1,0 +1,33 @@
+{
+  "id": "musical-theatre",
+  "name": "Musical Theatre",
+  "category": "Other",
+  "pitch": {
+    "correction": 0.78,
+    "retuneMs": 31.56,
+    "keepVariation": 0.86
+  },
+  "vibrato": {
+    "addDepthCents": 26.04,
+    "rateHz": 5.64,
+    "onsetMs": 263.8
+  },
+  "slides": {
+    "betweenNotesMs": 51.39,
+    "maxGapMs": 80.0,
+    "scoopCents": 5.16,
+    "scoopMs": 43.54
+  },
+  "timing": {
+    "quantize": 0.0,
+    "grid": 16,
+    "swing": 0.0
+  },
+  "description": "Clear diction tuning and strong held-note vibrato. Tuned from 2 openly licensed reference vocals.",
+  "learned": {
+    "takes": 2,
+    "notes": 676,
+    "voicedMinutes": 4.27
+  },
+  "inherits": "pop-ballad"
+}

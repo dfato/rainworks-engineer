@@ -18,6 +18,7 @@ namespace ve::ui
         std::function<void()> onImport;
         std::function<void (float)> onCorrectionChanged;  // 0..1
         std::function<void (const juce::String&)> onStyleChanged;
+        std::function<void()> onLearnStyle;               // "Learn style from vocals..." picked
 
         struct StyleItem { juce::String id, name, category; };
         void setStyles (const std::vector<StyleItem>&);
@@ -54,6 +55,8 @@ namespace ve::ui
         juce::Label styleLabel { {}, "Style" };
         juce::ComboBox styleBox;
         juce::StringArray styleIds;
+        juce::String currentStyleId;
+        static constexpr int learnStyleId = 9101;
         static constexpr int rescanId = 9001, openFolderId = 9002;
         juce::Label voiceLabel { {}, "Voice" };
         juce::ComboBox voiceBox;
