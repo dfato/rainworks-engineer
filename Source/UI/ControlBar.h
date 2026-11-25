@@ -18,6 +18,8 @@ namespace ve::ui
         std::function<void()> onImport;
         std::function<void (float)> onCorrectionChanged;  // 0..1
         std::function<void (const juce::String&)> onStyleChanged;
+        std::function<void (bool)> onIntentChanged;
+        void setIntent (bool);
 
         struct StyleItem { juce::String id, name, category; };
         void setStyles (const std::vector<StyleItem>&);
@@ -55,6 +57,7 @@ namespace ve::ui
         juce::ComboBox styleBox;
         juce::StringArray styleIds;
         static constexpr int rescanId = 9001, openFolderId = 9002;
+        juce::TextButton intentButton { "Intent" };
         juce::Label voiceLabel { {}, "Voice" };
         juce::ComboBox voiceBox;
         juce::StringArray voiceIds;   // index i = combo id i + 1; "" = as recorded

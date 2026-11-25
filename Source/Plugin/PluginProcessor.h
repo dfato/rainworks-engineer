@@ -82,6 +82,8 @@ public:
     float getGlobalCorrection() const;
     void setStyle (const juce::String& styleId);   // also sets the Correct amount to the style's default
     void setVoice (const juce::String& voiceId);   // empty = the recorded voice
+    void setUseIntent (bool);                      // Stage 4 per-note intent
+    static juce::String intentSummary (const std::vector<ve::Note>&);
     void rescanVoices();
     void updateNote (const juce::String& regionId, int noteIndex, const ve::Note&);
     void splitNote (const juce::String& regionId, int noteIndex, std::int64_t atSample);  // sung (input) time

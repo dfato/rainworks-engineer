@@ -222,7 +222,27 @@ A file with the same `id` as a built-in replaces it.
 5. Right-click a blob > **Split note here** cuts it where you clicked (each half gets its own pitch);
    **Merge with next note** joins it with the following blob.
 
-### 12. Voice models (Stage 5)
+### 12. Intent (Stage 4)
+
+**Intent** (next to Correct, on by default) reads what each note was meant to be before correcting it:
+
+| Read as | What happens |
+| --- | --- |
+| Slide (pitch glides through the note) | 40% of Correct, so the glide stays |
+| Vibrato on a held note | Corrected, and the singer's own vibrato is kept even on flatter styles (not on Hard Tune) |
+| Scoop into a note | 80% of Correct |
+| Passing note (short, between two others) | 50% of Correct |
+| Chosen accidental (held, steady, on a semitone outside the key) | Stays on that semitone instead of being pulled into the key |
+| Spoken or rapped line | Left as sung |
+| Ad-lib (much quieter than the take) | 60% of Correct |
+
+1. Import or record a take sung with some slides, a blue note and a spoken line. The status bar lists what
+   was found ("12 notes. Kept as sung or corrected gently: 2 slides, 1 chosen accidental, ...").
+2. Right-click a note: the menu says how it was read ("Sung as: Slide (40% of Correct)").
+3. Turn **Intent** off to compare: every note is pulled to the key the same way.
+4. Notes you edit by hand are never changed by Intent.
+
+### 12b. Voice models (Stage 5)
 
 Voice models re-sing each take in a trained voice, following the notes, style and timing.
 Training a model is covered in [tools/voice-training/README.md](tools/voice-training/README.md)

@@ -27,6 +27,15 @@ namespace ve::ui
         };
         addAndMakeVisible (styleBox);
 
+        intentButton.setClickingTogglesState (true);
+        intentButton.setToggleState (true, juce::dontSendNotification);
+        intentButton.setColour (juce::TextButton::buttonOnColourId, Theme::accent.withAlpha (0.6f));
+        intentButton.setTooltip ("Intent: read what each note was meant to be. Slides, vibrato, scoops, passing notes, "
+                                 "chosen out-of-key notes and spoken lines are kept as sung or corrected gently. "
+                                 "Off: every note is pulled to the key the same way.");
+        intentButton.onClick = [this] { if (onIntentChanged) onIntentChanged (intentButton.getToggleState()); };
+        addAndMakeVisible (intentButton);
+
         voiceBox.onChange = [this]
         {
             const int sel = voiceBox.getSelectedId();
@@ -142,6 +151,8 @@ namespace ve::ui
         voiceBox.setSelectedId (idx >= 0 ? idx + 1 : 1, juce::dontSendNotification);
     }
 
+    void ControlBar::setIntent (bool on) { intentButton.setToggleState (on, juce::dontSendNotification); }
+
     void ControlBar::setCorrection (float a) { correctionSlider.setValue (a * 100.0, juce::dontSendNotification); }
     void ControlBar::setDataFolderText (const juce::String& t) { folderText = t; folderButton.setTooltip (t); }
 
@@ -170,6 +181,8 @@ namespace ve::ui
         r.removeFromLeft (8);
         correctionLabel.setBounds (r.removeFromLeft (52));
         correctionSlider.setBounds (r.removeFromLeft (124));
+        r.removeFromLeft (6);
+        intentButton.setBounds (r.removeFromLeft (64));
         r.removeFromLeft (8);
         folderButton.setBounds (r.removeFromRight (100));
         r.removeFromRight (8);
