@@ -48,6 +48,8 @@ namespace ve::ui
         std::function<void (const juce::String&)> onDeleteRegion;
         std::function<void (const juce::String&)> onAnalyseRegion;
         std::function<void (const juce::String&, int, const Note&)> onNoteChanged;
+        std::function<void (const juce::String&, int, std::int64_t)> onSplitNote;   // region, note, sung sample
+        std::function<void (const juce::String&, int)> onMergeNote;                 // region, note (joins with next)
 
         void paint (juce::Graphics&) override;
         void resized() override;

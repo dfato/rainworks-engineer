@@ -49,6 +49,8 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
     timeline.onDeleteRegion = [this] (const juce::String& id) { processor.deleteRegion (id); };
     timeline.onAnalyseRegion = [this] (const juce::String& id) { processor.analyseRegion (id); };
     timeline.onNoteChanged = [this] (const juce::String& id, int idx, const ve::Note& n) { processor.updateNote (id, idx, n); };
+    timeline.onSplitNote = [this] (const juce::String& id, int idx, std::int64_t at) { processor.splitNote (id, idx, at); };
+    timeline.onMergeNote = [this] (const juce::String& id, int idx) { processor.mergeNoteWithNext (id, idx); };
     controls.onCorrectionChanged = [this] (float a) { processor.setGlobalCorrection (a); };
     controls.onStyleChanged = [this] (const juce::String& id) { processor.setStyle (id); };
     {

@@ -350,6 +350,47 @@ void VocalEngineProcessor::updateNote (const juce::String& id, int index, const 
     sendChangeMessage();
 }
 
+namespace
+{
+    bool loadPitchTrack (const ve::RegionDescriptor& d, ve::PitchTrack& t)
+    {
+        juce::MemoryBlock mb;
+        return d.pitchFile.existsAsFile() && d.pitchFile.loadFileAsData (mb) && ve::PitchTrack::deserialise (mb, t);
+    }
+}
+
+void VocalEngineProcessor::splitNote (const juce::String& id, int index, std::int64_t at)
+{
+    auto plan = session.getNotePlan (id);
+    const auto d = session.getRegionDescriptor (session.findRegion (id));
+    ve::PitchTrack track;
+    const bool haveTrack = loadPitchTrack (d, track);
+    const auto minLen = (std::int64_t) (0.03 * juce::jmax (1.0, d.captureSampleRate));
+    if (! ve::NoteEdit::split (plan.notes, index, at, haveTrack ? &track : nullptr, minLen))
+    {
+        postMessage ("Can't split there: both halves need to be at least 30 ms long.");
+        return;
+    }
+    session.setNotes (id, plan.notes);
+    pendingRerender.insert (id);
+    lastEditMs = juce::Time::getMillisecondCounter();
+    sendChangeMessage();
+}
+
+void VocalEngineProcessor::mergeNoteWithNext (const juce::String& id, int index)
+{
+    auto plan = session.getNotePlan (id);
+    const auto d = session.getRegionDescriptor (session.findRegion (id));
+    ve::PitchTrack track;
+    const bool haveTrack = loadPitchTrack (d, track);
+    if (! ve::NoteEdit::mergeWithNext (plan.notes, index, haveTrack ? &track : nullptr))
+        return;
+    session.setNotes (id, plan.notes);
+    pendingRerender.insert (id);
+    lastEditMs = juce::Time::getMillisecondCounter();
+    sendChangeMessage();
+}
+
 void VocalEngineProcessor::reloadAllRegions()
 {
     rebuildPlayback();

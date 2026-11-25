@@ -896,6 +896,32 @@ public:
             expectWithinAbsoluteError (outRms / inRms, 1.0f, 0.25f);
         }
 
+        beginTest ("Split and merge note blobs");
+        {
+            PitchTrack t; t.sampleRate = sr; t.hopSize = 240;
+            for (int i = 0; i < 400; ++i)   // 2 s: first second A3, second second C4
+                t.frames.push_back ({ i < 200 ? 220.0f : 261.6256f, 1.0f, 0.1f });
+            Note n; n.start = 0; n.end = (std::int64_t) (2.0 * sr); n.detectedMidi = 58.0f; n.targetMidi = 57.0f;
+            n.correction = 0.7f; n.timeShift = 100;
+            std::vector<Note> notes { n };
+            const auto minLen = (std::int64_t) (0.03 * sr);
+
+            expect (! NoteEdit::split (notes, 0, 10, &t, minLen), "too close to the edge");
+            expect (! NoteEdit::split (notes, 3, 1000, &t, minLen), "bad index");
+            expect (NoteEdit::split (notes, 0, (std::int64_t) sr, &t, minLen));
+            expectEquals ((int) notes.size(), 2);
+            expect (notes[0].end == notes[1].start && notes[1].end == n.end);
+            expectWithinAbsoluteError (notes[0].detectedMidi, 57.0f, 0.01f);
+            expectWithinAbsoluteError (notes[1].detectedMidi, 60.0f, 0.01f);
+            expect (notes[1].timeShift == 100 && notes[1].userEdited && notes[1].correction > 0.69f);
+
+            expect (! NoteEdit::mergeWithNext (notes, 1, &t), "no next note");
+            expect (NoteEdit::mergeWithNext (notes, 0, &t));
+            expectEquals ((int) notes.size(), 1);
+            expect (notes[0].start == 0 && notes[0].end == n.end);
+            expectWithinAbsoluteError (notes[0].targetMidi, 57.0f, 1.0e-6f);
+        }
+
         beginTest ("Style timing parses swing and is part of the style hash");
         {
             StyleLibrary lib;

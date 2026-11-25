@@ -82,6 +82,8 @@ public:
     float getGlobalCorrection() const;
     void setStyle (const juce::String& styleId);   // also sets the Correct amount to the style's default
     void updateNote (const juce::String& regionId, int noteIndex, const ve::Note&);
+    void splitNote (const juce::String& regionId, int noteIndex, std::int64_t atSample);  // sung (input) time
+    void mergeNoteWithNext (const juce::String& regionId, int noteIndex);
 
     const ve::SessionModel& getSession() const noexcept { return session; }
     const ve::RenderCache& getRenderCache() const noexcept { return cache; }

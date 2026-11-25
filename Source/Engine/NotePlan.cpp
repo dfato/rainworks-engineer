@@ -157,4 +157,54 @@ namespace ve
             return notes;
         }
     }
+
+    namespace NoteEdit
+    {
+        float medianMidi (const PitchTrack& t, std::int64_t start, std::int64_t end, float fallback)
+        {
+            if (t.hopSize <= 0 || t.frames.empty()) return fallback;
+            const int a = juce::jlimit (0, (int) t.frames.size(), (int) (start / t.hopSize));
+            const int b = juce::jlimit (a, (int) t.frames.size(), (int) ((end + t.hopSize - 1) / t.hopSize));
+            std::vector<float> v;
+            for (int i = a; i < b; ++i)
+                if (t.frames[(size_t) i].f0 > 0.0f)
+                    v.push_back (PitchTrack::hzToMidi (t.frames[(size_t) i].f0));
+            if (v.empty()) return fallback;
+            std::nth_element (v.begin(), v.begin() + (std::ptrdiff_t) (v.size() / 2), v.end());
+            return v[v.size() / 2];
+        }
+
+        bool split (std::vector<Note>& notes, int index, std::int64_t at, const PitchTrack* t, std::int64_t minSamples)
+        {
+            if (index < 0 || index >= (int) notes.size()) return false;
+            auto left = notes[(size_t) index];
+            if (at - left.start < minSamples || left.end - at < minSamples) return false;
+            auto right = left;
+            left.end = at;
+            right.start = at;
+            if (t != nullptr)
+            {
+                left.detectedMidi = medianMidi (*t, left.start, left.end, left.detectedMidi);
+                right.detectedMidi = medianMidi (*t, right.start, right.end, right.detectedMidi);
+            }
+            left.userEdited = right.userEdited = true;
+            notes[(size_t) index] = left;
+            notes.insert (notes.begin() + index + 1, right);
+            return true;
+        }
+
+        bool mergeWithNext (std::vector<Note>& notes, int index, const PitchTrack* t)
+        {
+            if (index < 0 || index + 1 >= (int) notes.size()) return false;
+            auto& a = notes[(size_t) index];
+            const auto& b = notes[(size_t) index + 1];
+            const auto lenA = (float) (a.end - a.start), lenB = (float) (b.end - b.start);
+            const float weighted = (a.detectedMidi * lenA + b.detectedMidi * lenB) / juce::jmax (1.0f, lenA + lenB);
+            a.end = juce::jmax (a.end, b.end);
+            a.detectedMidi = t != nullptr ? medianMidi (*t, a.start, a.end, weighted) : weighted;
+            a.userEdited = true;
+            notes.erase (notes.begin() + index + 1);
+            return true;
+        }
+    }
 }

@@ -176,10 +176,17 @@ namespace ve::ui
                 m.addItem (3, "Leave as sung (0%)");
                 m.addItem (4, "Reset target to key");
                 m.addItem (5, "Reset timing", n.timeShift != 0);
+                m.addItem (7, "Split note here");
+                m.addItem (8, "Merge with next note", hit.note + 1 < (int) r.notes.size());
                 m.addSeparator();
                 m.addItem (6, "Tip: Shift + drag a note to move it in time", false);
-                m.showMenuAsync (juce::PopupMenu::Options(), [this, id = r.id, idx = hit.note, n] (int res)
+                // Click position in sung time: undo this note's timing move.
+                const double clickOut = r.tempoMap.ppqToSample (xToPpq ((float) e.x));
+                const auto splitAt = (std::int64_t) std::llround (clickOut - (outStart (r, hit.note) - (double) n.start));
+                m.showMenuAsync (juce::PopupMenu::Options(), [this, id = r.id, idx = hit.note, n, splitAt] (int res)
                 {
+                    if (res == 7) { if (onSplitNote) onSplitNote (id, idx, splitAt); return; }
+                    if (res == 8) { if (onMergeNote) onMergeNote (id, idx); return; }
                     if (res == 0 || ! onNoteChanged) return;
                     auto edited = n;
                     if (res == 1) edited.correction = 1.0f;
