@@ -51,7 +51,7 @@ namespace ve::ui
         auto r = getLocalBounds();
         hScroll.setBounds (r.removeFromBottom (12).withTrimmedLeft (gutter));
         ruler = r.removeFromTop (24).withTrimmedLeft (gutter);
-        noteLane = r.removeFromBottom (40).withTrimmedLeft (gutter);
+        noteLane = r.removeFromBottom (120).withTrimmedLeft (gutter);
         r.removeFromBottom (2);
         chordLane = r.removeFromBottom (28).withTrimmedLeft (gutter);
         r.removeFromBottom (2);
@@ -239,6 +239,64 @@ namespace ve::ui
             }
     }
 
+    void TimelineComponent::drawNotes (juce::Graphics& g)
+    {
+        // Pitch range over all notes so blobs fill the lane.
+        float lo = 1000.0f, hi = -1000.0f;
+        bool any = false, tracking = false;
+        for (auto& r : data.regions)
+        {
+            tracking = tracking || r.trackingPitch;
+            for (auto& n : r.notes) { lo = juce::jmin (lo, n.detectedMidi, n.targetMidi); hi = juce::jmax (hi, n.detectedMidi, n.targetMidi); any = true; }
+        }
+        if (! any)
+        {
+            g.setColour (Theme::textDim.withAlpha (0.6f));
+            g.setFont (Theme::font (11.0f));
+            g.drawText (tracking ? "Tracking pitch..." : "Notes appear here after a take is analysed",
+                        noteLane.reduced (8, 0), juce::Justification::centredLeft);
+            return;
+        }
+        lo = std::floor (lo) - 1.0f;
+        hi = std::ceil (hi) + 1.0f;
+        const auto lane = noteLane.reduced (0, 4).toFloat();
+        const float rowH = lane.getHeight() / juce::jmax (1.0f, hi - lo);
+        auto yFor = [&] (float midi) { return lane.getBottom() - (midi - lo) * rowH; };
+
+        // Octave C lines with labels.
+        g.setFont (Theme::font (10.0f));
+        for (int m = (int) lo; m <= (int) hi; ++m)
+        {
+            if (m % 12 != 0) continue;
+            const float y = yFor ((float) m);
+            g.setColour (Theme::gridBeat);
+            g.drawHorizontalLine ((int) y, lane.getX(), lane.getRight());
+            g.setColour (Theme::textDim);
+            g.drawText ("C" + juce::String (m / 12 - 1), (int) lane.getX() + 2, (int) y - 12, 30, 12, juce::Justification::bottomLeft);
+        }
+
+        const float h = juce::jlimit (3.0f, 12.0f, rowH * 0.8f);
+        for (auto& r : data.regions)
+            for (auto& n : r.notes)
+            {
+                const float x0 = ppqToX (r.tempoMap.sampleToPpq ((double) n.start));
+                const float x1 = ppqToX (r.tempoMap.sampleToPpq ((double) n.end));
+                if (x1 < lane.getX() || x0 > lane.getRight()) continue;
+
+                const float cents = std::abs (n.centsOff());
+                const auto colour = cents < 15.0f ? Theme::good : (cents < 35.0f ? Theme::warn : Theme::bad);
+
+                // Target pitch as an outline, detected pitch as the filled blob.
+                if (std::abs (n.targetMidi - n.detectedMidi) > 0.05f)
+                {
+                    g.setColour (Theme::text.withAlpha (0.35f));
+                    g.drawRoundedRectangle (juce::Rectangle<float> (x0, yFor (n.targetMidi) - h * 0.5f, juce::jmax (2.0f, x1 - x0), h), h * 0.4f, 1.0f);
+                }
+                g.setColour (colour.withAlpha (0.85f));
+                g.fillRoundedRectangle (juce::Rectangle<float> (x0, yFor (n.detectedMidi) - h * 0.5f, juce::jmax (2.0f, x1 - x0), h), h * 0.4f);
+            }
+    }
+
     void TimelineComponent::paint (juce::Graphics& g)
     {
         g.fillAll (Theme::panel);
@@ -281,10 +339,8 @@ namespace ve::ui
 
             drawChords (g);
 
-            // Reserved lane for Stage 2 note blobs.
-            g.setColour (Theme::textDim.withAlpha (0.5f));
-            g.setFont (Theme::font (11.0f));
-            g.drawText ("Note blobs arrive in Stage 2", noteLane.reduced (8, 0), juce::Justification::centredLeft);
+            drawGrid (g, noteLane, false);
+            drawNotes (g);
 
             // Playhead.
             if (host.hasPpq)

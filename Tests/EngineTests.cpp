@@ -10,6 +10,8 @@
 #include "Engine/RenderCache.h"
 #include "Engine/SidechainAnalysis.h"
 #include "Engine/TakeImporter.h"
+#include "Engine/NotePlan.h"
+#include "Engine/PitchTracker.h"
 #include "Engine/TempoMap.h"
 #include "Engine/TripleBuffer.h"
 #include "State/SessionModel.h"
@@ -546,6 +548,99 @@ public:
     }
 };
 
+//==============================================================================
+class NoteTests final : public juce::UnitTest
+{
+public:
+    NoteTests() : juce::UnitTest ("Notes", "VocalEngine") {}
+
+    // Sung-ish tone: harmonics, slight vibrato, optional detune in cents.
+    static void addVoiceNote (juce::AudioBuffer<float>& b, double sr, double startSec, double lenSec, float midi, float cents)
+    {
+        const double f0 = 440.0 * std::pow (2.0, (midi + cents / 100.0f - 69.0f) / 12.0);
+        const int s0 = (int) (startSec * sr), n = (int) (lenSec * sr);
+        double phase = 0.0;
+        for (int i = 0; i < n; ++i)
+        {
+            const double t = i / sr;
+            const double f = f0 * (1.0 + 0.004 * std::sin (2.0 * juce::MathConstants<double>::pi * 5.5 * t));
+            phase += 2.0 * juce::MathConstants<double>::pi * f / sr;
+            const float env = (float) juce::jmin (1.0, juce::jmin (i, n - i) / (0.01 * sr));
+            float v = 0.0f;
+            for (int h = 1; h <= 6; ++h) v += (float) (std::sin (phase * h) / (h * h));
+            b.addSample (0, s0 + i, 0.3f * env * v);
+        }
+    }
+
+    void runTest() override
+    {
+        const double sr = 48000.0;
+
+        beginTest ("Pitch tracker finds f0 of a harmonic tone and marks silence unvoiced");
+        {
+            juce::AudioBuffer<float> b (1, (int) (sr * 1.5));
+            b.clear();
+            addVoiceNote (b, sr, 0.25, 1.0, 57.0f, 0.0f); // A3 = 220 Hz
+            PitchTrack t;
+            expect (PitchTracker::track (b, sr, {}, nullptr, t).wasOk());
+            const int mid = (int) (0.75 * sr / t.hopSize);
+            expect (t.isVoiced (mid));
+            expectWithinAbsoluteError (t.frames[(size_t) mid].f0, 220.0f, 2.5f);
+            expect (! t.isVoiced (2), "silence should be unvoiced");
+
+            PitchTrack back;
+            expect (PitchTrack::deserialise (t.serialise(), back));
+            expectEquals ((int) back.frames.size(), (int) t.frames.size());
+            expectEquals (back.frames[(size_t) mid].f0, t.frames[(size_t) mid].f0);
+        }
+
+        beginTest ("Segmentation splits a melody into notes and snaps targets to the key");
+        {
+            // C4 (flat 30 cents), E4, G4 (sharp 25 cents), then a gap, then F#4 -> should snap to G or F in C major.
+            juce::AudioBuffer<float> b (1, (int) (sr * 3.0));
+            b.clear();
+            addVoiceNote (b, sr, 0.10, 0.45, 60.0f, -30.0f);
+            addVoiceNote (b, sr, 0.55, 0.45, 64.0f, 0.0f);
+            addVoiceNote (b, sr, 1.00, 0.45, 67.0f, 25.0f);
+            addVoiceNote (b, sr, 1.80, 0.50, 66.0f, 0.0f);
+            PitchTrack t;
+            expect (PitchTracker::track (b, sr, {}, nullptr, t).wasOk());
+
+            KeyEstimate cMajor; cMajor.tonic = 0; cMajor.minor = false;
+            auto notes = NoteSegmenter::segment (t, cMajor);
+            juce::StringArray desc;
+            for (auto& n : notes) desc.add (juce::String (n.detectedMidi, 2) + "->" + juce::String (n.targetMidi, 0));
+            logMessage ("Notes: " + desc.joinIntoString (", "));
+            expectEquals ((int) notes.size(), 4);
+            if (notes.size() == 4)
+            {
+                expectWithinAbsoluteError (notes[0].detectedMidi, 59.7f, 0.1f);
+                expectEquals (notes[0].targetMidi, 60.0f);
+                expectWithinAbsoluteError (notes[2].detectedMidi, 67.25f, 0.1f);
+                expectEquals (notes[2].targetMidi, 67.0f);
+                expect (juce::exactlyEqual (notes[3].targetMidi, 65.0f) || juce::exactlyEqual (notes[3].targetMidi, 67.0f), "F# should snap into C major");
+                expectWithinAbsoluteError ((double) notes[1].start / sr, 0.55, 0.03);
+                expectWithinAbsoluteError ((double) notes[3].end / sr, 2.30, 0.03);
+            }
+
+            NotePlan plan { notes };
+            expect (plan.isIdentity(), "no correction yet");
+            const auto h0 = plan.hash();
+            plan.notes[0].correction = 1.0f;
+            expect (! plan.isIdentity() && plan.hash() != h0);
+        }
+
+        beginTest ("Snap to key");
+        {
+            KeyEstimate aMinor; aMinor.tonic = 9; aMinor.minor = true;
+            expectEquals (NoteSegmenter::snapToKey (60.8f, aMinor), 60.0f); // C# (flat) -> C in A minor
+            expectEquals (NoteSegmenter::snapToKey (61.2f, aMinor), 62.0f); // C# (sharp) -> D
+            expectEquals (NoteSegmenter::snapToKey (61.2f, KeyEstimate{}), 61.0f);
+        }
+    }
+};
+
+static NoteTests noteTests;
 static ImportTests importTests;
 static CoreTests coreTests;
 static CaptureTests captureTests;

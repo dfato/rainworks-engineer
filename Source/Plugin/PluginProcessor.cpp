@@ -3,6 +3,8 @@
 #include "Engine/EngineConfig.h"
 #include "Engine/SidechainAnalysis.h"
 #include "Engine/TakeImporter.h"
+#include "Engine/NotePlan.h"
+#include "Engine/PitchTracker.h"
 
 VocalEngineProcessor::BusesProperties VocalEngineProcessor::makeBusesProperties()
 {
@@ -158,6 +160,7 @@ void VocalEngineProcessor::timerCallback()
         const auto d = session.getRegionDescriptor (session.findRegion (r.id));
         scheduleRender (d);
         scheduleAnalysis (d);
+        schedulePitchTracking (d);
         changed = true;
     }
 
@@ -236,9 +239,48 @@ void VocalEngineProcessor::scheduleAnalysis (const ve::RegionDescriptor& d)
         [this, id = d.id, result] (const ve::JobResult& res)
         {
             if (res.success)
+            {
                 session.setAnalysis (id, *result);
+                resnapNotes(); // key estimate may have changed
+            }
             else if (! res.cancelled)
                 postMessage ("Sidechain analysis failed: " + res.error);
+            sendChangeMessage();
+        });
+}
+
+void VocalEngineProcessor::schedulePitchTracking (const ve::RegionDescriptor& d)
+{
+    if (d.missingFiles)
+        return;
+
+    struct Output { ve::PitchTrack track; std::vector<ve::Note> notes; };
+    auto result = std::make_shared<Output>();
+    const auto key = session.getEffectiveKey();
+    const auto pitchRel = ve::CaptureEngine::regionsSubfolder() + "/" + d.id + "_pitch.bin";
+    const auto pitchFile = session.getDataFolder().getChildFile (pitchRel);
+
+    jobs->submit ("Track pitch", "pitch:" + d.id, ve::JobPriority::normal,
+        [d, key, pitchFile, result] (ve::JobContext& ctx)
+        {
+            juce::AudioBuffer<float> audio;
+            double rate = 0.0;
+            if (auto r = ve::loadAudioFile (d.vocalFile, 0.0, nullptr, audio, rate); r.failed())
+                return r;
+            if (auto r = ve::PitchTracker::track (audio, rate, {}, &ctx, result->track); r.failed())
+                return r;
+            result->notes = ve::NoteSegmenter::segment (result->track, key);
+            const auto mb = result->track.serialise();
+            if (! pitchFile.replaceWithData (mb.getData(), mb.getSize()))
+                return juce::Result::fail ("Could not write " + pitchFile.getFullPathName());
+            return juce::Result::ok();
+        },
+        [this, id = d.id, pitchRel, result] (const ve::JobResult& res)
+        {
+            if (res.success)
+                session.setNotes (id, result->notes, pitchRel);
+            else if (! res.cancelled)
+                postMessage ("Pitch tracking failed: " + res.error);
             sendChangeMessage();
         });
 }
@@ -251,6 +293,8 @@ void VocalEngineProcessor::reloadAllRegions()
         scheduleRender (d);
         if (! session.hasAnalysis (d.id))
             scheduleAnalysis (d);
+        if (! session.hasNotes (d.id))
+            schedulePitchTracking (d);
     }
     sendChangeMessage();
 }
@@ -266,7 +310,20 @@ void VocalEngineProcessor::setMonitoringMode (ve::MonitoringMode m)
 void VocalEngineProcessor::setKeyOverride (int k)
 {
     session.setKeyOverride (k);
+    resnapNotes();
     sendChangeMessage();
+}
+
+void VocalEngineProcessor::resnapNotes()
+{
+    const auto key = session.getEffectiveKey();
+    for (auto& d : session.getRegionDescriptors())
+    {
+        if (! session.hasNotes (d.id)) continue;
+        auto plan = session.getNotePlan (d.id);
+        ve::NoteSegmenter::resnap (plan.notes, key);
+        session.setNotes (d.id, plan.notes);
+    }
 }
 
 void VocalEngineProcessor::setDataFolder (const juce::File& f)
@@ -316,6 +373,7 @@ void VocalEngineProcessor::importTake (const juce::File& vocal, const juce::File
             const auto d = session.getRegionDescriptor (session.findRegion (result->id));
             scheduleRender (d);
             scheduleAnalysis (d);
+            schedulePitchTracking (d);
             postMessage ("Imported " + name + " as a take from bar 1 ("
                          + juce::String ((double) result->lengthSamples / result->sampleRate, 1) + " s)");
         });
@@ -339,6 +397,7 @@ void VocalEngineProcessor::deleteRegion (const juce::String& id)
 {
     jobs->cancelGroup ("render:" + id);
     jobs->cancelGroup ("analysis:" + id);
+    jobs->cancelGroup ("pitch:" + id);
     if (session.removeRegion (id))
     {
         cache.removeRegion (id);

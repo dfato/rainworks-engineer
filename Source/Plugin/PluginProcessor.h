@@ -97,6 +97,8 @@ private:
     void reloadAllRegions();
     void scheduleRender (const ve::RegionDescriptor&);
     void scheduleAnalysis (const ve::RegionDescriptor&);
+    void schedulePitchTracking (const ve::RegionDescriptor&);
+    void resnapNotes();
     void rebuildPlayback();
     void postMessage (const juce::String&);
 

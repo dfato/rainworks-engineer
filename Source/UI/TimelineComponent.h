@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "Engine/HostContext.h"
+#include "Engine/NotePlan.h"
 #include "Engine/RenderCache.h"
 #include "Engine/SidechainAnalysis.h"
 #include "Engine/TempoMap.h"
@@ -18,6 +19,8 @@ namespace ve::ui
         double renderedRate = 0.0;                   // sample rate the peaks were built at
         bool missing = false, loading = false, hasSidechain = false;
         std::vector<ChordSpan> chords;
+        std::vector<Note> notes;                     // region-local samples at capture rate
+        bool trackingPitch = false;
     };
 
     struct TimelineData
@@ -60,6 +63,7 @@ namespace ve::ui
         void drawGrid (juce::Graphics&, juce::Rectangle<int> area, bool labels);
         void drawRegion (juce::Graphics&, const TimelineRegion&);
         void drawChords (juce::Graphics&);
+        void drawNotes (juce::Graphics&);
         const TimelineRegion* regionAt (juce::Point<int>) const;
 
         static constexpr int gutter = 64;

@@ -4,6 +4,7 @@
 #include "Engine/CaptureEngine.h"
 #include "Engine/RenderCache.h"
 #include "Engine/SidechainAnalysis.h"
+#include "Engine/NotePlan.h"
 
 namespace ve
 {
@@ -18,6 +19,8 @@ namespace ve
         VE_ID (TempoMap) VE_ID (Point) VE_ID (sample) VE_ID (ppq) VE_ID (bpm) VE_ID (num) VE_ID (den)
         VE_ID (Analysis) VE_ID (keyTonic) VE_ID (keyMinor) VE_ID (keyConfidence) VE_ID (chroma)
         VE_ID (Chords) VE_ID (Chord) VE_ID (endPpq) VE_ID (root) VE_ID (quality) VE_ID (confidence)
+        VE_ID (Notes) VE_ID (Note) VE_ID (start) VE_ID (end) VE_ID (detected) VE_ID (target) VE_ID (correction)
+        VE_ID (edited) VE_ID (pitchFile)
         #undef VE_ID
     }
 
@@ -74,6 +77,11 @@ namespace ve
         KeyEstimate getEstimatedKey() const;
         // The key in force: the override if set, else the estimate.
         KeyEstimate getEffectiveKey (bool* isOverride = nullptr) const;
+
+        // Note plan (Stage 2). The pitch track itself lives in a file next to the audio.
+        void setNotes (const juce::String& regionId, const std::vector<Note>&, const juce::String& pitchFileRelative = {});
+        bool hasNotes (const juce::String& regionId) const;
+        NotePlan getNotePlan (const juce::String& regionId) const;
 
         static TempoMap readTempoMap (const juce::ValueTree& region);
 

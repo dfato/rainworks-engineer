@@ -161,6 +161,8 @@ void VocalEngineEditor::rebuildFromSession()
             r.renderedRate = rendered->sampleRate;
         }
         r.chords = session.getChords (desc.id);
+        r.notes = session.getNotePlan (desc.id).notes;
+        r.trackingPitch = ! session.hasNotes (desc.id) && ! desc.missingFiles;
         d.regions.push_back (std::move (r));
     }
     std::sort (d.regions.begin(), d.regions.end(), [] (auto& a, auto& b) { return a.order < b.order; });
