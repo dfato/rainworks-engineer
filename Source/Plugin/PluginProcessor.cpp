@@ -325,6 +325,14 @@ void VocalEngineProcessor::setGlobalCorrection (float amount)
     sendChangeMessage();
 }
 
+void VocalEngineProcessor::setStyle (const juce::String& id)
+{
+    const auto style = ve::sharedStyleLibrary().get (id);
+    session.setStyleId (style.id);
+    setGlobalCorrection (style.correction); // marks every take for re-render
+    postMessage ("Style: " + style.name + (style.description.isNotEmpty() ? " - " + style.description : juce::String()));
+}
+
 float VocalEngineProcessor::getGlobalCorrection() const
 {
     return (float) session.getTree().getProperty ("globalCorrection", 0.0f);

@@ -19,7 +19,15 @@ namespace ve::ui
         correctionSlider.onValueChange = [this] { if (onCorrectionChanged) onCorrectionChanged ((float) correctionSlider.getValue() / 100.0f); };
         addAndMakeVisible (correctionSlider);
 
-        for (auto* l : { &modeLabel, &keyLabel, &correctionLabel })
+        styleBox.setTooltip ("Genre style: how hard notes snap, how fast, slides, scoops and vibrato. Picking one sets Correct to its default.");
+        styleBox.onChange = [this]
+        {
+            const int idx = styleBox.getSelectedId() - 1;
+            if (idx >= 0 && idx < styleIds.size() && onStyleChanged) onStyleChanged (styleIds[idx]);
+        };
+        addAndMakeVisible (styleBox);
+
+        for (auto* l : { &modeLabel, &keyLabel, &correctionLabel, &styleLabel })
         {
             l->setColour (juce::Label::textColourId, Theme::textDim);
             l->setJustificationType (juce::Justification::centredRight);
@@ -66,6 +74,29 @@ namespace ve::ui
     void ControlBar::setMode (int m) { modeBox.setSelectedId (m + 1, juce::dontSendNotification); }
     void ControlBar::setKeyOverride (int k) { keyBox.setSelectedId (k + 2, juce::dontSendNotification); }
     void ControlBar::setEstimatedKeyText (const juce::String& t) { keyBox.changeItemText (1, "Auto (" + t + ")"); if (keyBox.getSelectedId() == 1) keyBox.setSelectedId (1, juce::dontSendNotification); }
+    void ControlBar::setStyles (const std::vector<StyleItem>& items)
+    {
+        styleBox.clear (juce::dontSendNotification);
+        styleIds.clear();
+        juce::String category;
+        for (auto& it : items)
+        {
+            if (it.category != category)
+            {
+                category = it.category;
+                styleBox.addSectionHeading (category);
+            }
+            styleIds.add (it.id);
+            styleBox.addItem (it.name, styleIds.size());
+        }
+    }
+
+    void ControlBar::setStyle (const juce::String& id)
+    {
+        const int idx = styleIds.indexOf (id);
+        styleBox.setSelectedId (idx >= 0 ? idx + 1 : 0, juce::dontSendNotification);
+    }
+
     void ControlBar::setCorrection (float a) { correctionSlider.setValue (a * 100.0, juce::dontSendNotification); }
     void ControlBar::setDataFolderText (const juce::String& t) { folderText = t; folderButton.setTooltip (t); }
 
@@ -81,18 +112,21 @@ namespace ve::ui
         armButton.setBounds (r.removeFromLeft (80));
         r.removeFromLeft (8);
         modeLabel.setBounds (r.removeFromLeft (60));
-        modeBox.setBounds (r.removeFromLeft (110));
+        modeBox.setBounds (r.removeFromLeft (100));
         r.removeFromLeft (8);
         keyLabel.setBounds (r.removeFromLeft (36));
-        keyBox.setBounds (r.removeFromLeft (150));
+        keyBox.setBounds (r.removeFromLeft (130));
+        r.removeFromLeft (8);
+        styleLabel.setBounds (r.removeFromLeft (40));
+        styleBox.setBounds (r.removeFromLeft (150));
         r.removeFromLeft (8);
         correctionLabel.setBounds (r.removeFromLeft (52));
-        correctionSlider.setBounds (r.removeFromLeft (150));
+        correctionSlider.setBounds (r.removeFromLeft (140));
         r.removeFromLeft (8);
         folderButton.setBounds (r.removeFromRight (100));
         r.removeFromRight (8);
-        analyseButton.setBounds (r.removeFromRight (140));
+        analyseButton.setBounds (r.removeFromRight (128));
         r.removeFromRight (8);
-        importButton.setBounds (r.removeFromRight (120));
+        importButton.setBounds (r.removeFromRight (110));
     }
 }

@@ -94,6 +94,9 @@ namespace ve
     }
     void SessionModel::setMonitoringMode (MonitoringMode m) { tree.setProperty (IDs::monitoringMode, (int) m, nullptr); }
 
+    juce::String SessionModel::getStyleId() const { return tree.getProperty (IDs::styleId, "natural").toString(); }
+    void SessionModel::setStyleId (const juce::String& id) { tree.setProperty (IDs::styleId, id, nullptr); }
+
     int SessionModel::getKeyOverride() const { return juce::jlimit (-1, 23, (int) tree.getProperty (IDs::keyOverride, -1)); }
     void SessionModel::setKeyOverride (int k) { tree.setProperty (IDs::keyOverride, juce::jlimit (-1, 23, k), nullptr); }
 
@@ -174,7 +177,7 @@ namespace ve
         const auto pitch = r.getProperty (IDs::pitchFile).toString();
         if (pitch.isNotEmpty())
             d.pitchFile = folder.getChildFile (pitch);
-        d.plan = RenderPlan::forNotes (getNotePlan (d.id));
+        d.plan = RenderPlan::forNotes (getNotePlan (d.id), sharedStyleLibrary().get (getStyleId()));
         if (d.plan.rendererId != RenderPlan::capturedId && ! d.pitchFile.existsAsFile())
             d.plan = RenderPlan::identity(); // can't correct without the pitch track
         d.planHash = d.plan.hash();

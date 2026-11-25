@@ -1,0 +1,48 @@
+// Built-in genre styles. Generated as data; edit freely. User styles in
+// Documents/RainWorks/Engineer/Styles/*.json override these by id.
+
+#include "StyleProfile.h"
+
+namespace ve::BuiltinStyles
+{
+    const std::vector<const char*>& json()
+    {
+        static const std::vector<const char*> styles {
+            R"VE({"id": "natural", "name": "Natural", "category": "Basic", "description": "Gentle correction that keeps the performance as sung.", "pitch": {"correction": 0.6, "retuneMs": 40, "keepVariation": 1.0}, "vibrato": {"addDepthCents": 0, "rateHz": 5.5, "onsetMs": 250}, "slides": {"betweenNotesMs": 0, "maxGapMs": 80, "scoopCents": 0, "scoopMs": 0}, "timing": {"quantize": 0, "grid": 16}})VE",
+            R"VE({"id": "transparent", "name": "Transparent", "category": "Basic", "inherits": "natural", "description": "Fixes only what is clearly off; nothing else changes.", "pitch": {"correction": 0.4, "retuneMs": 60}})VE",
+            R"VE({"id": "hard-tune", "name": "Hard Tune", "category": "Basic", "inherits": "natural", "description": "Instant snap to the scale with a flat, robotic pitch line.", "pitch": {"correction": 1.0, "retuneMs": 0, "keepVariation": 0.0}})VE",
+            R"VE({"id": "pop", "name": "Pop", "category": "Pop", "inherits": "natural", "description": "Tight, polished modern pop.", "pitch": {"correction": 0.85, "retuneMs": 20, "keepVariation": 0.6}, "slides": {"betweenNotesMs": 30}})VE",
+            R"VE({"id": "pop-ballad", "name": "Pop Ballad", "category": "Pop", "inherits": "pop", "description": "Polished but expressive, with vibrato on held notes.", "pitch": {"correction": 0.75, "retuneMs": 35, "keepVariation": 0.8}, "vibrato": {"addDepthCents": 25, "rateHz": 5.2, "onsetMs": 350}, "slides": {"betweenNotesMs": 50}})VE",
+            R"VE({"id": "dance-pop", "name": "Dance Pop", "category": "Pop", "inherits": "pop", "description": "Bright and tight for four-on-the-floor tracks.", "pitch": {"correction": 0.95, "retuneMs": 10, "keepVariation": 0.35}, "slides": {"betweenNotesMs": 20}})VE",
+            R"VE({"id": "k-pop", "name": "K-Pop", "category": "Pop", "inherits": "pop", "description": "Very precise tuning with quick, clean transitions.", "pitch": {"correction": 1.0, "retuneMs": 8, "keepVariation": 0.3}, "slides": {"betweenNotesMs": 18}})VE",
+            R"VE({"id": "hyperpop", "name": "Hyperpop", "category": "Pop", "inherits": "hard-tune", "description": "Exaggerated hard tune with fast glides.", "slides": {"betweenNotesMs": 15, "scoopCents": 60, "scoopMs": 40}})VE",
+            R"VE({"id": "rnb", "name": "R&B", "category": "R&B / Soul", "inherits": "natural", "description": "Smooth tuning that keeps runs and slides.", "pitch": {"correction": 0.7, "retuneMs": 30, "keepVariation": 0.85}, "slides": {"betweenNotesMs": 60, "maxGapMs": 100, "scoopCents": 40, "scoopMs": 60}, "vibrato": {"addDepthCents": 15, "onsetMs": 300}})VE",
+            R"VE({"id": "contemporary-rnb", "name": "Contemporary R&B", "category": "R&B / Soul", "inherits": "rnb", "description": "Modern R&B: tighter pitch, glossy slides.", "pitch": {"correction": 0.85, "retuneMs": 18, "keepVariation": 0.6}})VE",
+            R"VE({"id": "neo-soul", "name": "Neo-Soul", "category": "R&B / Soul", "inherits": "rnb", "description": "Loose and human, lots of scoops.", "pitch": {"correction": 0.45, "retuneMs": 60, "keepVariation": 1.0}, "slides": {"scoopCents": 70, "scoopMs": 90}})VE",
+            R"VE({"id": "soul", "name": "Soul", "category": "R&B / Soul", "inherits": "rnb", "description": "Big vibrato, gentle tuning.", "pitch": {"correction": 0.5, "retuneMs": 50}, "vibrato": {"addDepthCents": 35, "rateHz": 5.8, "onsetMs": 250}})VE",
+            R"VE({"id": "gospel", "name": "Gospel", "category": "R&B / Soul", "inherits": "soul", "description": "Powerful, wide vibrato and long slides.", "vibrato": {"addDepthCents": 45, "rateHz": 6.0, "onsetMs": 220}, "slides": {"betweenNotesMs": 80, "maxGapMs": 120}})VE",
+            R"VE({"id": "hip-hop", "name": "Hip-Hop", "category": "Hip-hop", "inherits": "natural", "description": "Clean hooks with moderate tuning.", "pitch": {"correction": 0.8, "retuneMs": 20, "keepVariation": 0.5}, "slides": {"betweenNotesMs": 25}})VE",
+            R"VE({"id": "trap", "name": "Trap", "category": "Hip-hop", "inherits": "hip-hop", "description": "Fast retune, nearly flat pitch line.", "pitch": {"correction": 1.0, "retuneMs": 4, "keepVariation": 0.1}, "slides": {"betweenNotesMs": 20}})VE",
+            R"VE({"id": "melodic-rap", "name": "Melodic Rap", "category": "Hip-hop", "inherits": "trap", "description": "Hard tune with melodic glides between notes.", "pitch": {"retuneMs": 6, "keepVariation": 0.2}, "slides": {"betweenNotesMs": 45, "maxGapMs": 110, "scoopCents": 50, "scoopMs": 50}})VE",
+            R"VE({"id": "drill", "name": "Drill", "category": "Hip-hop", "inherits": "trap", "description": "Dark and precise, short slides.", "pitch": {"retuneMs": 3, "keepVariation": 0.05}, "slides": {"betweenNotesMs": 12}})VE",
+            R"VE({"id": "emo-rap", "name": "Emo Rap", "category": "Hip-hop", "inherits": "melodic-rap", "description": "Melodic rap with a little held-note vibrato.", "vibrato": {"addDepthCents": 15, "rateHz": 5.0, "onsetMs": 400}})VE",
+            R"VE({"id": "rock", "name": "Rock", "category": "Rock", "inherits": "natural", "description": "Raw, light-touch correction.", "pitch": {"correction": 0.45, "retuneMs": 55, "keepVariation": 1.0}, "slides": {"scoopCents": 30, "scoopMs": 60}})VE",
+            R"VE({"id": "pop-punk", "name": "Pop-Punk", "category": "Rock", "inherits": "rock", "description": "Tighter rock tuning for fast, bright vocals.", "pitch": {"correction": 0.7, "retuneMs": 25, "keepVariation": 0.7}})VE",
+            R"VE({"id": "indie", "name": "Indie", "category": "Rock", "inherits": "rock", "description": "Natural and slightly loose.", "pitch": {"correction": 0.35, "retuneMs": 70}})VE",
+            R"VE({"id": "metal-clean", "name": "Metal (clean)", "category": "Rock", "inherits": "rock", "description": "Clean metal vocals with wide vibrato.", "pitch": {"correction": 0.6, "retuneMs": 35}, "vibrato": {"addDepthCents": 30, "rateHz": 6.2, "onsetMs": 300}})VE",
+            R"VE({"id": "country", "name": "Country", "category": "Country / Folk", "inherits": "natural", "description": "Clean tuning with twangy scoops.", "pitch": {"correction": 0.65, "retuneMs": 35, "keepVariation": 0.9}, "slides": {"betweenNotesMs": 40, "scoopCents": 60, "scoopMs": 70}, "vibrato": {"addDepthCents": 12, "onsetMs": 350}})VE",
+            R"VE({"id": "folk", "name": "Folk", "category": "Country / Folk", "inherits": "natural", "description": "Barely-there correction.", "pitch": {"correction": 0.3, "retuneMs": 80}})VE",
+            R"VE({"id": "singer-songwriter", "name": "Singer-Songwriter", "category": "Country / Folk", "inherits": "folk", "description": "Intimate and natural, a bit more polish than folk.", "pitch": {"correction": 0.45, "retuneMs": 55}})VE",
+            R"VE({"id": "edm", "name": "EDM", "category": "Electronic", "inherits": "pop", "description": "Very tight and bright for drops and toplines.", "pitch": {"correction": 1.0, "retuneMs": 6, "keepVariation": 0.25}})VE",
+            R"VE({"id": "house", "name": "House", "category": "Electronic", "inherits": "edm", "description": "Soulful house: tight but warm.", "pitch": {"retuneMs": 15, "keepVariation": 0.5}, "vibrato": {"addDepthCents": 15, "onsetMs": 300}})VE",
+            R"VE({"id": "future-bass", "name": "Future Bass", "category": "Electronic", "inherits": "edm", "description": "Hard tune with long melodic glides.", "pitch": {"retuneMs": 2, "keepVariation": 0.1}, "slides": {"betweenNotesMs": 60, "maxGapMs": 120}})VE",
+            R"VE({"id": "reggaeton", "name": "Reggaeton", "category": "Latin / Caribbean / African", "inherits": "hip-hop", "description": "Fast retune with short slides.", "pitch": {"correction": 0.95, "retuneMs": 8, "keepVariation": 0.25}, "slides": {"betweenNotesMs": 30}})VE",
+            R"VE({"id": "afrobeats", "name": "Afrobeats", "category": "Latin / Caribbean / African", "inherits": "natural", "description": "Melodic tuning with smooth, rolling slides.", "pitch": {"correction": 0.9, "retuneMs": 12, "keepVariation": 0.4}, "slides": {"betweenNotesMs": 50, "maxGapMs": 100}})VE",
+            R"VE({"id": "dancehall", "name": "Dancehall", "category": "Latin / Caribbean / African", "inherits": "afrobeats", "description": "Punchy, tight, slightly harder than afrobeats.", "pitch": {"retuneMs": 6, "keepVariation": 0.25}, "slides": {"betweenNotesMs": 25}})VE",
+            R"VE({"id": "lo-fi", "name": "Lo-Fi", "category": "Other", "inherits": "indie", "description": "Relaxed and soft, light correction.", "pitch": {"correction": 0.4, "retuneMs": 70}})VE",
+            R"VE({"id": "jazz", "name": "Jazz", "category": "Other", "inherits": "natural", "description": "Expressive, scooped phrasing with natural vibrato.", "pitch": {"correction": 0.35, "retuneMs": 70, "keepVariation": 1.0}, "slides": {"betweenNotesMs": 60, "scoopCents": 80, "scoopMs": 100}, "vibrato": {"addDepthCents": 20, "rateHz": 5.0, "onsetMs": 400}})VE",
+            R"VE({"id": "musical-theatre", "name": "Musical Theatre", "category": "Other", "inherits": "pop-ballad", "description": "Clear diction tuning and strong held-note vibrato.", "vibrato": {"addDepthCents": 35, "rateHz": 5.6, "onsetMs": 300}})VE",
+        };
+        return styles;
+    }
+}

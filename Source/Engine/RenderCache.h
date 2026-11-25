@@ -4,6 +4,7 @@
 #include "JobQueue.h"
 #include "TempoMap.h"
 #include "NotePlan.h"
+#include "Style/StyleProfile.h"
 #include <map>
 #include <memory>
 #include <mutex>
@@ -20,12 +21,13 @@ namespace ve
 
         juce::String rendererId = capturedId;
         int rendererVersion = 1;
-        NotePlan notes;   // Stage 2. Stage 3 adds style profile + expression params.
+        NotePlan notes;        // Stage 2
+        StyleProfile style;    // Stage 3: how the notes are performed
 
         std::uint64_t hash() const noexcept;
         static RenderPlan identity() { return {}; }
         // Picks the renderer for a note plan: captured audio if nothing would change.
-        static RenderPlan forNotes (NotePlan);
+        static RenderPlan forNotes (NotePlan, StyleProfile style = {});
     };
 
     // Everything a renderer needs to know about a region. Plain data.

@@ -19,13 +19,16 @@ namespace ve
         {
             const auto n = notes.hash();
             mix (&n, sizeof (n));
+            const auto st = style.hash();
+            mix (&st, sizeof (st));
         }
         return h;
     }
 
-    RenderPlan RenderPlan::forNotes (NotePlan n)
+    RenderPlan RenderPlan::forNotes (NotePlan n, StyleProfile style)
     {
         RenderPlan p;
+        p.style = std::move (style);
         p.rendererId = n.isIdentity() ? capturedId : pitchCorrectId;
         p.notes = std::move (n);
         return p;

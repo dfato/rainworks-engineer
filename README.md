@@ -154,7 +154,7 @@ instead of dropping audio during offline renders). Disarm afterwards. You can de
 1. Route the beat into the sidechain (section 2) and record a take of 8 bars or more.
 2. Analysis starts automatically after each take. The chord lane fills in with one chord per beat (merged when
    repeated) and the key shows top right of the timeline and in the Key menu ("Auto (C major)").
-3. **Analyse sidechain** re-runs it for all takes; right-click a take > Re-analyse sidechain for one.
+3. **Analyse beat** re-runs it for all takes; right-click a take > Re-analyse sidechain for one.
 4. Pick a key in the Key menu to override it; the timeline shows "(manual)". Pick Auto to go back.
 
 Chord vocabulary: major, minor, 7, sus2, sus4, dim, or N.C. Beats follow the host tempo captured with the take.
@@ -184,6 +184,31 @@ Chord vocabulary: major, minor, 7, sus2, sus4, dim, or N.C. Beats follow the hos
 Correction moves each note as a whole (vibrato and slides are kept) using TD-PSOLA. Audio outside corrected
 notes is passed through untouched.
 
+### 10. Genre styles (Stage 3)
+
+1. With a take that has notes, set Monitor to **Rendered** and pick a **Style** (grouped by genre).
+   Picking a style sets **Correct** to that style's default and re-renders every take.
+2. Compare a few on the same take: **Natural** keeps vibrato and glides in gently; **Trap** / **Hard Tune**
+   snap instantly to a flat line; **R&B** and **Melodic Rap** add slides between close notes and scoops into
+   notes; **Pop Ballad**, **Gospel**, **Musical Theatre** add vibrato on held notes.
+3. The Correct slider and per-note edits still work on top of the style.
+4. Save and reopen: the style is restored with the project.
+
+Built in: 3 basic styles (Natural, Transparent, Hard Tune) and 31 genre styles across Pop, R&B / Soul,
+Hip-hop, Rock, Country / Folk, Electronic, Latin / Caribbean / African and Other.
+
+**Custom styles.** Drop `.json` files into `Documents\RainWorks\Engineer\Styles\` and restart FL. A style can
+inherit from any other and override only what it changes:
+
+```json
+{ "id": "my-trap", "name": "My Trap", "inherits": "trap",
+  "vibrato": { "addDepthCents": 20, "rateHz": 5.0, "onsetMs": 400 } }
+```
+
+Fields: `pitch` (`correction` 0-1, `retuneMs`, `keepVariation` 0-1), `vibrato` (`addDepthCents`, `rateHz`,
+`onsetMs`), `slides` (`betweenNotesMs`, `maxGapMs`, `scoopCents`, `scoopMs`), `timing` (`quantize`, `grid`).
+A file with the same `id` as a built-in replaces it.
+
 ## Known limitations (to fix after the full build)
 
 - Takes are aligned by sample position. If you change the project tempo after recording, takes stay at their
@@ -192,5 +217,6 @@ notes is passed through untouched.
 - Standalone has no host transport, so capture and Rendered playback do nothing there.
 - The session id is copied when you "Save as" an FL project, so both projects share one data folder.
 - No crossfades at take boundaries yet (punch-ins can click).
-- Stage 2 corrects pitch only; note timing edits and splitting/merging blobs come next.
+- Pitch only so far: note timing edits, splitting/merging blobs and the styles' `timing` settings
+  (quantize/swing) need time-stretching, which comes next.
 - Heavily breathy or polyphonic material confuses the pitch tracker (it assumes one voice).

@@ -1,4 +1,5 @@
 #include "PitchCorrectRenderer.h"
+#include "Style/ExpressionLayer.h"
 
 namespace ve
 {
@@ -157,7 +158,7 @@ namespace ve
         }
         if (ctx.shouldCancel()) return juce::Result::fail ("cancelled");
 
-        const auto shift = buildShiftCurve (plan.notes, n, rate);
+        const auto shift = ExpressionLayer::buildShiftCurve (plan.notes, plan.style, f0, rate);
         juce::AudioBuffer<float> shifted;
         psolaShift (audio, shifted, rate, f0, shift);
         ctx.setProgress (0.8f);
