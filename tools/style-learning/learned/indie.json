@@ -5,7 +5,7 @@
   "inherits": "rock",
   "description": "Natural and slightly loose. Tuned from 11 openly licensed reference vocals.",
   "pitch": {
-    "correction": 0.2,
+    "correction": 0.8,
     "retuneMs": 90.44,
     "keepVariation": 1.0,
     "scale": "key"

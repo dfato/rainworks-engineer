@@ -5,7 +5,7 @@
   "inherits": "pop-ballad",
   "description": "Clear diction tuning and strong held-note vibrato. Tuned from 2 openly licensed reference vocals.",
   "pitch": {
-    "correction": 0.88,
+    "correction": 1.0,
     "retuneMs": 17.59,
     "keepVariation": 0.8,
     "scale": "key"

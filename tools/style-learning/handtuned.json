@@ -7,7 +7,7 @@
    "category": "Basic",
    "description": "Gentle correction that keeps the performance as sung.",
    "pitch": {
-    "correction": 0.6,
+    "correction": 0.91,
     "retuneMs": 40,
     "keepVariation": 1.0,
     "scale": "key"
@@ -52,7 +52,7 @@
    "inherits": "natural",
    "description": "Fixes only what is clearly off; nothing else changes.",
    "pitch": {
-    "correction": 0.4,
+    "correction": 0.87,
     "retuneMs": 60
    }
   },
@@ -95,7 +95,7 @@
    "inherits": "natural",
    "description": "Tight, polished modern pop.",
    "pitch": {
-    "correction": 0.9,
+    "correction": 0.98,
     "retuneMs": 15,
     "keepVariation": 0.45,
     "scale": "key"
@@ -127,7 +127,7 @@
    "inherits": "pop",
    "description": "Polished but expressive, with vibrato on held notes.",
    "pitch": {
-    "correction": 0.75,
+    "correction": 0.95,
     "retuneMs": 35,
     "keepVariation": 0.8,
     "scale": "key"
@@ -164,7 +164,7 @@
    "inherits": "pop",
    "description": "Bright and tight for four-on-the-floor tracks.",
    "pitch": {
-    "correction": 0.95,
+    "correction": 0.99,
     "retuneMs": 8,
     "keepVariation": 0.25,
     "scale": "key"
@@ -271,7 +271,7 @@
    "inherits": "natural",
    "description": "Smooth tuning that keeps runs and slides.",
    "pitch": {
-    "correction": 0.7,
+    "correction": 0.94,
     "retuneMs": 30,
     "keepVariation": 0.85,
     "scale": "blues"
@@ -310,7 +310,7 @@
    "inherits": "rnb",
    "description": "Modern R&B: tighter pitch, glossy slides.",
    "pitch": {
-    "correction": 0.85,
+    "correction": 0.97,
     "retuneMs": 18,
     "keepVariation": 0.6,
     "scale": "blues"
@@ -339,7 +339,7 @@
    "inherits": "rnb",
    "description": "Loose and human, lots of scoops.",
    "pitch": {
-    "correction": 0.45,
+    "correction": 0.88,
     "retuneMs": 60,
     "keepVariation": 1.0,
     "scale": "modal"
@@ -377,7 +377,7 @@
    "inherits": "rnb",
    "description": "Big vibrato, gentle tuning.",
    "pitch": {
-    "correction": 0.5,
+    "correction": 0.89,
     "retuneMs": 50,
     "scale": "blues"
    },
@@ -445,7 +445,7 @@
    "inherits": "natural",
    "description": "Clean hooks with moderate tuning.",
    "pitch": {
-    "correction": 0.8,
+    "correction": 0.96,
     "retuneMs": 20,
     "keepVariation": 0.5,
     "scale": "pentatonic"
@@ -620,7 +620,7 @@
    "inherits": "natural",
    "description": "Raw, light-touch correction.",
    "pitch": {
-    "correction": 0.45,
+    "correction": 0.88,
     "retuneMs": 55,
     "keepVariation": 1.0,
     "scale": "blues"
@@ -653,7 +653,7 @@
    "inherits": "rock",
    "description": "Tighter rock tuning for fast, bright vocals.",
    "pitch": {
-    "correction": 0.7,
+    "correction": 0.94,
     "retuneMs": 25,
     "keepVariation": 0.7,
     "scale": "key"
@@ -682,7 +682,7 @@
    "inherits": "rock",
    "description": "Tight, bright and gritty: clean hooks pulled hard to pitch, fast vibrato tails, falls at phrase ends, heavy compression.",
    "pitch": {
-    "correction": 0.8,
+    "correction": 0.96,
     "retuneMs": 18,
     "keepVariation": 0.55,
     "scale": "key"
@@ -721,7 +721,7 @@
    "inherits": "rock",
    "description": "Natural and slightly loose.",
    "pitch": {
-    "correction": 0.3,
+    "correction": 0.85,
     "retuneMs": 80,
     "scale": "key"
    },
@@ -749,7 +749,7 @@
    "inherits": "rock",
    "description": "Clean metal vocals with wide vibrato.",
    "pitch": {
-    "correction": 0.6,
+    "correction": 0.91,
     "retuneMs": 35,
     "scale": "harmonic"
    },
@@ -782,7 +782,7 @@
    "inherits": "natural",
    "description": "Clean tuning with twangy scoops.",
    "pitch": {
-    "correction": 0.65,
+    "correction": 0.93,
     "retuneMs": 35,
     "keepVariation": 0.9,
     "scale": "pentatonic"
@@ -820,7 +820,7 @@
    "inherits": "natural",
    "description": "Barely-there correction.",
    "pitch": {
-    "correction": 0.3,
+    "correction": 0.85,
     "retuneMs": 80,
     "scale": "pentatonic"
    },
@@ -848,7 +848,7 @@
    "inherits": "folk",
    "description": "Intimate and natural, a bit more polish than folk.",
    "pitch": {
-    "correction": 0.45,
+    "correction": 0.88,
     "retuneMs": 55,
     "scale": "key"
    },
@@ -978,7 +978,7 @@
    "inherits": "hip-hop",
    "description": "Fast retune with short slides.",
    "pitch": {
-    "correction": 0.95,
+    "correction": 0.99,
     "retuneMs": 8,
     "keepVariation": 0.25,
     "scale": "harmonic"
@@ -1014,7 +1014,7 @@
    "inherits": "natural",
    "description": "Melodic tuning with smooth, rolling slides.",
    "pitch": {
-    "correction": 0.9,
+    "correction": 0.98,
     "retuneMs": 12,
     "keepVariation": 0.4,
     "scale": "pentatonic"
@@ -1083,7 +1083,7 @@
    "inherits": "indie",
    "description": "Relaxed and soft, light correction.",
    "pitch": {
-    "correction": 0.4,
+    "correction": 0.87,
     "retuneMs": 70,
     "scale": "modal"
    },
@@ -1116,7 +1116,7 @@
    "inherits": "natural",
    "description": "Expressive, scooped phrasing with natural vibrato.",
    "pitch": {
-    "correction": 0.35,
+    "correction": 0.86,
     "retuneMs": 70,
     "keepVariation": 1.0,
     "scale": "modal"

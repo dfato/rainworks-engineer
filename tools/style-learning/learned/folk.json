@@ -5,7 +5,7 @@
   "inherits": "natural",
   "description": "Barely-there correction. Tuned from 8 openly licensed reference vocals.",
   "pitch": {
-    "correction": 0.52,
+    "correction": 1.0,
     "retuneMs": 64.97,
     "keepVariation": 1.0,
     "scale": "pentatonic"

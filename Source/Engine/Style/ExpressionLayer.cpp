@@ -94,7 +94,9 @@ namespace ve::ExpressionLayer
             const int b = (int) juce::jlimit<std::int64_t> (0, n, note.end);
             if (b <= a) continue;
 
-            const double retuneSamples = style.retuneMs * msToSamples;
+            // A slow retune is a style's lazy glide onto the note, but every note still has to
+            // arrive: the glide takes at most 15% of the note, so short notes land in tune too.
+            const double retuneSamples = juce::jmin ((double) style.retuneMs * msToSamples, 0.15 * (b - a));
             const double scoopSamples = juce::jmin ((double) style.scoopMs * msToSamples, (b - a) * 0.4);
             const double vibOnset = style.vibratoOnsetMs * msToSamples;
             const bool fadeOut = ! slidesToNext[k];
@@ -104,8 +106,13 @@ namespace ve::ExpressionLayer
             const float jump = note.targetMidi - std::round (note.detectedMidi);
             // Stage 4: the singer's own vibrato is kept on notes where it was intended,
             // unless the style deliberately flattens everything (hard tune, retune < 10 ms).
-            const float keep = (note.intent & NoteIntent::vibrato) != 0 && style.retuneMs >= 10.0f
-                                   ? juce::jmax (style.keepVariation, 0.8f) : style.keepVariation;
+            // On notes without intended vibrato, the wobble that is left is a singer not holding
+            // the note steady: correction smooths it out too (to a quarter of the style's amount at
+            // 100%), so a shaky take comes out polished while each style keeps its own character.
+            const bool intendedVibrato = (note.intent & NoteIntent::vibrato) != 0;
+            const float keep = intendedVibrato && style.retuneMs >= 10.0f
+                                   ? juce::jmax (style.keepVariation, 0.8f)
+                                   : style.keepVariation * (1.0f - 0.75f * c);
 
             // Ornaments. A run is a quick line of scale notes sung on one syllable: in the middle
             // of a phrase it turns around the note and comes back, at a phrase end it walks down
@@ -154,15 +161,44 @@ namespace ve::ExpressionLayer
                                && (double) (b - a) >= (style.fallMs + 150.0) * msToSamples;
             const double fallSamples = style.fallMs * msToSamples;
 
+            // The sung pitch, split in two: drift (the slow wander of a singer who is not quite
+            // holding the note, under ~2 Hz) and modulation (vibrato and fast detail). Correction
+            // removes the drift, so a shaky held note comes out steady and on pitch; the style's
+            // keepVariation decides how much modulation survives. Pitch-tracker glitches
+            // (octave jumps, a consonant's noise) further than 1.5 semitones from the note
+            // centre are treated as the centre, so they never become jumps.
+            const int len = b - a;
+            std::vector<float> sung ((size_t) len), drift ((size_t) len);
+            for (int i = 0; i < len; ++i)
+            {
+                float d = sungAt (a + i, note.detectedMidi);
+                if (std::abs (d - note.detectedMidi) > 1.5f) d = note.detectedMidi;
+                sung[(size_t) i] = d;
+            }
+            {
+                // Two box averages, 200 and 250 ms: they null 4-8 Hz vibrato almost exactly.
+                auto box = [len] (const std::vector<float>& in, std::vector<float>& out, int half)
+                {
+                    std::vector<double> sum ((size_t) len + 1, 0.0);
+                    for (int i = 0; i < len; ++i) sum[(size_t) i + 1] = sum[(size_t) i] + in[(size_t) i];
+                    for (int i = 0; i < len; ++i)
+                    {
+                        const int lo = juce::jmax (0, i - half), hi = juce::jmin (len, i + half + 1);
+                        out[(size_t) i] = (float) ((sum[(size_t) hi] - sum[(size_t) lo]) / (double) (hi - lo));
+                    }
+                };
+                std::vector<float> tmp ((size_t) len);
+                box (sung, tmp, (int) (0.100 * sr));
+                box (tmp, drift, (int) (0.125 * sr));
+            }
+            const float keepDrift = keep * (1.0f - c);
+
             for (int i = a; i < b; ++i)
             {
                 const double t = i - a;
-                // Pitch-tracker glitches (octave jumps, a consonant's noise) must not be
-                // "corrected": anything further than 1.5 semitones from the note centre is
-                // treated as the centre, so a flat style cannot turn a tracking error into a jump.
-                float d = sungAt (i, note.detectedMidi);
-                if (std::abs (d - note.detectedMidi) > 1.5f) d = note.detectedMidi;
-                const float flat = note.targetMidi + keep * (d - note.detectedMidi);
+                const float d = sung[(size_t) (i - a)];
+                const float dr = drift[(size_t) (i - a)];
+                const float flat = note.targetMidi + keep * (d - dr) + keepDrift * (dr - note.detectedMidi);
                 const float retune = retuneSamples <= 0.0 ? 1.0f : (float) (1.0 - std::exp (-t / retuneSamples));
 
                 // The style's own expression (scoop, added vibrato) is not a correction, so it is

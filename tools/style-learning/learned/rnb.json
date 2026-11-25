@@ -5,7 +5,7 @@
   "inherits": "natural",
   "description": "Smooth tuning that keeps runs and slides. Tuned from 1 openly licensed reference vocal.",
   "pitch": {
-    "correction": 0.62,
+    "correction": 0.86,
     "retuneMs": 30.0,
     "keepVariation": 0.85,
     "scale": "blues"

@@ -23,6 +23,8 @@
 //                      expression, ornaments and tone, no timing moves) and write the result,
 //                      to audition a style
 //   --amount <0..2>    with --render: style amount (1 = as designed)
+//   --correct <0..1>   with --render: the Correct amount (default: the style's)
+//   --no-intent        with --render: correct every note alike (the plugin's Intent toggle off)
 //   --key <key>        with --render: the song's key (e.g. Gm, F#), instead of guessing it from the vocal
 
 #include <juce_audio_formats/juce_audio_formats.h>
@@ -32,6 +34,7 @@
 #include "Engine/Style/ToneShaper.h"
 #include "Engine/PitchCorrectRenderer.h"
 #include "Engine/SidechainAnalysis.h"
+#include "Engine/Intent/NoteIntent.h"
 #include <iostream>
 
 using namespace ve;
@@ -64,6 +67,8 @@ int main (int argc, char* argv[])
     bool statsOnly = false;
     float amount = 1.0f;
     juce::String keyName;
+    float correctOverride = -1.0f;
+    bool useIntent = true;
     juce::String renderStyle, renderOut;
     juce::StringArray inputs;
 
@@ -84,6 +89,8 @@ int main (int argc, char* argv[])
         else if (a == "--stats-only") statsOnly = true;
         else if (a == "--amount")     amount = next().getFloatValue();
         else if (a == "--key")        keyName = next();
+        else if (a == "--correct")    correctOverride = next().getFloatValue();
+        else if (a == "--no-intent")  useIntent = false;
         else if (a == "--render")     { renderStyle = next(); renderOut = next(); }
         else if (a == "--help" || a == "-h") { std::cout << "See the comment at the top of Source/Tools/StyleLearnMain.cpp" << std::endl; return 0; }
         else inputs.add (a);
@@ -126,7 +133,11 @@ int main (int argc, char* argv[])
         }
         key.scale = style.scale;
         NoteSegmenter::resnap (notes, key);
-        for (auto& n : notes) n.correction = style.correction;
+        // As the plugin does: intent per note (a slide or a blue note gets less correction),
+        // then the Correct amount (the style's default unless --correct is given).
+        if (useIntent) NoteIntent::apply (track, notes, key);
+        const float amountCorrect = correctOverride >= 0.0f ? juce::jlimit (0.0f, 1.0f, correctOverride) : style.correction;
+        for (auto& n : notes) n.correction = NoteIntent::correctionFor (n, amountCorrect, useIntent);
 
         const int len = audio.getNumSamples();
         std::vector<float> f0 ((size_t) len, 0.0f);
@@ -140,6 +151,12 @@ int main (int argc, char* argv[])
         }
         NotePlan plan { notes };
         const auto shift = ExpressionLayer::buildShiftCurve (plan, style, f0, sr);
+        if (auto at = juce::SystemStats::getEnvironmentVariable ("VE_SHIFT_AT", {}); at.isNotEmpty())
+            for (double t = at.getDoubleValue(); t < at.getDoubleValue() + 0.4; t += 0.02)
+            {
+                const int i = juce::jlimit (0, len - 1, (int) (t * sr));
+                std::cerr << "t " << juce::String (t, 2) << " f0 " << f0[(size_t) i] << " shift " << shift[(size_t) i] << std::endl;
+            }
         if (juce::SystemStats::getEnvironmentVariable ("VE_SHIFT_STATS", {}).isNotEmpty())
         {
             int jumps = 0, big = 0; float maxStep = 0.0f;
@@ -169,6 +186,49 @@ int main (int argc, char* argv[])
         auto w = wav.createWriterFor (os, juce::AudioFormatWriterOptions{}.withSampleRate (sr).withNumChannels (1).withBitsPerSample (16));
         if (w == nullptr) return fail ("cannot write " + renderOut);
         w->writeFromAudioSampleBuffer (out, 0, out.getNumSamples());
+        // How in tune the result is: re-track the output and compare each note's middle with its
+        // target, before (the take as sung) and after.
+        {
+            PitchTrack outTrack;
+            if (PitchTracker::track (out, sr, {}, nullptr, outTrack).ok())
+            {
+                auto report = [&] (const PitchTrack& tr, const char* label)
+                {
+                    std::vector<float> errs, wobble;
+                    for (auto& n : notes)
+                    {
+                        if ((double) (n.end - n.start) < 0.15 * sr) continue;   // long enough to hear the pitch
+                        const auto mid0 = n.start + (n.end - n.start) / 5, mid1 = n.end - (n.end - n.start) / 5;
+                        std::vector<float> v;
+                        for (auto& f : tr.frames)
+                        {
+                            const auto at = (std::int64_t) (&f - tr.frames.data()) * tr.hopSize;
+                            if (at >= mid0 && at < mid1 && f.f0 > 0.0f) v.push_back (PitchTrack::hzToMidi (f.f0));
+                        }
+                        if (v.size() < 3) continue;
+                        std::sort (v.begin(), v.end());
+                        const float med = v[v.size() / 2];
+                        errs.push_back (std::abs (med - n.targetMidi) * 100.0f);
+                        if (std::abs (med - n.targetMidi) > 0.25f && juce::SystemStats::getEnvironmentVariable ("VE_OFF_NOTES", {}).isNotEmpty())
+                            std::cerr << "  " << label << " off: " << juce::String ((double) n.start / sr, 2) << "s len "
+                                      << juce::String ((double) (n.end - n.start) / sr, 2) << " sung " << juce::String (n.detectedMidi, 2)
+                                      << " target " << n.targetMidi << " got " << juce::String (med, 2) << " corr "
+                                      << juce::String (n.correction, 2) << " intent " << NoteIntent::describe (n.intent) << std::endl;
+                        wobble.push_back ((v[v.size() * 9 / 10] - v[v.size() / 10]) * 100.0f);
+                    }
+                    if (errs.empty()) return;
+                    auto median = [] (std::vector<float> x) { std::sort (x.begin(), x.end()); return x[x.size() / 2]; };
+                    int within10 = 0, within25 = 0;
+                    for (auto e : errs) { within10 += e <= 10.0f; within25 += e <= 25.0f; }
+                    std::cerr << label << ": " << errs.size() << " held notes, median " << juce::String (median (errs), 1)
+                              << " cents from target, " << (100 * within10 / (int) errs.size()) << "% within 10 cents, "
+                              << (100 * within25 / (int) errs.size()) << "% within 25, pitch spread inside notes "
+                              << juce::String (median (wobble), 1) << " cents" << std::endl;
+                };
+                report (track, "before");
+                report (outTrack, "after ");
+            }
+        }
         int moved = 0;
         for (auto& n : notes) if (std::abs (n.targetMidi - std::round (n.detectedMidi)) >= 1.0f) ++moved;
         std::cerr << "rendered " << style.name << ": " << (int) notes.size() << " notes, key " << key.tonic << (key.minor ? "m" : "")

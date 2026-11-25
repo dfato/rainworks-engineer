@@ -5,7 +5,7 @@
   "inherits": "folk",
   "description": "Intimate and natural, a bit more polish than folk. Tuned from 20 openly licensed reference vocals.",
   "pitch": {
-    "correction": 0.2,
+    "correction": 0.8,
     "retuneMs": 65.9,
     "keepVariation": 1.0,
     "scale": "key"

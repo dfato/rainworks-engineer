@@ -5,7 +5,7 @@
   "inherits": "pop",
   "description": "Bright and tight for four-on-the-floor tracks. Tuned from 1 openly licensed reference vocal.",
   "pitch": {
-    "correction": 0.85,
+    "correction": 0.89,
     "retuneMs": 2.88,
     "keepVariation": 0.25,
     "scale": "key"

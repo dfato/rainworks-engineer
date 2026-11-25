@@ -5,7 +5,7 @@
   "inherits": "natural",
   "description": "Clean tuning with twangy scoops. Tuned from 2 openly licensed reference vocals.",
   "pitch": {
-    "correction": 0.76,
+    "correction": 1.0,
     "retuneMs": 31.59,
     "keepVariation": 0.9,
     "scale": "pentatonic"

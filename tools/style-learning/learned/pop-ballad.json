@@ -5,7 +5,7 @@
   "inherits": "pop",
   "description": "Polished but expressive, with vibrato on held notes. Tuned from 19 openly licensed reference vocals.",
   "pitch": {
-    "correction": 0.79,
+    "correction": 0.99,
     "retuneMs": 35.0,
     "keepVariation": 0.8,
     "scale": "key"

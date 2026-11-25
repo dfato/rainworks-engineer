@@ -5,7 +5,7 @@
   "inherits": "natural",
   "description": "Raw, light-touch correction. Tuned from 6 openly licensed reference vocals.",
   "pitch": {
-    "correction": 0.54,
+    "correction": 0.97,
     "retuneMs": 59.81,
     "keepVariation": 1.0,
     "scale": "blues"

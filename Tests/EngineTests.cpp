@@ -911,6 +911,7 @@ public:
                 f0[(size_t) i] = PitchTrack::midiToHz (57.3f + 0.3f * std::sin (juce::MathConstants<float>::twoPi * 5.0f * (float) i / (float) sr));
 
             Note note; note.start = 0; note.end = n; note.detectedMidi = 57.3f; note.targetMidi = 57.0f; note.correction = 1.0f;
+            note.intent = NoteIntent::vibrato;   // regular 5 Hz: the intent layer marks it as meant
             NotePlan plan { { note } };
             StyleLibrary lib;
 
@@ -1133,6 +1134,38 @@ public:
             for (size_t i = 1; i < w2.anchors.size(); ++i)
                 expect (w2.anchors[i].out > w2.anchors[i - 1].out);
             expectWithinAbsoluteError (w2.anchors.back().out, (double) len, 1.0e-6);
+        }
+
+        beginTest ("PSOLA follows a legato leap (period jump guard lets real jumps through)");
+        {
+            // 220 Hz, then straight up a fourth-plus to 300 Hz with no gap: a >20% period jump
+            // that is real, not a tracker error. The marks must follow it, or the second note
+            // is rebuilt with the first note's period and the shift is lost.
+            const double sr = 44100.0;
+            const int n = (int) (sr * 1.6), leap = (int) (sr * 0.6);
+            juce::AudioBuffer<float> in (1, n), out;
+            std::vector<float> f0 ((size_t) n), shift ((size_t) n, 0.3f);
+            double phase = 0.0;
+            for (int i = 0; i < n; ++i)
+            {
+                const double hz = i < leap ? 220.0 : 300.0;
+                f0[(size_t) i] = (float) hz;
+                phase += juce::MathConstants<double>::twoPi * hz / sr;
+                in.setSample (0, i, (float) (0.5 * std::sin (phase) + 0.25 * std::sin (2.0 * phase + 0.3)));
+            }
+            PitchCorrectRenderer::psolaShift (in, out, sr, f0, shift);
+            PitchTrack b;
+            expect (PitchTracker::track (out, sr, {}, nullptr, b).wasOk());
+            std::vector<float> v;
+            for (auto& f : b.frames)
+            {
+                const auto at = (int) ((&f - b.frames.data()) * b.hopSize);
+                if (at > (int) (sr * 0.9) && at < (int) (sr * 1.5) && f.f0 > 0.0f) v.push_back (PitchTrack::hzToMidi (f.f0));
+            }
+            std::sort (v.begin(), v.end());
+            expect (! v.empty());
+            if (! v.empty())
+                expectWithinAbsoluteError (v[v.size() / 2], PitchTrack::hzToMidi (300.0f) + 0.3f, 0.06f);
         }
 
         beginTest ("Nudged note is re-timed by PSOLA with pitch kept; untouched audio is bit-exact");
