@@ -36,10 +36,10 @@ There is no pitch correction or ML rendering yet.
 
 ## Build on Windows (MSVC)
 
-Needs Visual Studio 2022 (Desktop development with C++) and CMake 3.22+ (bundled with VS).
+Needs Visual Studio 2022 or newer (Desktop development with C++) and CMake 3.22+ (bundled with VS). Without `-G`, CMake picks the newest Visual Studio installed.
 
 ```
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake -S . -B build -A x64
 cmake --build build --config Release --parallel
 ctest --test-dir build -C Release --output-on-failure
 ```
@@ -53,7 +53,7 @@ Install the VST3 by copying the whole `.vst3` folder to `C:\Program Files\Common
 ### Optional: ONNX Runtime smoke test
 
 ```
-cmake -S . -B build-onnx -G "Visual Studio 17 2022" -A x64 -DVE_WITH_ONNX=ON
+cmake -S . -B build-onnx -A x64 -DVE_WITH_ONNX=ON
 cmake --build build-onnx --config Release --target VocalEngineOnnxSmokeTest
 ctest --test-dir build-onnx -C Release -R onnx_smoke --output-on-failure
 ```
