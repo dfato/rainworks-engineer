@@ -41,10 +41,14 @@ as an untreated reference and does not tune any style.
 
 ### Coverage
 
-The built-ins were moved **half way** (`--strength 0.5`) from their hand-tuned values toward the
-measurements, scaled again by how much evidence each genre had. The datasets are mostly covers by
-amateur and student singers, so they guide the styles rather than replace them. Styles with no data keep
-their exact previous sound, even when a parent style they inherit from was re-tuned.
+Learning works by **contrast**. Each genre's measurements are compared with all the material pooled
+together, and the hand-tuned style (`handtuned.json`) is moved by that difference times `--gain` (2 for
+the built-ins), scaled by how much evidence the genre had. What every singer does alike cancels out, so
+a genre only moves where its singers really differ from the rest, and those differences are
+exaggerated so the styles stay clearly apart. Each style's scale and its main signature (for example
+Gospel's wide vibrato or Country's scoops) are set by hand in `handtuned.json`. Styles with no data keep
+their hand-tuned sound exactly, even when a parent they inherit from was re-tuned. The two rap
+recordings in URSing are kept as reference only, since rap pitch statistics describe speech-like delivery.
 
 | Style | Recordings | Evidence |
 |---|---|---|
@@ -54,12 +58,12 @@ their exact previous sound, even when a parent style they inherit from was re-tu
 | indie | 11 | good |
 | folk | 8 | good |
 | rock | 6 | thin |
-| country | 2 | very thin (barely moved) |
-| hip-hop | 2 | very thin (barely moved) |
-| musical-theatre | 2 | very thin (barely moved) |
-| dance-pop | 1 | very thin (barely moved) |
-| k-pop | 1 | very thin (barely moved) |
-| rnb | 1 | very thin (barely moved) |
+| country | 2 | very thin (moved a little) |
+| musical-theatre | 2 | very thin (moved a little) |
+| dance-pop | 1 | very thin (moved a little) |
+| k-pop | 1 | very thin (moved a little) |
+| rnb | 1 | very thin (moved a little) |
+| hip-hop | 0 | none: hand-tuned values kept |
 | afrobeats | 0 | none: hand-tuned values kept |
 | contemporary-rnb | 0 | none: hand-tuned values kept |
 | dancehall | 0 | none: hand-tuned values kept |
@@ -98,11 +102,11 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --target Engine
 TOOL=build/EngineerStyleLearn_artefacts/Release/EngineerStyleLearn
 python tools/style-learning/learn_styles.py fetch   --work ~/style-work
 python tools/style-learning/learn_styles.py analyze --work ~/style-work --tool $TOOL
-python tools/style-learning/learn_styles.py learn   --work ~/style-work --tool $TOOL --strength 0.5 --apply
+python tools/style-learning/learn_styles.py learn   --work ~/style-work --tool $TOOL --gain 2 --apply
 ```
 
 `fetch` reads only the needed vocal files out of each Zenodo zip with HTTP range requests (about 3 GB in
-all, not the 27 GB of zips) and needs `ffmpeg`. `--apply` rewrites `Source/Engine/Style/BuiltinStyles.cpp`.
+all, not the 27 GB of zips) and needs `ffmpeg`. `--apply` regenerates `Source/Engine/Style/BuiltinStyles.cpp` from `handtuned.json` and the learned values. Edit `handtuned.json`, not the generated file.
 
 To learn a single style from your own vocals without the plugin:
 

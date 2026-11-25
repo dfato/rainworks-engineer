@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_core/juce_core.h>
+#include "../SidechainAnalysis.h"
 #include <map>
 #include <vector>
 
@@ -11,7 +12,7 @@ namespace ve
     //
     // {
     //   "id": "trap", "name": "Trap", "inherits": "hip-hop", "category": "Hip-hop",
-    //   "pitch":   { "correction": 1.0, "retuneMs": 5, "keepVariation": 0.1 },
+    //   "pitch":   { "correction": 1.0, "retuneMs": 5, "keepVariation": 0.1, "scale": "pentatonic" },
     //   "vibrato": { "addDepthCents": 0, "rateHz": 5.5, "onsetMs": 300 },
     //   "slides":  { "betweenNotesMs": 25, "maxGapMs": 80, "scoopCents": 0, "scoopMs": 0 },
     //   "timing":  { "quantize": 0.0, "grid": 16, "swing": 0.0 }
@@ -24,6 +25,9 @@ namespace ve
         float correction = 0.6f;     // default for the Correct slider when the style is picked
         float retuneMs = 40.0f;      // time to reach the target after a note starts (0 = instant, "hard tune")
         float keepVariation = 1.0f;  // 1 = keep the singer's vibrato/drift around the note, 0 = flat line
+        // Which notes of the key targets snap to: "key", "pentatonic", "blues", "harmonic",
+        // "modal" or "chromatic". Anything but "key" can move a note to another scale degree.
+        ScaleMode scale = ScaleMode::key;
 
         // Vibrato added on long notes (on top of what is kept).
         float vibratoDepthCents = 0.0f;

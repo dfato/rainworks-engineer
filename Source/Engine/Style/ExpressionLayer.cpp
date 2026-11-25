@@ -41,6 +41,10 @@ namespace ve::ExpressionLayer
             const double scoopSamples = juce::jmin ((double) style.scoopMs * msToSamples, (b - a) * 0.4);
             const double vibOnset = style.vibratoOnsetMs * msToSamples;
             const bool fadeOut = ! slidesToNext[k];
+            // Whole semitones between the nearest semitone and the target (a style's scale, or
+            // an out-of-key note, moving it to another degree) are applied in full: half a
+            // semitone of a move sounds out of tune. Correct scales only the fine tuning.
+            const float jump = note.targetMidi - std::round (note.detectedMidi);
             // Stage 4: the singer's own vibrato is kept on notes where it was intended,
             // unless the style deliberately flattens everything (hard tune, retune < 10 ms).
             const float keep = (note.intent & NoteIntent::vibrato) != 0 && style.retuneMs >= 10.0f
@@ -49,7 +53,11 @@ namespace ve::ExpressionLayer
             for (int i = a; i < b; ++i)
             {
                 const double t = i - a;
-                const float d = sungAt (i, note.detectedMidi);
+                // Pitch-tracker glitches (octave jumps, a consonant's noise) must not be
+                // "corrected": anything further than 1.5 semitones from the note centre is
+                // treated as the centre, so a flat style cannot turn a tracking error into a jump.
+                float d = sungAt (i, note.detectedMidi);
+                if (std::abs (d - note.detectedMidi) > 1.5f) d = note.detectedMidi;
                 const float flat = note.targetMidi + keep * (d - note.detectedMidi);
                 const float retune = retuneSamples <= 0.0 ? 1.0f : (float) (1.0 - std::exp (-t / retuneSamples));
 
@@ -68,7 +76,7 @@ namespace ve::ExpressionLayer
                     expression += style.vibratoDepthCents / 100.0f * ramp * std::sin (twoPi * style.vibratoRateHz * tv);
                 }
 
-                float s = c * retune * (flat - d) + expressionAmount * expression;
+                float s = retune * (c * (flat - jump - d) + expressionAmount * jump) + expressionAmount * expression;
                 if (fadeOut && b - 1 - i < release)
                     s *= (float) (b - 1 - i) / (float) release;
                 shift[(size_t) i] = s;
@@ -94,6 +102,17 @@ namespace ve::ExpressionLayer
                 if (i < x.end)      shift[(size_t) i] += x.correction * (line - x.targetMidi);
                 else if (i >= y.start) shift[(size_t) i] += y.correction * (line - y.targetMidi);
             }
+        }
+        // Smooth the curve with a zero-phase low-pass (two one-pole passes, ~5 ms each way).
+        // Vibrato (4-8 Hz) passes untouched; what is removed is frame-to-frame tracker
+        // jitter and the hard edges at note starts, which PSOLA turns into clicks.
+        if (n > 1)
+        {
+            const float a = std::exp (-1.0f / (0.005f * (float) sr));
+            float y = shift[0];
+            for (int i = 0; i < n; ++i) { y = shift[(size_t) i] + a * (y - shift[(size_t) i]); shift[(size_t) i] = y; }
+            y = shift[(size_t) n - 1];
+            for (int i = n - 1; i >= 0; --i) { y = shift[(size_t) i] + a * (y - shift[(size_t) i]); shift[(size_t) i] = y; }
         }
         return shift;
     }

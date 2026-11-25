@@ -511,6 +511,39 @@ namespace ve::StyleLearner
         return p;
     }
 
+    StyleProfile learnContrast (const StyleProfile& base, const TakeStats& genre, int genreTakes,
+                                const TakeStats& pool, int poolTakes, float gain)
+    {
+        const auto g = suggest (genre, genreTakes);
+        const auto p = suggest (pool, poolTakes);
+        auto move = [gain] (float from, float gv, float pv, float trust) { return from + gain * trust * (gv - pv); };
+
+        StyleProfile out = base;
+        out.correction        = juce::jlimit (0.2f, 1.0f, move (base.correction, g.values.correction, p.values.correction, g.pitchTrust));
+        out.retuneMs          = juce::jlimit (0.0f, 150.0f, move (base.retuneMs, g.values.retuneMs, p.values.retuneMs, g.pitchTrust));
+        out.keepVariation     = juce::jlimit (0.0f, 1.0f, move (base.keepVariation, g.values.keepVariation, p.values.keepVariation, g.pitchTrust));
+        out.vibratoDepthCents = juce::jlimit (0.0f, 80.0f, move (base.vibratoDepthCents, g.values.vibratoDepthCents, p.values.vibratoDepthCents, g.vibratoTrust));
+        if (genre.vibratoNotes > 0 && pool.vibratoNotes > 0)
+        {
+            const float t = g.vibratoTrust * trustFrom (genre.vibratoNotes, 3.0f);
+            out.vibratoRateHz  = juce::jlimit (3.5f, 8.0f, move (base.vibratoRateHz, g.values.vibratoRateHz, p.values.vibratoRateHz, t));
+            out.vibratoOnsetMs = juce::jlimit (80.0f, 900.0f, move (base.vibratoOnsetMs, g.values.vibratoOnsetMs, p.values.vibratoOnsetMs, t));
+        }
+        out.scoopCents = juce::jlimit (0.0f, 150.0f, move (base.scoopCents, g.values.scoopCents, p.values.scoopCents, g.scoopTrust));
+        if (out.scoopCents >= 1.0f)
+            out.scoopMs = juce::jlimit (20.0f, 200.0f, base.scoopMs > 0.0f ? move (base.scoopMs, g.values.scoopMs, p.values.scoopMs, g.scoopTrust)
+                                                                            : juce::jmax (g.values.scoopMs, 40.0f));
+        else
+            out.scoopMs = 0.0f;
+        out.slideMs  = juce::jlimit (0.0f, 250.0f, move (base.slideMs, g.values.slideMs, p.values.slideMs, g.slideTrust));
+        if (genre.timingValid && pool.timingValid)
+        {
+            out.quantize = juce::jlimit (0.0f, 1.0f, move (base.quantize, g.values.quantize, p.values.quantize, g.timingTrust));
+            out.swing    = juce::jlimit (0.0f, 1.0f, move (base.swing, g.values.swing, p.values.swing, g.timingTrust));
+        }
+        return out;
+    }
+
     juce::String toJson (const StyleProfile& p, const juce::String& inherits, const TakeStats& s, int takeCount)
     {
         auto v = p.toVar();

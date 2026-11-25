@@ -2,20 +2,23 @@
   "id": "k-pop",
   "name": "K-Pop",
   "category": "Pop",
+  "inherits": "pop",
+  "description": "Very precise tuning with quick, clean transitions. Tuned from 1 openly licensed reference vocal.",
   "pitch": {
-    "correction": 0.97,
-    "retuneMs": 11.93,
-    "keepVariation": 0.45
+    "correction": 1.0,
+    "retuneMs": 0.0,
+    "keepVariation": 0.2,
+    "scale": "key"
   },
   "vibrato": {
-    "addDepthCents": 1.89,
-    "rateHz": 5.7,
-    "onsetMs": 232.72
+    "addDepthCents": 2.57,
+    "rateHz": 6.34,
+    "onsetMs": 236.24
   },
   "slides": {
-    "betweenNotesMs": 27.22,
+    "betweenNotesMs": 4.63,
     "maxGapMs": 80.0,
-    "scoopCents": 10.99,
+    "scoopCents": 26.76,
     "scoopMs": 78.37
   },
   "timing": {
@@ -23,11 +26,9 @@
     "grid": 16,
     "swing": 0.0
   },
-  "description": "Very precise tuning with quick, clean transitions. Tuned from 1 openly licensed reference vocal.",
   "learned": {
     "takes": 1,
     "notes": 458,
     "voicedMinutes": 2.48
-  },
-  "inherits": "pop"
+  }
 }

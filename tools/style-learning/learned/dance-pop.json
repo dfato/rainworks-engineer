@@ -2,32 +2,33 @@
   "id": "dance-pop",
   "name": "Dance Pop",
   "category": "Pop",
+  "inherits": "pop",
+  "description": "Bright and tight for four-on-the-floor tracks. Tuned from 1 openly licensed reference vocal.",
   "pitch": {
-    "correction": 0.88,
-    "retuneMs": 14.9,
-    "keepVariation": 0.49
+    "correction": 0.85,
+    "retuneMs": 2.88,
+    "keepVariation": 0.25,
+    "scale": "key"
   },
   "vibrato": {
-    "addDepthCents": 0.22,
-    "rateHz": 5.6,
-    "onsetMs": 241.16
+    "addDepthCents": 0.0,
+    "rateHz": 5.9,
+    "onsetMs": 241.2
   },
   "slides": {
-    "betweenNotesMs": 30.61,
+    "betweenNotesMs": 13.2,
     "maxGapMs": 80.0,
-    "scoopCents": 2.72,
-    "scoopMs": 37.73
+    "scoopCents": 0.0,
+    "scoopMs": 0.0
   },
   "timing": {
     "quantize": 0.4,
     "grid": 16,
     "swing": 0.0
   },
-  "description": "Bright and tight for four-on-the-floor tracks. Tuned from 1 openly licensed reference vocal.",
   "learned": {
     "takes": 1,
     "notes": 672,
     "voicedMinutes": 2.82
-  },
-  "inherits": "pop"
+  }
 }

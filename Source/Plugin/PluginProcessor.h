@@ -117,6 +117,7 @@ private:
     void scheduleAnalysis (const ve::RegionDescriptor&);
     void schedulePitchTracking (const ve::RegionDescriptor&);
     void resnapNotes();
+    ve::KeyEstimate snappingKey() const;   // session key + the current style's scale
     void rebuildPlayback();
     void postMessage (const juce::String&);
 

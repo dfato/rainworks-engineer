@@ -205,9 +205,17 @@ inherit from any other and override only what it changes:
   "vibrato": { "addDepthCents": 20, "rateHz": 5.0, "onsetMs": 400 } }
 ```
 
-Fields: `pitch` (`correction` 0-1, `retuneMs`, `keepVariation` 0-1), `vibrato` (`addDepthCents`, `rateHz`,
+Fields: `pitch` (`correction` 0-1, `retuneMs`, `keepVariation` 0-1, `scale`), `vibrato` (`addDepthCents`, `rateHz`,
 `onsetMs`), `slides` (`betweenNotesMs`, `maxGapMs`, `scoopCents`, `scoopMs`), `timing` (`quantize` 0-1, `grid` divisions per whole note, `swing` 0-1).
 A file with the same `id` as a built-in replaces it.
+
+**Scales.** `pitch.scale` picks which notes of the key the targets snap to, so a style can change the
+melody as well as the delivery: `key` (the key's own major or natural minor), `pentatonic`, `blues`
+(adds the blue note), `harmonic` (raised 7th), `modal` (mixolydian in major keys, dorian in minor) or
+`chromatic` (nearest semitone). A note moved to another scale degree is moved all the way, whatever the
+Correct amount, so it never lands between two notes. Built-in examples: R&B, Soul, Gospel and Rock use
+`blues`; Country, Folk, Trap, Afrobeats and Dancehall use `pentatonic`; Drill, Metal and Reggaeton use
+`harmonic`; Jazz, Neo-Soul, House and Lo-Fi use `modal`.
 
 **Learn a style from vocals.** At the bottom of the Style menu, pick **Learn style from vocals...**, choose
 one or more dry, solo vocals sung the way you want, and name the style. Engineer measures how they are sung

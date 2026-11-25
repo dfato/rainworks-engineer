@@ -81,10 +81,49 @@ namespace ve
             }
         }
 
-        // Analysis pitch marks across the whole take (input time).
+        // Analysis pitch marks across the whole take (input time). In voiced parts each mark
+        // is snapped to the waveform peak near where the period says it should be, so grains
+        // start at the same point of every glottal cycle; marks spaced by the period alone
+        // drift against the waveform and the overlapping grains partly cancel (roughness,
+        // "glitchy" pitch). Period jumps of more than 20% between marks (a tracker octave
+        // error) are ignored.
+        std::vector<float> mono ((size_t) n, 0.0f);
+        {
+            const int h = juce::jmax (1, (int) (sr * 0.0005));   // ~1 ms smoothing for peak picking
+            std::vector<double> sum ((size_t) n + 1, 0.0);
+            for (int i = 0; i < n; ++i)
+            {
+                double v = 0.0;
+                for (int ch = 0; ch < chs; ++ch) v += in.getSample (ch, i);
+                sum[(size_t) i + 1] = sum[(size_t) i] + v;
+            }
+            for (int i = 0; i < n; ++i)
+            {
+                const int a = juce::jmax (0, i - h), b = juce::jmin (n, i + h + 1);
+                mono[(size_t) i] = (float) ((sum[(size_t) b] - sum[(size_t) a]) / (b - a));
+            }
+        }
         std::vector<double> marks;
-        for (double t = 0.0; t < n; t += periodAt (t))
+        double lastT = unvoicedPeriod;
+        for (double t = 0.0; t < n;)
+        {
             marks.push_back (t);
+            double T = periodAt (t);
+            const bool voiced = f0[(size_t) clampIdx (t)] > 0.0f;
+            if (voiced && lastT > 0.0 && (T > lastT * 1.2 || T < lastT / 1.2) && f0[(size_t) clampIdx (t - lastT)] > 0.0f)
+                T = lastT;
+            double next = t + T;
+            if (voiced && f0[(size_t) clampIdx (next)] > 0.0f)
+            {
+                const int lo = clampIdx (next - 0.25 * T), hi = clampIdx (next + 0.25 * T);
+                int best = clampIdx (next);
+                for (int i = lo; i <= hi; ++i)
+                    if (mono[(size_t) i] > mono[(size_t) best]) best = i;
+                if (best > t + 0.5 * T) next = best;
+            }
+            lastT = juce::jmax (1.0, next - t);
+            t = next;
+        }
 
         juce::AudioBuffer<float> acc (chs, n);
         acc.clear();
@@ -106,7 +145,7 @@ namespace ve
                 const double u = inputAt (ts);
                 while (m + 1 < marks.size() && std::abs (marks[m + 1] - u) <= std::abs (marks[m] - u)) ++m;
                 const double ta = marks[m];
-                const double T = periodAt (ta);
+                const double T = m + 1 < marks.size() ? juce::jlimit (8.0, sr * 0.02, marks[m + 1] - marks[m]) : periodAt (ta);
                 const float sft = shift[(size_t) clampIdx (u)];
                 const double ratio = std::pow (2.0, (double) sft / 12.0);
 

@@ -12,6 +12,9 @@
 //   --name <name>      display name (default: "<Base name> (learned)")
 //   --category <cat>   category (default: base's)
 //   --strength <0..1>  how far to move from the base toward the measurements (default 1)
+//   --base-json <file> start from this style JSON instead of a library style (needs "id")
+//   --pool <stats>     contrast mode: learn how the inputs differ from this pooled .stats.json
+//   --gain <g>         contrast mode: how much to exaggerate the difference (default 2)
 //   --stats-dir <dir>  also write <input>.stats.json per audio input
 //   --out <file>       write the profile JSON here (default: stdout)
 //   --stats-only       print the combined statistics and stop
@@ -52,7 +55,8 @@ namespace
 int main (int argc, char* argv[])
 {
     juce::String baseId = "natural", id, name, category, outPath, statsDir;
-    float strength = 1.0f;
+    float strength = 1.0f, gain = 2.0f;
+    juce::String baseJson, poolPath;
     bool statsOnly = false;
     juce::String renderStyle, renderOut;
     juce::StringArray inputs;
@@ -66,6 +70,9 @@ int main (int argc, char* argv[])
         else if (a == "--name")       name = next();
         else if (a == "--category")   category = next();
         else if (a == "--strength")   strength = next().getFloatValue();
+        else if (a == "--base-json")  baseJson = next();
+        else if (a == "--pool")       poolPath = next();
+        else if (a == "--gain")       gain = next().getFloatValue();
         else if (a == "--out")        outPath = next();
         else if (a == "--stats-dir")  statsDir = next();
         else if (a == "--stats-only") statsOnly = true;
@@ -95,7 +102,8 @@ int main (int argc, char* argv[])
         // Key from the sung notes, weighted by length.
         Chroma chroma {};
         for (auto& n : notes) chroma[(size_t) (((int) std::lround (n.detectedMidi) % 12 + 12) % 12)] += (float) (n.end - n.start);
-        const auto key = Analysis::estimateKey (chroma);
+        auto key = Analysis::estimateKey (chroma);
+        key.scale = style.scale;
         NoteSegmenter::resnap (notes, key);
         for (auto& n : notes) n.correction = style.correction;
 
@@ -111,6 +119,18 @@ int main (int argc, char* argv[])
         }
         NotePlan plan { notes };
         const auto shift = ExpressionLayer::buildShiftCurve (plan, style, f0, sr);
+        if (juce::SystemStats::getEnvironmentVariable ("VE_SHIFT_STATS", {}).isNotEmpty())
+        {
+            int jumps = 0, big = 0; float maxStep = 0.0f;
+            for (int i = 1; i < len; ++i)
+            {
+                const float step = std::abs (shift[(size_t) i] - shift[(size_t) i - 1]);
+                maxStep = juce::jmax (maxStep, step);
+                if (step > 0.02f) ++jumps;
+                if (std::abs (shift[(size_t) i]) > 2.5f) ++big;
+            }
+            std::cerr << "shift: " << jumps << " steps > 2 cents/sample, max step " << maxStep << " st, " << big << " samples beyond 2.5 st" << std::endl;
+        }
         juce::AudioBuffer<float> out;
         PitchCorrectRenderer::psolaShift (audio, out, sr, f0, shift);
 
@@ -121,7 +141,10 @@ int main (int argc, char* argv[])
         auto w = wav.createWriterFor (os, juce::AudioFormatWriterOptions{}.withSampleRate (sr).withNumChannels (1).withBitsPerSample (16));
         if (w == nullptr) return fail ("cannot write " + renderOut);
         w->writeFromAudioSampleBuffer (out, 0, out.getNumSamples());
-        std::cerr << "rendered " << style.name << " (" << (int) notes.size() << " notes, key " << key.tonic << (key.minor ? "m" : "") << ")" << std::endl;
+        int moved = 0;
+        for (auto& n : notes) if (std::abs (n.targetMidi - std::round (n.detectedMidi)) >= 1.0f) ++moved;
+        std::cerr << "rendered " << style.name << ": " << (int) notes.size() << " notes, key " << key.tonic << (key.minor ? "m" : "")
+                  << ", scale " << toString (style.scale) << ", " << moved << " moved to another note" << std::endl;
         return 0;
     }
 
@@ -163,10 +186,25 @@ int main (int argc, char* argv[])
     if (statsOnly) { std::cout << juce::JSON::toString (combined.toVar()) << std::endl; return 0; }
 
     auto& lib = sharedStyleLibrary();
+    if (baseJson.isNotEmpty())
+    {
+        const auto text = juce::File::getCurrentWorkingDirectory().getChildFile (baseJson).loadFileAsString();
+        if (auto err = lib.addJson (text); err.isNotEmpty()) return fail ("bad --base-json: " + err);
+        baseId = juce::JSON::parse (text).getProperty ("id", baseId).toString();
+    }
     if (! lib.contains (baseId)) return fail ("unknown base style " + baseId);
     const auto base = lib.get (baseId);
 
-    auto learned = StyleLearner::learn (base, combined, (int) takes.size(), strength);
+    StyleProfile learned;
+    if (poolPath.isNotEmpty())
+    {
+        const auto pv = juce::JSON::parse (juce::File::getCurrentWorkingDirectory().getChildFile (poolPath));
+        if (! pv.isObject()) return fail ("could not read " + poolPath);
+        const auto pool = StyleLearner::TakeStats::fromVar (pv);
+        learned = StyleLearner::learnContrast (base, combined, (int) takes.size(), pool, (int) pv.getProperty ("takes", 50), gain);
+    }
+    else
+        learned = StyleLearner::learn (base, combined, (int) takes.size(), strength);
     learned.id = id.isNotEmpty() ? id : baseId + "-learned";
     learned.name = name.isNotEmpty() ? name : base.name + " (learned)";
     if (category.isNotEmpty()) learned.category = category;

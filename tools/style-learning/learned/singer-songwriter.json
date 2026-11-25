@@ -2,32 +2,33 @@
   "id": "singer-songwriter",
   "name": "Singer-Songwriter",
   "category": "Country / Folk",
+  "inherits": "folk",
+  "description": "Intimate and natural, a bit more polish than folk. Tuned from 20 openly licensed reference vocals.",
   "pitch": {
-    "correction": 0.38,
-    "retuneMs": 49.76,
-    "keepVariation": 1.0
+    "correction": 0.2,
+    "retuneMs": 65.9,
+    "keepVariation": 1.0,
+    "scale": "key"
   },
   "vibrato": {
-    "addDepthCents": 2.11,
-    "rateHz": 5.32,
-    "onsetMs": 219.35
+    "addDepthCents": 0.0,
+    "rateHz": 4.85,
+    "onsetMs": 258.14
   },
   "slides": {
-    "betweenNotesMs": 37.75,
+    "betweenNotesMs": 13.72,
     "maxGapMs": 80.0,
-    "scoopCents": 8.87,
-    "scoopMs": 58.05
+    "scoopCents": 0.0,
+    "scoopMs": 0.0
   },
   "timing": {
     "quantize": 0.0,
     "grid": 16,
     "swing": 0.0
   },
-  "description": "Intimate and natural, a bit more polish than folk. Tuned from 20 openly licensed reference vocals.",
   "learned": {
     "takes": 20,
     "notes": 7171,
     "voicedMinutes": 37.23
-  },
-  "inherits": "folk"
+  }
 }
