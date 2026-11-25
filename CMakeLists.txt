@@ -39,6 +39,7 @@ set(VE_ENGINE_SOURCES
     Source/Engine/Style/BuiltinStyles.cpp
     Source/Engine/Style/ExpressionLayer.cpp
     Source/Engine/Style/StyleProfile.cpp
+    Source/Engine/Intent/NoteIntent.cpp
     Source/Engine/Voice/VoiceConverter.cpp
     Source/Engine/Voice/VoiceModel.cpp
     Source/Engine/Voice/VoiceRenderer.cpp

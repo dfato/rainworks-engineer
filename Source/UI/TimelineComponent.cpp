@@ -1,5 +1,6 @@
 #include "TimelineComponent.h"
 #include "Theme.h"
+#include "Engine/Intent/NoteIntent.h"
 
 namespace ve::ui
 {
@@ -171,6 +172,8 @@ namespace ve::ui
                 juce::PopupMenu m;
                 m.addSectionHeader (Analysis::pitchClassName (((int) std::round (n.detectedMidi)) % 12) + "  "
                                     + juce::String (n.centsOff() >= 0 ? "+" : "") + juce::String (juce::roundToInt (n.centsOff())) + " cents from target");
+                if (const auto intent = NoteIntent::describe (n.intent); intent.isNotEmpty())
+                    m.addSectionHeader ("Sung as: " + intent + " (" + juce::String (juce::roundToInt (n.intentScale * 100.0f)) + "% of Correct)");
                 m.addItem (1, "Correct fully (100%)");
                 m.addItem (2, "Correct halfway (50%)");
                 m.addItem (3, "Leave as sung (0%)");
