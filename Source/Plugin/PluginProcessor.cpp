@@ -281,7 +281,7 @@ void VocalEngineProcessor::schedulePitchTracking (const ve::RegionDescriptor& d)
     if (d.missingFiles)
         return;
 
-    struct Output { ve::PitchTrack track; std::vector<ve::Note> notes; };
+    struct Output { ve::PitchTrack track; std::vector<ve::Note> notes; juce::String engine; };
     auto result = std::make_shared<Output>();
     const auto key = snappingKey();
     const auto pitchRel = ve::CaptureEngine::regionsSubfolder() + "/" + d.id + "_pitch.bin";
@@ -295,7 +295,9 @@ void VocalEngineProcessor::schedulePitchTracking (const ve::RegionDescriptor& d)
             double rate = 0.0;
             if (auto r = ve::loadAudioFile (d.vocalFile, 0.0, nullptr, audio, rate); r.failed())
                 return r;
-            if (auto r = ve::PitchTracker::track (audio, rate, {}, &ctx, result->track); r.failed())
+            // Neural pitch + technique detection when the model is installed, YIN otherwise.
+            if (auto r = ve::PitchTracker::trackBest (audio, rate, {}, &ctx, result->track,
+                                                      ve::PitchTracker::Engine::automatic, {}, &result->engine); r.failed())
                 return r;
             result->notes = ve::NoteSegmenter::segment (result->track, key);
             if (useIntent)
@@ -312,6 +314,11 @@ void VocalEngineProcessor::schedulePitchTracking (const ve::RegionDescriptor& d)
                 const float amount = getGlobalCorrection();
                 for (auto& n : result->notes) n.correction = ve::NoteIntent::correctionFor (n, amount, useIntent);
                 session.setNotes (id, result->notes, pitchRel);
+                if (result->engine != lastPitchEngine)
+                {
+                    lastPitchEngine = result->engine;
+                    postMessage ("Pitch analysis: " + result->engine);
+                }
                 if (useIntent)
                     postMessage (intentSummary (result->notes));
                 if (amount > 0.0f)
@@ -730,13 +737,15 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 
 juce::String VocalEngineProcessor::intentSummary (const std::vector<ve::Note>& notes)
 {
-    int counts[7] = {};
+    constexpr int kinds = 10;
+    int counts[kinds] = {};
     for (auto& n : notes)
-        for (int b = 0; b < 7; ++b)
+        for (int b = 0; b < kinds; ++b)
             if (n.intent & (1 << b)) ++counts[b];
-    static const char* names[] = { "slides", "vibrato", "scoops", "passing notes", "chosen accidentals", "spoken", "ad-libs" };
+    static const char* names[] = { "slides", "vibrato", "scoops", "passing notes", "chosen accidentals", "spoken", "ad-libs",
+                                   "breathy", "gritty", "belted" };
     juce::StringArray parts;
-    for (int b = 0; b < 7; ++b)
+    for (int b = 0; b < kinds; ++b)
         if (counts[b] > 0) parts.add (juce::String (counts[b]) + " " + names[b]);
     juce::String msg = juce::String ((int) notes.size()) + " notes";
     if (! parts.isEmpty()) msg << ". Kept as sung or corrected gently: " << parts.joinIntoString (", ");

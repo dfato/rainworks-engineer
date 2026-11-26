@@ -15,6 +15,7 @@ namespace ve
     //   - scoops into notes (start below, rise to pitch)        -> scoopCents/scoopMs
     //   - glide time between connected notes                    -> slides, retuneMs
     //   - onset spread and swing against the tempo grid         -> quantize/swing
+    //   - with the technique classifier: how much is gritty/breathy -> tone grit/breath
     // Timbre, words and melody are never stored: only these statistics.
     namespace StyleLearner
     {
@@ -46,6 +47,11 @@ namespace ve
             float swing = 0.0f;          // 0 straight .. 1 triplet swing on off-16ths
             int offbeatOnsets = 0;
 
+            // Technique classifier (neural analysis only): share of voiced time that is
+            // gritty / breathy / belted / spoken (classifier probability >= 0.5).
+            float techniqueSeconds = 0.0f;
+            float gritShare = 0.0f, breathyShare = 0.0f, beltShare = 0.0f, spokenShare = 0.0f;
+
             juce::var toVar() const;
             static TakeStats fromVar (const juce::var&);
         };
@@ -53,7 +59,9 @@ namespace ve
         TakeStats analyse (const PitchTrack&, const std::vector<Note>&, double bpm /* 0 = unknown */);
 
         // Pitch-tracks and segments a dry, monophonic vocal, then analyses it.
-        TakeStats analyseAudio (const juce::AudioBuffer<float>&, double sampleRate, double bpm, JobContext* = nullptr);
+        // Uses the neural tracker (and technique classifier) when available.
+        TakeStats analyseAudio (const juce::AudioBuffer<float>&, double sampleRate, double bpm, JobContext* = nullptr,
+                                PitchTracker::Engine = PitchTracker::Engine::automatic);
 
         // Combines several takes (median across takes, so one long take cannot dominate).
         TakeStats combine (const std::vector<TakeStats>&);
@@ -64,6 +72,7 @@ namespace ve
             StyleProfile values;
             // How much each group of values can be trusted, 0..1 (driven by note counts).
             float pitchTrust = 0.0f, vibratoTrust = 0.0f, scoopTrust = 0.0f, slideTrust = 0.0f, timingTrust = 0.0f;
+            float toneTrust = 0.0f;   // 0 without technique analysis: tone is then left as the base style's
         };
         Suggestion suggest (const TakeStats&, int takeCount);
 

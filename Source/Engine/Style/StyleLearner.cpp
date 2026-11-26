@@ -150,6 +150,8 @@ namespace ve::StyleLearner
             { "transitions", transitions }, { "transitionMs", round2 (transitionMs) },
             { "timingValid", timingValid }, { "timedOnsets", timedOnsets }, { "gridLock", round2 (gridLock) },
             { "onsetSpreadMs", round2 (onsetSpreadMs) }, { "swing", round2 (swing) }, { "offbeatOnsets", offbeatOnsets },
+            { "techniqueSeconds", round2 (techniqueSeconds) }, { "gritShare", round2 (gritShare) },
+            { "breathyShare", round2 (breathyShare) }, { "beltShare", round2 (beltShare) }, { "spokenShare", round2 (spokenShare) },
         });
     }
 
@@ -171,6 +173,9 @@ namespace ve::StyleLearner
         s.timingValid = (bool) v.getProperty ("timingValid", false); s.timedOnsets = i ("timedOnsets");
         s.gridLock = f ("gridLock", 0); s.onsetSpreadMs = f ("onsetSpreadMs", 0); s.swing = f ("swing", 0);
         s.offbeatOnsets = i ("offbeatOnsets");
+        s.techniqueSeconds = f ("techniqueSeconds", 0);
+        s.gritShare = f ("gritShare", 0); s.breathyShare = f ("breathyShare", 0);
+        s.beltShare = f ("beltShare", 0); s.spokenShare = f ("spokenShare", 0);
         return s;
     }
 
@@ -332,6 +337,30 @@ namespace ve::StyleLearner
         st.scoopCents = median (scoopDepth);    st.scoopMs = median (scoopLen);
         st.transitions = (int) trans.size();    st.transitionMs = median (trans);
 
+        // How the voice is produced, from the technique classifier.
+        if (track.hasTechnique())
+        {
+            int voiced = 0, grit = 0, breathy = 0, belt = 0, spoken = 0;
+            for (int i = 0; i < nf; ++i)
+            {
+                if (track.frames[(size_t) i].f0 <= 0.0f) continue;
+                const auto& t = track.technique[(size_t) i];
+                ++voiced;
+                grit += t[TechniqueFrame::grit] >= 0.5f;
+                breathy += t[TechniqueFrame::breathy] >= 0.5f;
+                belt += t[TechniqueFrame::belt] >= 0.5f;
+                spoken += t[TechniqueFrame::spoken] >= 0.5f;
+            }
+            if (voiced > 0)
+            {
+                st.techniqueSeconds = (float) voiced * fm / 1000.0f;
+                st.gritShare = (float) grit / (float) voiced;
+                st.breathyShare = (float) breathy / (float) voiced;
+                st.beltShare = (float) belt / (float) voiced;
+                st.spokenShare = (float) spoken / (float) voiced;
+            }
+        }
+
         // Timing against a 16th grid with optional swing. The grid phase and the exact
         // tempo (within +-1% of the given one) are searched, since a reference file
         // rarely starts exactly on a downbeat.
@@ -393,10 +422,11 @@ namespace ve::StyleLearner
         return st;
     }
 
-    TakeStats analyseAudio (const juce::AudioBuffer<float>& audio, double sampleRate, double bpm, JobContext* ctx)
+    TakeStats analyseAudio (const juce::AudioBuffer<float>& audio, double sampleRate, double bpm, JobContext* ctx,
+                            PitchTracker::Engine engine)
     {
         PitchTrack track;
-        if (PitchTracker::track (audio, sampleRate, {}, ctx, track).failed()) return {};
+        if (PitchTracker::trackBest (audio, sampleRate, {}, ctx, track, engine).failed()) return {};
         const auto notes = NoteSegmenter::segment (track, {});
         return analyse (track, notes, bpm);
     }
@@ -429,6 +459,17 @@ namespace ve::StyleLearner
         pool ([] (auto& t) { return t.scoopedNotes; }, [] (auto& t) { return t.scoopCents; }, out.scoopCents, out.scoopedNotes);
         pool ([] (auto& t) { return t.scoopedNotes; }, [] (auto& t) { return t.scoopMs; }, out.scoopMs, dummy);
         pool ([] (auto& t) { return t.transitions; }, [] (auto& t) { return t.transitionMs; }, out.transitionMs, out.transitions);
+
+        {
+            std::vector<float> g, b, bl, sp;
+            for (auto& t : takes)
+                if (t.techniqueSeconds > 0.0f)
+                {
+                    out.techniqueSeconds += t.techniqueSeconds;
+                    g.push_back (t.gritShare); b.push_back (t.breathyShare); bl.push_back (t.beltShare); sp.push_back (t.spokenShare);
+                }
+            out.gritShare = median (g); out.breathyShare = median (b); out.beltShare = median (bl); out.spokenShare = median (sp);
+        }
 
         std::vector<float> lock, spread, swing;
         for (auto& t : takes)
@@ -481,6 +522,12 @@ namespace ve::StyleLearner
         p.quantize = juce::jlimit (0.0f, 0.6f, 0.6f - s.onsetSpreadMs / 50.0f);
         p.swing    = juce::jlimit (0.0f, 1.0f, s.swing);
         g.timingTrust = s.timingValid ? takes * trustFrom (s.timedOnsets, 60.0f) * juce::jlimit (0.0f, 1.0f, s.gridLock * 1.5f) : 0.0f;
+
+        // Tone from technique: a style learned from gritty references adds rasp, one learned
+        // from airy references adds breath. Shares are of voiced time.
+        p.grit   = juce::jlimit (0.0f, 0.7f, s.gritShare * 1.2f);
+        p.breath = juce::jlimit (0.0f, 0.5f, s.breathyShare * 0.8f);
+        g.toneTrust = s.techniqueSeconds > 0.0f ? takes * trustFrom ((int) s.techniqueSeconds, 20.0f) : 0.0f;
         return g;
     }
 
@@ -512,6 +559,8 @@ namespace ve::StyleLearner
         p.slideMs  = mix (base.slideMs, g.values.slideMs, g.slideTrust);
         p.quantize = mix (base.quantize, g.values.quantize, g.timingTrust);
         p.swing    = mix (base.swing, g.values.swing, g.timingTrust);
+        p.grit     = mix (base.grit, g.values.grit, g.toneTrust);
+        p.breath   = mix (base.breath, g.values.breath, g.toneTrust);
         return p;
     }
 
@@ -544,6 +593,11 @@ namespace ve::StyleLearner
         {
             out.quantize = juce::jlimit (0.0f, 1.0f, move (base.quantize, g.values.quantize, p.values.quantize, g.timingTrust));
             out.swing    = juce::jlimit (0.0f, 1.0f, move (base.swing, g.values.swing, p.values.swing, g.timingTrust));
+        }
+        if (genre.techniqueSeconds > 0.0f && pool.techniqueSeconds > 0.0f)
+        {
+            out.grit   = juce::jlimit (0.0f, 1.0f, move (base.grit, g.values.grit, p.values.grit, g.toneTrust));
+            out.breath = juce::jlimit (0.0f, 1.0f, move (base.breath, g.values.breath, p.values.breath, g.toneTrust));
         }
         return out;
     }

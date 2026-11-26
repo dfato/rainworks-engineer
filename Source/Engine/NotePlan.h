@@ -16,7 +16,7 @@ namespace ve
         float correction = 0.0f;     // 0 = leave as sung, 1 = fully on target
         bool userEdited = false;     // set when the user moved it; automatic re-snaps leave it alone
         std::int64_t timeShift = 0;  // user timing nudge in samples (+ = later); applied by time-stretching
-        std::uint8_t intent = 0;     // Stage 4 NoteIntent::Flags
+        std::uint16_t intent = 0;    // Stage 4 NoteIntent::Flags
         float intentScale = 1.0f;    // how much of the global correction this note gets (from intent)
 
         float centsOff() const noexcept { return (detectedMidi - targetMidi) * 100.0f; }

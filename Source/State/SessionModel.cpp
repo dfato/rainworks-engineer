@@ -299,7 +299,7 @@ namespace ve
             n.correction = v.getProperty (IDs::correction, 0.0f);
             n.userEdited = v.getProperty (IDs::edited, false);
             n.timeShift = getInt64 (v, IDs::shift);
-            n.intent = (std::uint8_t) (int) v.getProperty (IDs::intent, 0);
+            n.intent = (std::uint16_t) (int) v.getProperty (IDs::intent, 0);
             n.intentScale = v.getProperty (IDs::intentScale, 1.0f);
             plan.notes.push_back (n);
         }

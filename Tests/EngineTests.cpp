@@ -6,6 +6,9 @@
 #include "Engine/HostContext.h"
 #include "Engine/JobQueue.h"
 #include "Engine/ML/InferenceBackend.h"
+#include "Engine/ML/MelSpectrogram.h"
+#include "Engine/ML/NeuralPitch.h"
+#include "Engine/ML/TechniqueDetector.h"
 #include "Engine/PlaybackEngine.h"
 #include "Engine/RenderCache.h"
 #include "Engine/SidechainAnalysis.h"
@@ -1650,6 +1653,53 @@ public:
             expect (std::abs (notes[0].targetMidi - 66.0f) > 0.5f, "back to the key");
         }
 
+        beginTest ("Technique classifier marks grit, breath, belt and rap, and grit gets a gentler pull");
+        {
+            auto t = emptyTrack();
+            t.engine = PitchEngine::neural;
+            std::vector<Note> notes {
+                addNote (t, 0.10, 0.50, [] (double) { return 64.2f; }),
+                addNote (t, 0.80, 0.50, [] (double) { return 62.1f; }),
+                addNote (t, 1.50, 0.50, [] (double) { return 60.3f; }),
+                addNote (t, 2.20, 0.50, [] (double) { return 67.2f; }),
+            };
+            t.technique.resize (t.frames.size());
+            auto mark = [&] (const Note& n, int kind, float p)
+            {
+                for (auto i = n.start / hop; i < n.end / hop; ++i) t.technique[(size_t) i].p[kind] = p;
+            };
+            mark (notes[0], TechniqueFrame::grit, 0.9f);
+            mark (notes[1], TechniqueFrame::breathy, 0.8f);
+            mark (notes[1], TechniqueFrame::belt, 0.1f);
+            mark (notes[2], TechniqueFrame::spoken, 0.9f);
+            mark (notes[3], TechniqueFrame::belt, 0.7f);
+            NoteIntent::apply (t, notes, cMajor);
+            expect ((notes[0].intent & NoteIntent::grit) != 0, "grit");
+            expectWithinAbsoluteError (notes[0].intentScale, 0.5f, 1.0e-6f);
+            expect ((notes[1].intent & NoteIntent::breathy) != 0 && (notes[1].intent & NoteIntent::belt) == 0, "breathy");
+            expectWithinAbsoluteError (notes[1].intentScale, 1.0f, 1.0e-6f);
+            expect ((notes[2].intent & NoteIntent::spoken) != 0, "rapped line");
+            expectWithinAbsoluteError (notes[2].intentScale, 0.0f, 1.0e-6f);
+            expect ((notes[3].intent & NoteIntent::belt) != 0, "belt");
+            expect (NoteIntent::describe (notes[0].intent).containsIgnoreCase ("gritty"));
+
+            // Same notes without classifier frames: none of that is claimed.
+            t.technique.clear();
+            NoteIntent::apply (t, notes, cMajor);
+            for (auto& n : notes) expect ((n.intent & (NoteIntent::grit | NoteIntent::breathy | NoteIntent::belt | NoteIntent::spoken)) == 0);
+        }
+
+        beginTest ("Classifier-confirmed shallow vibrato counts as vibrato");
+        {
+            auto t = emptyTrack();
+            t.engine = PitchEngine::neural;
+            std::vector<Note> notes { addNote (t, 0.1, 0.9, [pi2] (double x) { return 64.0f + 0.1f * (float) std::sin (pi2 * 5.5 * x); }) };
+            expect ((NoteIntent::analyse (t, notes, 0, cMajor, 0.2f).flags & NoteIntent::vibrato) == 0, "too shallow for the pitch test alone");
+            t.technique.assign (t.frames.size(), {});
+            for (auto& f : t.technique) f.p[TechniqueFrame::vibrato] = 0.9f;
+            expect ((NoteIntent::analyse (t, notes, 0, cMajor, 0.2f).flags & NoteIntent::vibrato) != 0, "with the classifier");
+        }
+
         beginTest ("Intended vibrato survives a flattening style, but not hard tune");
         {
             auto t = emptyTrack();
@@ -1685,6 +1735,205 @@ public:
     }
 };
 
+// Neural analysis front end. The DSP parts always run; the model parts run when the build has
+// ONNX Runtime (the technique model is embedded) and, for pitch, when pitch-fcpe.onnx is found.
+class NeuralTests final : public juce::UnitTest
+{
+public:
+    NeuralTests() : juce::UnitTest ("Neural analysis", "VocalEngine") {}
+
+    static juce::AudioBuffer<float> voice (double sr, double seconds, float hz, float vibratoCents = 0.0f)
+    {
+        // Harmonic tone with a 1/k spectrum and a little noise: close enough to a sung vowel.
+        juce::AudioBuffer<float> b (1, (int) (sr * seconds));
+        juce::Random rng (3);
+        double phase = 0.0;
+        for (int i = 0; i < b.getNumSamples(); ++i)
+        {
+            const double t = i / sr;
+            const double f = hz * std::pow (2.0, vibratoCents / 1200.0 * std::sin (2.0 * juce::MathConstants<double>::pi * 5.5 * t));
+            phase += 2.0 * juce::MathConstants<double>::pi * f / sr;
+            double x = 0.0;
+            for (int k = 1; k <= 12; ++k) x += std::sin (k * phase) / k;
+            const double env = juce::jmin (1.0, t / 0.05, (seconds - t) / 0.05);
+            b.setSample (0, i, (float) (0.25 * env * x + 0.002 * (rng.nextFloat() - 0.5f)));
+        }
+        return b;
+    }
+
+    void runTest() override
+    {
+        beginTest ("Resampler keeps the passband and removes what would alias");
+        {
+            const double sr = 48000.0;
+            juce::AudioBuffer<float> lo (1, 48000), hi (1, 48000);
+            for (int i = 0; i < 48000; ++i)
+            {
+                lo.setSample (0, i, 0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 1000.0 * i / sr));
+                hi.setSample (0, i, 0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 12000.0 * i / sr));
+            }
+            auto rms = [] (const std::vector<float>& v)
+            {
+                double s = 0.0; int n = 0;
+                for (size_t i = v.size() / 4; i < v.size() * 3 / 4; ++i) { s += (double) v[i] * v[i]; ++n; }
+                return (float) std::sqrt (s / juce::jmax (1, n));
+            };
+            const auto a = ml::resampleToMono (lo, sr, 16000.0), b = ml::resampleToMono (hi, sr, 16000.0);
+            expectEquals ((int) a.size(), 16000);
+            expectWithinAbsoluteError (rms (a), 0.5f / std::sqrt (2.0f), 0.01f);
+            expect (rms (b) < 0.005f, "12 kHz must not fold down to 4 kHz");
+            const auto c = ml::resample (lo.getReadPointer (0), 44100, 44100.0, 16000.0);
+            expectEquals ((int) c.size(), 16000);
+        }
+
+        beginTest ("Mel front end matches librosa's Slaney filters and torchfcpe's framing");
+        {
+            const auto w = ml::slaneyMelBasis (16000.0, 1024, 128, 0.0, 8000.0);
+            expectEquals ((int) w.size(), 128 * 513);
+            expectWithinAbsoluteError (w[0 * 513 + 1], 0.028577780f, 1.0e-6f);    // librosa 0.10/1.0 values
+            expectWithinAbsoluteError (w[127 * 513 + 500], 0.005223189f, 1.0e-6f);
+            expectWithinAbsoluteError (w[127 * 513 + 510], 0.000870531f, 1.0e-6f);
+            double sum = 0.0;
+            for (auto v : w) sum += v;
+            expectWithinAbsoluteError (sum, 8.18838, 1.0e-3);
+
+            std::vector<float> y (16000);
+            for (int i = 0; i < 16000; ++i) y[(size_t) i] = 0.5f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 440.0 * i / 16000.0);
+            const auto mel = ml::MelSpectrogram::compute (y);
+            expectEquals (mel.numFrames, 16000 / 160 + 1);
+            const float* f = mel.frame (50);
+            const int peak = (int) (std::max_element (f, f + 128) - f);
+            // Slaney bands are linear below 1 kHz (66.7 Hz per mel, ~0.35 mel apart): 440 Hz is band ~18.
+            expect (peak >= 16 && peak <= 20, "440 Hz peaks in band " + juce::String (peak));
+            expect (ml::MelSpectrogram::compute ({}).numFrames == 1);
+        }
+
+        beginTest ("FCPE decoding: bins, local average, threshold");
+        {
+            expectWithinAbsoluteError (NeuralPitch::binToHz (0.0f), NeuralPitch::minHz, 0.01f);
+            expectWithinAbsoluteError (NeuralPitch::binToHz (359.0f), NeuralPitch::maxHz, 0.1f);
+            std::vector<float> y (360, 0.0f);
+            for (int i = 0; i < 360; ++i) y[(size_t) i] = 0.9f * std::exp (-0.5f * std::pow ((i - 150.25f) / 1.5f, 2.0f));
+            float f0 = 0.0f, conf = 0.0f;
+            NeuralPitch::decode (y.data(), f0, conf, 0.05f);
+            expectWithinAbsoluteError (1200.0f * std::log2 (f0 / NeuralPitch::binToHz (150.25f)), 0.0f, 2.0f);
+            expect (conf > 0.85f);
+            for (auto& v : y) v *= 0.01f;
+            NeuralPitch::decode (y.data(), f0, conf, 0.05f);
+            expect (f0 == 0.0f, "below threshold is unvoiced");
+        }
+
+        beginTest ("Pitch tracks keep engine and technique frames through serialisation");
+        {
+            PitchTrack t; t.sampleRate = 44100.0; t.hopSize = 256; t.engine = PitchEngine::neural;
+            t.frames = { { 220.0f, 0.9f, 0.1f }, { 0.0f, 0.1f, 0.001f } };
+            t.technique.resize (2);
+            t.technique[0].p[TechniqueFrame::grit] = 0.75f;
+            PitchTrack back;
+            expect (PitchTrack::deserialise (t.serialise(), back));
+            expect (back.engine == PitchEngine::neural && back.hasTechnique());
+            expectWithinAbsoluteError (back.technique[0][TechniqueFrame::grit], 0.75f, 1.0e-6f);
+            expectWithinAbsoluteError (back.frames[0].f0, 220.0f, 1.0e-6f);
+
+            // Version 1 files (before neural analysis) still load.
+            juce::MemoryOutputStream v1;
+            v1.writeInt (0x56455054); v1.writeInt (1); v1.writeDouble (48000.0); v1.writeInt (256); v1.writeInt (1);
+            v1.writeFloat (110.0f); v1.writeFloat (0.8f); v1.writeFloat (0.2f);
+            PitchTrack old;
+            expect (PitchTrack::deserialise (v1.getMemoryBlock(), old));
+            expect (old.engine == PitchEngine::dsp && ! old.hasTechnique() && old.frames.size() == 1);
+        }
+
+        beginTest ("Automatic tracking falls back to YIN when the neural tracker is missing");
+        {
+            const double sr = 44100.0;
+            const auto b = voice (sr, 1.0, 196.0f);
+            PitchTrack dsp, best;
+            expect (PitchTracker::track (b, sr, {}, nullptr, dsp).wasOk());
+            juce::String status;
+            expect (PitchTracker::trackBest (b, sr, {}, nullptr, best, PitchTracker::Engine::automatic, {}, &status).wasOk());
+            logMessage ("Automatic tracker: " + status);
+            if (! NeuralPitch::isAvailable())
+            {
+                expect (best.engine == PitchEngine::dsp);
+                expect (best.frames.size() == dsp.frames.size());
+                for (size_t i = 0; i < dsp.frames.size(); ++i) expect (best.frames[i].f0 == dsp.frames[i].f0);
+                PitchTrack n;
+                expect (PitchTracker::trackBest (b, sr, {}, nullptr, n, PitchTracker::Engine::neural).failed(), "neural-only fails without the model");
+            }
+            PitchTrack forced;
+            expect (PitchTracker::trackBest (b, sr, {}, nullptr, forced, PitchTracker::Engine::dsp).wasOk() && forced.engine == PitchEngine::dsp);
+        }
+
+        beginTest ("Style learning turns gritty, airy references into tone");
+        {
+            StyleProfile base; base.grit = 0.0f; base.breath = 0.0f;
+            StyleLearner::TakeStats st; st.notes = 100; st.voicedSeconds = 120.0;
+            auto plain = StyleLearner::learn (base, st, 3);
+            expectWithinAbsoluteError (plain.grit, 0.0f, 1.0e-6f);
+            st.techniqueSeconds = 120.0f; st.gritShare = 0.5f; st.breathyShare = 0.4f;
+            auto rough = StyleLearner::learn (base, st, 3);
+            logMessage ("Learned grit " + juce::String (rough.grit, 2) + ", breath " + juce::String (rough.breath, 2));
+            expect (rough.grit > 0.3f && rough.breath > 0.15f);
+            const auto back = StyleLearner::TakeStats::fromVar (st.toVar());
+            expectWithinAbsoluteError (back.gritShare, 0.5f, 1.0e-6f);
+            expectWithinAbsoluteError (back.techniqueSeconds, 120.0f, 1.0e-3f);
+        }
+
+        beginTest ("Technique model runs when ONNX Runtime is present");
+        {
+            juce::String why;
+            if (! TechniqueDetector::isAvailable (&why))
+                logMessage ("Technique model skipped: " + why);
+            else
+            {
+                const auto b = voice (16000.0, 2.0, 220.0f, 40.0f);
+                const auto mel = ml::MelSpectrogram::compute (std::vector<float> (b.getReadPointer (0), b.getReadPointer (0) + b.getNumSamples()));
+                std::vector<TechniqueFrame> tf;
+                expect (TechniqueDetector::run (mel, nullptr, tf).wasOk());
+                expectEquals ((int) tf.size(), mel.numFrames);
+                bool inRange = true;
+                for (auto& f : tf) for (auto p : f.p) inRange = inRange && p >= 0.0f && p <= 1.0f;
+                expect (inRange);
+                juce::String line;
+                for (int k = 0; k < TechniqueFrame::count; ++k) line << TechniqueDetector::kindName (k) << " " << juce::String (tf[100][k], 2) << "  ";
+                logMessage ("Technique on a synthetic vibrato tone: " + line);
+            }
+        }
+
+        beginTest ("Neural tracker follows a voice without octave slips (model installed only)");
+        {
+            juce::String why;
+            if (! NeuralPitch::isAvailable (&why))
+                logMessage ("Neural pitch skipped: " + why);
+            else
+            {
+                for (float hz : { 98.0f, 196.0f, 392.0f, 784.0f })
+                {
+                    const double sr = 48000.0;
+                    const auto b = voice (sr, 1.5, hz);
+                    PitchTrack t;
+                    juce::String status;
+                    expect (PitchTracker::trackBest (b, sr, {}, nullptr, t, PitchTracker::Engine::neural, {}, &status).wasOk(), status);
+                    expect (t.engine == PitchEngine::neural);
+                    int voiced = 0, good = 0;
+                    for (int i = (int) (0.2 * sr / t.hopSize); i < (int) (1.3 * sr / t.hopSize); ++i)
+                    {
+                        const float f = t.frames[(size_t) i].f0;
+                        if (f <= 0.0f) continue;
+                        ++voiced;
+                        good += std::abs (1200.0f * std::log2 (f / hz)) < 20.0f;
+                    }
+                    logMessage (juce::String (hz) + " Hz: " + juce::String (voiced) + " voiced frames, " + juce::String (good) + " within 20 cents");
+                    expect (voiced > 150 && good >= voiced * 95 / 100, juce::String (hz) + " Hz");
+                    if (TechniqueDetector::isAvailable()) expect (t.hasTechnique(), "technique frames ride along");
+                }
+            }
+        }
+    }
+};
+
+static NeuralTests neuralTests;
 static IntentTests intentTests;
 static StyleTests styleTests;
 static ImportTests importTests;

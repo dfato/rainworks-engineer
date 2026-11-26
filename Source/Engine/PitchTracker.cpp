@@ -8,7 +8,7 @@ namespace ve
     {
         juce::MemoryOutputStream out;
         out.writeInt (0x56455054); // "VEPT"
-        out.writeInt (1);          // version
+        out.writeInt (2);          // version (2 adds the engine and technique frames)
         out.writeDouble (sampleRate);
         out.writeInt (hopSize);
         out.writeInt ((int) frames.size());
@@ -18,14 +18,25 @@ namespace ve
             out.writeFloat (f.confidence);
             out.writeFloat (f.rms);
         }
+        out.writeByte ((char) engine);
+        const bool tech = hasTechnique();
+        out.writeInt (tech ? TechniqueFrame::count : 0);
+        if (tech)
+            for (auto& t : technique)
+                for (int k = 0; k < TechniqueFrame::count; ++k) out.writeFloat (t.p[k]);
         return out.getMemoryBlock();
     }
 
     bool PitchTrack::deserialise (const juce::MemoryBlock& mb, PitchTrack& out)
     {
         juce::MemoryInputStream in (mb, false);
-        if (in.readInt() != 0x56455054 || in.readInt() != 1)
+        if (in.readInt() != 0x56455054)
             return false;
+        const int version = in.readInt();
+        if (version != 1 && version != 2)
+            return false;
+        out.engine = PitchEngine::dsp;
+        out.technique.clear();
         out.sampleRate = in.readDouble();
         out.hopSize = in.readInt();
         const int n = in.readInt();
@@ -37,6 +48,21 @@ namespace ve
             f.f0 = in.readFloat();
             f.confidence = in.readFloat();
             f.rms = in.readFloat();
+        }
+        if (version >= 2 && in.getNumBytesRemaining() >= 5)
+        {
+            out.engine = in.readByte() == 1 ? PitchEngine::neural : PitchEngine::dsp;
+            const int kinds = in.readInt();
+            if (kinds > 0 && (juce::int64) n * kinds * 4 <= in.getNumBytesRemaining())
+            {
+                out.technique.resize ((size_t) n);
+                for (auto& t : out.technique)
+                    for (int k = 0; k < kinds; ++k)
+                    {
+                        const float v = in.readFloat();
+                        if (k < TechniqueFrame::count) t.p[k] = v;
+                    }
+            }
         }
         return true;
     }

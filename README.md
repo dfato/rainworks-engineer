@@ -271,12 +271,45 @@ The built-in genre styles were tuned the same way from openly licensed singing (
 | Chosen accidental (held, steady, on a semitone outside the key) | Stays on that semitone instead of being pulled into the key |
 | Spoken or rapped line | Left as sung |
 | Ad-lib (much quieter than the take) | 60% of Correct |
+| Gritty: scream, growl, fry, rasp (technique classifier) | 50% of Correct, so a scream doesn't warble |
+| Breathy or belted (technique classifier) | Marked only; corrected as usual |
 
 1. Import or record a take sung with some slides, a blue note and a spoken line. The status bar lists what
    was found ("12 notes. Kept as sung or corrected gently: 2 slides, 1 chosen accidental, ...").
 2. Right-click a note: the menu says how it was read ("Sung as: Slide (40% of Correct)").
 3. Turn **Intent** off to compare: every note is pulled to the key the same way.
 4. Notes you edit by hand are never changed by Intent.
+
+### 12a. Neural pitch and technique detection
+
+Pitch and technique are read by two neural networks on a background thread when the build has ONNX
+Runtime (the Windows build does). Without them the DSP tracker (YIN) and the pitch-curve rules work alone,
+as before.
+
+- **Pitch: FCPE** (torchfcpe, MIT licence). It finds the note on gritty, breathy and reverberant takes where
+  YIN slips an octave or hears pitch in noise. YIN still refines each frame where the two agree, so clean
+  notes keep YIN's precision. `pitch-fcpe.onnx` (43 MB) ships inside the VST3 bundle; it can also live in
+  `Documents\RainWorks\Engineer\Models`. A 3 minute vocal takes about 3 seconds on the CPU.
+- **Technique: a small classifier** (embedded, 1 MB) trained in `tools/technique-model` on VocalSet and the
+  Extreme Metal Vocals Dataset (CC BY 4.0) plus CMU ARCTIC speech (CC0). Every 10 ms it rates vibrato,
+  breathy, belt, grit and spoken/rapped. Intent uses it (table above), and **Learn style from vocals...** turns
+  how gritty and airy the references are into the style's tone (grit, breath).
+
+Measured on vocadito (40 solo vocals with reference pitch, CC BY 4.0), as raw pitch accuracy (frames within
+50 cents of the true pitch) and octave errors:
+
+| | DSP (before) | Neural |
+| --- | --- | --- |
+| Clean takes | 96.8%, 1.9% octave errors | 97.7%, 0.1% |
+| Room reverb | 89.4%, 3.2% | 92.7%, 0.0% |
+| Noise floor (15 dB SNR) | 95.2%, 2.3% | 97.4%, 0.1% |
+| Notes heard where nothing is sung (clean) | 21.6% of silent frames | 11.0% |
+
+`tools/pitch-models/eval_pitch.py` reproduces this; the Windows CI build runs it on every push.
+
+1. Import a take. The status bar says "Pitch analysis: Neural pitch (FCPE) + technique detection".
+   If it says "DSP pitch tracker (...)", the reason is in the brackets.
+2. Right-click a screamed or breathy note: "Sung as: Gritty (50% of Correct)".
 
 ### 12b. Voice models (Stage 5)
 
