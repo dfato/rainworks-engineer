@@ -34,6 +34,7 @@ set(VE_ENGINE_SOURCES
     Source/Engine/HostContext.cpp
     Source/Engine/JobQueue.cpp
     Source/Engine/NotePlan.cpp
+    Source/Engine/NoteHistory.cpp
     Source/Engine/PitchCorrectRenderer.cpp
     Source/Engine/PitchTracker.cpp
     Source/Engine/PitchTrackerBest.cpp
@@ -165,7 +166,7 @@ juce_add_plugin(VocalEngine
     NEEDS_MIDI_INPUT            FALSE
     NEEDS_MIDI_OUTPUT           FALSE
     IS_MIDI_EFFECT              FALSE
-    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS TRUE
     VST3_CATEGORIES             Fx Tools
     COPY_PLUGIN_AFTER_BUILD     FALSE
 )
@@ -268,3 +269,4 @@ if(VE_BUILD_TOOLS)
         ve_copy_runtime(EngineerStyleLearn)
     endif()
 endif()
+

@@ -7,6 +7,8 @@
 #include "Engine/SidechainAnalysis.h"
 #include "Engine/TempoMap.h"
 #include "Engine/TimeWarp.h"
+#include <map>
+#include <set>
 
 namespace ve::ui
 {
@@ -30,11 +32,28 @@ namespace ve::ui
         std::vector<TimelineRegion> regions;  // sorted by order, oldest first
         juce::String keyText;
         bool keyIsOverride = false;
+        KeyEstimate scaleKey;                 // key + the style's scale: what "Snap to scale" lands on
+        juce::String scaleText;               // e.g. "A minor, pentatonic"
+        bool snapToScale = true;
+        bool canUndo = false, canRedo = false;
+    };
+
+    struct TimelineNoteEdit
+    {
+        juce::String regionId;
+        int index = -1;
+        Note note;
     };
 
     // Takes lane with waveforms, bar/beat grid from the host tempo, chord lane,
-    // key display, a reserved note lane (Stage 2) and a playhead.
+    // key display, the note graph and a playhead.
     // Ctrl/Cmd + wheel zooms, wheel scrolls, right-click a take for options.
+    //
+    // Note graph: click a note to select it, Ctrl/Cmd-click or Shift-click to add or
+    // remove notes, drag on empty space for a box selection, Ctrl/Cmd+A for all.
+    // Dragging moves every selected note (up/down in pitch; Shift + drag in time).
+    // With Snap to scale on, pitch moves land on the key's scale notes; Alt is free.
+    // The tool row edits Correct, Vibrato and Drift of the selection.
     class TimelineComponent final : public juce::Component,
                                     private juce::ScrollBar::Listener
     {
@@ -47,7 +66,9 @@ namespace ve::ui
 
         std::function<void (const juce::String&)> onDeleteRegion;
         std::function<void (const juce::String&)> onAnalyseRegion;
-        std::function<void (const juce::String&, int, const Note&)> onNoteChanged;
+        std::function<void (const std::vector<TimelineNoteEdit>&)> onNotesChanged;   // one undo step
+        std::function<void()> onUndo, onRedo;
+        std::function<void (bool)> onSnapToScaleChanged;
         std::function<void (const juce::String&, int, std::int64_t)> onSplitNote;   // region, note, sung sample
         std::function<void (const juce::String&, int)> onMergeNote;                 // region, note (joins with next)
 
@@ -58,6 +79,9 @@ namespace ve::ui
         void mouseDrag (const juce::MouseEvent&) override;
         void mouseUp (const juce::MouseEvent&) override;
         void mouseDoubleClick (const juce::MouseEvent&) override;
+        bool keyPressed (const juce::KeyPress&) override;
+
+        int getNumSelectedNotes() const noexcept { return (int) selection.size(); }
 
         // Reserved lane geometry so Stage 2 note blobs drop straight in.
         juce::Rectangle<int> getNoteLaneBounds() const noexcept { return noteLane; }
@@ -77,6 +101,33 @@ namespace ve::ui
         juce::Rectangle<float> noteBounds (const TimelineRegion&, int noteIndex, bool target) const;
         static double outStart (const TimelineRegion&, int noteIndex) noexcept;
 
+        // ---- note selection and group edits ----
+        using NoteKey = std::pair<juce::String, int>;   // region id, note index
+        std::set<NoteKey> selection;
+        bool isSelected (int region, int note) const;
+        NoteKey keyFor (NoteHit h) const;
+        NoteHit hitFor (const NoteKey&) const;
+        void selectOnly (NoteHit);
+        void selectAll();
+        void pruneSelection (const TimelineData& old);
+        std::vector<NoteHit> selectedHits() const;
+        // Applies `fn` to each selected note, then reports them all as one edit.
+        void editSelection (const std::function<void (Note&, TimelineRegion&, int)>& fn, bool commit = true);
+        void commitSelection();
+        void transposeSelection (int steps, bool octave, bool fine);
+        void nudgeSelectionTime (int direction);
+        void showNoteMenu (NoteHit clicked, std::int64_t splitAt);
+        void showLaneMenu();
+        void refreshTools();
+        float snapPitch (float midi, bool fine) const;
+
+        struct DragStart { float target = 0.0f; std::int64_t shift = 0; double out = 0.0; };
+        std::map<NoteKey, DragStart> dragStarts;
+        bool marqueeActive = false;
+        juce::Rectangle<float> marquee;
+        std::set<NoteKey> marqueeBase;
+        bool pendingSelectOnly = false, pendingDeselect = false;
+
         static constexpr int gutter = 64;
 
         TimelineData data;
@@ -93,13 +144,21 @@ namespace ve::ui
         float noteLo = 48.0f, noteRowH = 4.0f, noteH = 6.0f;
         NoteHit dragNote;
         float dragStartTarget = 0.0f;
-        std::int64_t dragStartShift = 0;
         double dragStartOut = 0.0;
         bool dragTiming = false;
         bool noteDragged = false;
 
-        juce::Rectangle<int> ruler, takesLane, chordLane, noteLane;
+        juce::Rectangle<int> ruler, takesLane, chordLane, noteLane, noteTools;
         juce::ScrollBar hScroll { false };
         juce::ToggleButton followButton { "Follow" };
+
+        juce::ToggleButton snapButton { "Snap to scale" };
+        juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
+        juce::Label selectionLabel;
+        juce::Label correctLabel { {}, "Correct" }, vibratoLabel { {}, "Vibrato" }, driftLabel { {}, "Drift" };
+        juce::Slider correctSlider { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
+        juce::Slider vibratoSlider { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
+        juce::Slider driftSlider { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
+        bool sliderEditing = false;
     };
 }

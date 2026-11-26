@@ -21,6 +21,7 @@ namespace ve
         VE_ID (Chords) VE_ID (Chord) VE_ID (endPpq) VE_ID (root) VE_ID (quality) VE_ID (confidence)
         VE_ID (Notes) VE_ID (Note) VE_ID (start) VE_ID (end) VE_ID (detected) VE_ID (target) VE_ID (correction)
         VE_ID (edited) VE_ID (shift) VE_ID (intent) VE_ID (intentScale) VE_ID (useIntent) VE_ID (voiceGpu) VE_ID (pitchFile) VE_ID (styleId) VE_ID (styleAmount) VE_ID (voiceId)
+        VE_ID (vibrato) VE_ID (drift) VE_ID (snapToScale)
         #undef VE_ID
     }
 
@@ -65,6 +66,8 @@ namespace ve
         void setUseIntent (bool);
         bool getVoiceGpu() const;                   // render voice models on the GPU when possible (default on)
         void setVoiceGpu (bool);
+        bool getSnapToScale() const;                // graph editor: dragged notes land on the scale (default on)
+        void setSnapToScale (bool);
         juce::String getVoiceId() const;            // empty = the recorded voice
         void setVoiceId (const juce::String&);
 

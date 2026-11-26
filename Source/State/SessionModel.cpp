@@ -104,6 +104,8 @@ namespace ve
     void SessionModel::setUseIntent (bool b) { tree.setProperty (IDs::useIntent, b, nullptr); }
     bool SessionModel::getVoiceGpu() const { return tree.getProperty (IDs::voiceGpu, true); }
     void SessionModel::setVoiceGpu (bool b) { tree.setProperty (IDs::voiceGpu, b, nullptr); }
+    bool SessionModel::getSnapToScale() const { return tree.getProperty (IDs::snapToScale, true); }
+    void SessionModel::setSnapToScale (bool b) { tree.setProperty (IDs::snapToScale, b, nullptr); }
     juce::String SessionModel::getVoiceId() const { return tree.getProperty (IDs::voiceId, "").toString(); }
     void SessionModel::setVoiceId (const juce::String& id) { tree.setProperty (IDs::voiceId, id, nullptr); }
 
@@ -276,6 +278,10 @@ namespace ve
                 v.setProperty (IDs::intent, (int) n.intent, nullptr);
                 v.setProperty (IDs::intentScale, n.intentScale, nullptr);
             }
+            if (std::abs (n.vibrato - 1.0f) > 1.0e-4f)
+                v.setProperty (IDs::vibrato, n.vibrato, nullptr);
+            if (n.hasDriftOverride())
+                v.setProperty (IDs::drift, n.drift, nullptr);
             list.appendChild (v, nullptr);
         }
         r.appendChild (list, nullptr);
@@ -301,6 +307,8 @@ namespace ve
             n.timeShift = getInt64 (v, IDs::shift);
             n.intent = (std::uint16_t) (int) v.getProperty (IDs::intent, 0);
             n.intentScale = v.getProperty (IDs::intentScale, 1.0f);
+            n.vibrato = v.getProperty (IDs::vibrato, 1.0f);
+            n.drift = v.getProperty (IDs::drift, -1.0f);
             plan.notes.push_back (n);
         }
         return plan;

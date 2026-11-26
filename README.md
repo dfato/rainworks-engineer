@@ -258,6 +258,30 @@ The built-in genre styles were tuned the same way from openly licensed singing (
 5. Right-click a blob > **Split note here** cuts it where you clicked (each half gets its own pitch);
    **Merge with next note** joins it with the following blob.
 
+### 11b. Graph editing: selection, snap to scale, undo
+
+The Notes lane is the note graph; it now takes half the timeline height and has a tool row above it.
+
+1. **Select**: click a blob to select it (white outline). **Ctrl/Cmd-click** or **Shift-click** adds or removes
+   notes; **drag on empty graph space** for a box selection (hold Shift/Ctrl to add to it); **Ctrl+A** selects
+   everything, **Esc** clears. Right-click a blob > **Select all notes at this pitch**.
+2. **Move together**: drag any selected blob and the whole selection moves (up/down in pitch, **Shift + drag** in
+   time, snapping to 1/16; hold Alt for free moves).
+3. **Snap to scale** (tool row, on by default, saved with the project): pitch moves land on the notes of the key
+   and the style's scale (shown at the right, e.g. "A minor, pentatonic"; scale rows are shaded in the graph).
+   Off: semitone steps. Alt always moves freely in cents. Right-click > **Snap to scale** or **S** puts selected
+   notes onto the nearest scale note.
+4. **Correct / Vibrato / Drift sliders** edit the selection: Correct = how far notes are pulled (0-100%);
+   Vibrato = vibrato kept (0% flat line, 100% as the style decides, 200% double); Drift = slow pitch wander kept
+   inside the note (0% dead steady, 100% as sung; far left = Auto, set by Correct). Notes with custom vibrato or
+   drift show a small "v0" / "d50" tag. The right-click menu has the same options for the selection.
+5. **Undo / Redo**: buttons, or **Ctrl+Z** and **Ctrl+Shift+Z / Ctrl+Y**. Covers drags, sliders, menu edits,
+   split and merge. Undo only puts back what you edited, so a key or style change made since is kept.
+6. **Keys** (click in the graph first so it has focus): **Up/Down** = one scale step (semitone with Snap off),
+   **Shift+Up/Down** = octave, **Alt+Up/Down** = 5 cents, **Left/Right** = move 1/16 in time,
+   **Enter** = correct 100%, **Delete/Backspace** = leave as sung (0%). If FL Studio plays notes instead, turn off
+   "Typing keyboard to piano roll" in FL's Options menu.
+
 ### 12. Intent (Stage 4)
 
 **Intent** (next to Correct, on by default) reads what each note was meant to be before correcting it:

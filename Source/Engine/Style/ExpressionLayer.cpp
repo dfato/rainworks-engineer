@@ -110,9 +110,13 @@ namespace ve::ExpressionLayer
             // the note steady: correction smooths it out too (to a quarter of the style's amount at
             // 100%), so a shaky take comes out polished while each style keeps its own character.
             const bool intendedVibrato = (note.intent & NoteIntent::vibrato) != 0;
-            const float keep = intendedVibrato && style.retuneMs >= 10.0f
-                                   ? juce::jmax (style.keepVariation, 0.8f)
-                                   : style.keepVariation * (1.0f - 0.75f * c);
+            const float styleKeep = intendedVibrato && style.retuneMs >= 10.0f
+                                        ? juce::jmax (style.keepVariation, 0.8f)
+                                        : style.keepVariation * (1.0f - 0.75f * c);
+            // Graph editor per-note controls: Vibrato scales the modulation that survives (and
+            // the style's added vibrato), Drift overrides how much of the slow wander is kept.
+            const float vibratoAmount = juce::jlimit (0.0f, 2.0f, note.vibrato);
+            const float keep = styleKeep * vibratoAmount;
 
             // Ornaments. A run is a quick line of scale notes sung on one syllable: in the middle
             // of a phrase it turns around the note and comes back, at a phrase end it walks down
@@ -191,7 +195,8 @@ namespace ve::ExpressionLayer
                 box (sung, tmp, (int) (0.100 * sr));
                 box (tmp, drift, (int) (0.125 * sr));
             }
-            const float keepDrift = keep * (1.0f - c);
+            const float keepDrift = note.hasDriftOverride() ? juce::jlimit (0.0f, 1.0f, note.drift)
+                                                            : styleKeep * (1.0f - c);
 
             for (int i = a; i < b; ++i)
             {
@@ -215,7 +220,7 @@ namespace ve::ExpressionLayer
                     const float ramp = juce::jmin (1.0f, tv / 0.2f);
                     // No vibrato while a run is moving.
                     const float quiet = i >= runFrom ? 0.0f : 1.0f;
-                    expression += quiet * style.vibratoDepthCents / 100.0f * ramp * std::sin (twoPi * style.vibratoRateHz * tv);
+                    expression += quiet * vibratoAmount * style.vibratoDepthCents / 100.0f * ramp * std::sin (twoPi * style.vibratoRateHz * tv);
                 }
                 if (i >= runFrom)
                     expression += run[(size_t) (i - runFrom)];
