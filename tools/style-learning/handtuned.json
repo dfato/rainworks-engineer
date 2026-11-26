@@ -1,5 +1,5 @@
 {
- "_comment": "Hand-tuned starting point for every built-in style. learn_styles.py moves these by measured genre contrast and writes Source/Engine/Style/BuiltinStyles.cpp. Edit here, not in BuiltinStyles.cpp.",
+ "_comment": "Hand-tuned starting point for every built-in style: three utility modes and the six core genres. learn_styles.py moves these by measured genre contrast (except the keys listed in each style's \"locked\") and writes Source/Engine/Style/BuiltinStyles.cpp. Edit here, not in BuiltinStyles.cpp.",
  "styles": [
   {
    "id": "natural",
@@ -91,407 +91,28 @@
   {
    "id": "pop",
    "name": "Pop",
-   "category": "Pop",
+   "category": "Genres",
    "inherits": "natural",
-   "description": "Tight, polished modern pop.",
-   "pitch": {
-    "correction": 0.98,
-    "retuneMs": 15,
-    "keepVariation": 0.45,
-    "scale": "key"
-   },
-   "slides": {
-    "betweenNotesMs": 30
-   },
-   "ornaments": {
-    "runs": 0.08,
-    "runNotes": 4,
-    "runNoteMs": 85,
-    "fallCents": 0,
-    "fallMs": 0
-   },
-   "tone": {
-    "brightness": 0.35,
-    "warmth": 0,
-    "grit": 0,
-    "breath": 0.1
-   },
-   "dynamics": {
-    "compress": 0.55
-   }
-  },
-  {
-   "id": "pop-ballad",
-   "name": "Pop Ballad",
-   "category": "Pop",
-   "inherits": "pop",
-   "description": "Polished but expressive, with vibrato on held notes.",
-   "pitch": {
-    "correction": 0.95,
-    "retuneMs": 35,
-    "keepVariation": 0.8,
-    "scale": "key"
-   },
-   "vibrato": {
-    "addDepthCents": 35,
-    "rateHz": 5.2,
-    "onsetMs": 300
-   },
-   "slides": {
-    "betweenNotesMs": 70
-   },
-   "ornaments": {
-    "runs": 0.15,
-    "runNotes": 4,
-    "runNoteMs": 110,
-    "fallCents": 0,
-    "fallMs": 0
-   },
-   "tone": {
-    "brightness": 0.2,
-    "warmth": 0.3,
-    "grit": 0,
-    "breath": 0.2
-   },
-   "dynamics": {
-    "compress": 0.45
-   }
-  },
-  {
-   "id": "dance-pop",
-   "name": "Dance Pop",
-   "category": "Pop",
-   "inherits": "pop",
-   "description": "Bright and tight for four-on-the-floor tracks.",
-   "pitch": {
-    "correction": 0.99,
-    "retuneMs": 8,
-    "keepVariation": 0.25,
-    "scale": "key"
-   },
-   "slides": {
-    "betweenNotesMs": 20
-   },
-   "timing": {
-    "quantize": 0.4,
-    "grid": 16
-   },
-   "ornaments": {
-    "runs": 0,
-    "runNotes": 4,
-    "runNoteMs": 80,
-    "fallCents": 0,
-    "fallMs": 0
-   },
-   "tone": {
-    "brightness": 0.5,
-    "warmth": 0,
-    "grit": 0,
-    "breath": 0.05
-   },
-   "dynamics": {
-    "compress": 0.7
-   }
-  },
-  {
-   "id": "k-pop",
-   "name": "K-Pop",
-   "category": "Pop",
-   "inherits": "pop",
-   "description": "Very precise tuning with quick, clean transitions.",
+   "description": "Radio pop lead: every note locked in fast but still human, smooth glides and a light vibrato on held ends, bright, airy and up front.",
    "pitch": {
     "correction": 1.0,
-    "retuneMs": 5,
-    "keepVariation": 0.2,
+    "retuneMs": 14,
+    "keepVariation": 0.4,
     "scale": "key"
    },
-   "slides": {
-    "betweenNotesMs": 18
-   },
-   "timing": {
-    "quantize": 0.4,
-    "grid": 16
-   },
-   "ornaments": {
-    "runs": 0.05,
-    "runNotes": 3,
-    "runNoteMs": 75,
-    "fallCents": 0,
-    "fallMs": 0
-   },
-   "tone": {
-    "brightness": 0.6,
-    "warmth": -0.1,
-    "grit": 0,
-    "breath": 0.15
-   },
-   "dynamics": {
-    "compress": 0.7
-   }
-  },
-  {
-   "id": "hyperpop",
-   "name": "Hyperpop",
-   "category": "Pop",
-   "inherits": "hard-tune",
-   "description": "Exaggerated hard tune with fast glides.",
-   "slides": {
-    "betweenNotesMs": 15,
-    "scoopCents": 60,
-    "scoopMs": 40
-   },
-   "timing": {
-    "quantize": 0.6,
-    "grid": 16
-   },
-   "pitch": {
-    "scale": "pentatonic"
-   },
-   "ornaments": {
-    "runs": 0,
-    "runNotes": 4,
-    "runNoteMs": 70,
-    "fallCents": 0,
-    "fallMs": 0
-   },
-   "tone": {
-    "brightness": 0.8,
-    "warmth": -0.5,
-    "grit": 0.25,
-    "breath": 0
-   },
-   "dynamics": {
-    "compress": 0.85
-   }
-  },
-  {
-   "id": "rnb",
-   "name": "R&B",
-   "category": "R&B / Soul",
-   "inherits": "natural",
-   "description": "Smooth tuning that keeps runs and slides.",
-   "pitch": {
-    "correction": 0.94,
-    "retuneMs": 30,
-    "keepVariation": 0.85,
-    "scale": "blues"
-   },
-   "slides": {
-    "betweenNotesMs": 80,
-    "maxGapMs": 120,
-    "scoopCents": 70,
-    "scoopMs": 80
-   },
    "vibrato": {
-    "addDepthCents": 20,
-    "onsetMs": 280
-   },
-   "ornaments": {
-    "runs": 0.45,
-    "runNotes": 5,
-    "runNoteMs": 80,
-    "fallCents": 0,
-    "fallMs": 0
-   },
-   "tone": {
-    "brightness": 0.1,
-    "warmth": 0.4,
-    "grit": 0,
-    "breath": 0.25
-   },
-   "dynamics": {
-    "compress": 0.5
-   }
-  },
-  {
-   "id": "contemporary-rnb",
-   "name": "Contemporary R&B",
-   "category": "R&B / Soul",
-   "inherits": "rnb",
-   "description": "Modern R&B: tighter pitch, glossy slides.",
-   "pitch": {
-    "correction": 0.97,
-    "retuneMs": 18,
-    "keepVariation": 0.6,
-    "scale": "blues"
-   },
-   "ornaments": {
-    "runs": 0.35,
-    "runNotes": 5,
-    "runNoteMs": 70,
-    "fallCents": 0,
-    "fallMs": 0
-   },
-   "tone": {
-    "brightness": 0.3,
-    "warmth": 0.2,
-    "grit": 0,
-    "breath": 0.3
-   },
-   "dynamics": {
-    "compress": 0.6
-   }
-  },
-  {
-   "id": "neo-soul",
-   "name": "Neo-Soul",
-   "category": "R&B / Soul",
-   "inherits": "rnb",
-   "description": "Loose and human, lots of scoops.",
-   "pitch": {
-    "correction": 0.88,
-    "retuneMs": 60,
-    "keepVariation": 1.0,
-    "scale": "modal"
+    "addDepthCents": 15,
+    "rateHz": 5.6,
+    "onsetMs": 350
    },
    "slides": {
-    "scoopCents": 100,
-    "scoopMs": 110
+    "betweenNotesMs": 40,
+    "maxGapMs": 80,
+    "scoopCents": 0,
+    "scoopMs": 0
    },
    "timing": {
-    "quantize": 0.15,
-    "grid": 16,
-    "swing": 0.5
-   },
-   "ornaments": {
-    "runs": 0.4,
-    "runNotes": 4,
-    "runNoteMs": 100,
-    "fallCents": 60,
-    "fallMs": 180
-   },
-   "tone": {
-    "brightness": -0.3,
-    "warmth": 0.6,
-    "grit": 0.1,
-    "breath": 0.35
-   },
-   "dynamics": {
-    "compress": 0.35
-   }
-  },
-  {
-   "id": "soul",
-   "name": "Soul",
-   "category": "R&B / Soul",
-   "inherits": "rnb",
-   "description": "Big vibrato, gentle tuning.",
-   "pitch": {
-    "correction": 0.89,
-    "retuneMs": 50,
-    "scale": "blues"
-   },
-   "vibrato": {
-    "addDepthCents": 45,
-    "rateHz": 5.8,
-    "onsetMs": 220
-   },
-   "ornaments": {
-    "runs": 0.5,
-    "runNotes": 5,
-    "runNoteMs": 85,
-    "fallCents": 0,
-    "fallMs": 0
-   },
-   "tone": {
-    "brightness": 0.1,
-    "warmth": 0.45,
-    "grit": 0.3,
-    "breath": 0.15
-   },
-   "dynamics": {
-    "compress": 0.45
-   }
-  },
-  {
-   "id": "gospel",
-   "name": "Gospel",
-   "category": "R&B / Soul",
-   "inherits": "soul",
-   "description": "Powerful, wide vibrato and long slides.",
-   "vibrato": {
-    "addDepthCents": 60,
-    "rateHz": 6.2,
-    "onsetMs": 200
-   },
-   "slides": {
-    "betweenNotesMs": 100,
-    "maxGapMs": 140
-   },
-   "pitch": {
-    "scale": "blues"
-   },
-   "ornaments": {
-    "runs": 0.7,
-    "runNotes": 6,
-    "runNoteMs": 70,
-    "fallCents": 0,
-    "fallMs": 0
-   },
-   "tone": {
-    "brightness": 0.25,
-    "warmth": 0.4,
-    "grit": 0.35,
-    "breath": 0.1
-   },
-   "dynamics": {
-    "compress": 0.5
-   }
-  },
-  {
-   "id": "hip-hop",
-   "name": "Hip-Hop",
-   "category": "Hip-hop",
-   "inherits": "natural",
-   "description": "Clean hooks with moderate tuning.",
-   "pitch": {
-    "correction": 0.96,
-    "retuneMs": 20,
-    "keepVariation": 0.5,
-    "scale": "pentatonic"
-   },
-   "slides": {
-    "betweenNotesMs": 25
-   },
-   "timing": {
-    "quantize": 0.25,
-    "grid": 16,
-    "swing": 0.15
-   },
-   "ornaments": {
-    "runs": 0,
-    "runNotes": 4,
-    "runNoteMs": 90,
-    "fallCents": 0,
-    "fallMs": 0
-   },
-   "tone": {
-    "brightness": 0.3,
-    "warmth": 0.2,
-    "grit": 0.1,
-    "breath": 0.05
-   },
-   "dynamics": {
-    "compress": 0.7
-   }
-  },
-  {
-   "id": "trap",
-   "name": "Trap",
-   "category": "Hip-hop",
-   "inherits": "hip-hop",
-   "description": "Fast retune, nearly flat pitch line.",
-   "pitch": {
-    "correction": 1.0,
-    "retuneMs": 4,
-    "keepVariation": 0.1,
-    "scale": "pentatonic"
-   },
-   "slides": {
-    "betweenNotesMs": 20
-   },
-   "timing": {
-    "quantize": 0.4,
+    "quantize": 0,
     "grid": 16,
     "swing": 0
    },
@@ -503,227 +124,104 @@
     "fallMs": 0
    },
    "tone": {
-    "brightness": 0.4,
-    "warmth": 0.1,
-    "grit": 0.15,
-    "breath": 0.05
-   },
-   "dynamics": {
-    "compress": 0.8
-   }
-  },
-  {
-   "id": "melodic-rap",
-   "name": "Melodic Rap",
-   "category": "Hip-hop",
-   "inherits": "trap",
-   "description": "Hard tune with melodic glides between notes.",
-   "pitch": {
-    "retuneMs": 6,
-    "keepVariation": 0.2,
-    "scale": "pentatonic"
-   },
-   "slides": {
-    "betweenNotesMs": 45,
-    "maxGapMs": 110,
-    "scoopCents": 50,
-    "scoopMs": 50
-   },
-   "ornaments": {
-    "runs": 0.05,
-    "runNotes": 3,
-    "runNoteMs": 80,
-    "fallCents": 150,
-    "fallMs": 160
-   },
-   "tone": {
-    "brightness": 0.35,
-    "warmth": 0.1,
-    "grit": 0.1,
-    "breath": 0.15
-   },
-   "dynamics": {
-    "compress": 0.75
-   }
-  },
-  {
-   "id": "drill",
-   "name": "Drill",
-   "category": "Hip-hop",
-   "inherits": "trap",
-   "description": "Dark and precise, short slides.",
-   "pitch": {
-    "retuneMs": 3,
-    "keepVariation": 0.05,
-    "scale": "harmonic"
-   },
-   "slides": {
-    "betweenNotesMs": 12
-   },
-   "timing": {
-    "quantize": 0.35,
-    "grid": 16,
-    "swing": 0.3
-   },
-   "ornaments": {
-    "runs": 0,
-    "runNotes": 4,
-    "runNoteMs": 90,
-    "fallCents": 200,
-    "fallMs": 120
-   },
-   "tone": {
-    "brightness": -0.1,
-    "warmth": 0.3,
-    "grit": 0.25,
-    "breath": 0.05
-   },
-   "dynamics": {
-    "compress": 0.85
-   }
-  },
-  {
-   "id": "emo-rap",
-   "name": "Emo Rap",
-   "category": "Hip-hop",
-   "inherits": "melodic-rap",
-   "description": "Melodic rap with a little held-note vibrato.",
-   "vibrato": {
-    "addDepthCents": 15,
-    "rateHz": 5.0,
-    "onsetMs": 400
-   },
-   "pitch": {
-    "scale": "key"
-   },
-   "ornaments": {
-    "runs": 0,
-    "runNotes": 4,
-    "runNoteMs": 90,
-    "fallCents": 120,
-    "fallMs": 180
-   },
-   "tone": {
-    "brightness": 0.1,
-    "warmth": 0.1,
-    "grit": 0.1,
-    "breath": 0.3
+    "brightness": 0.5,
+    "warmth": 0.05,
+    "grit": 0,
+    "breath": 0
    },
    "dynamics": {
     "compress": 0.7
-   }
+   },
+   "locked": [
+    "pitch.correction",
+    "pitch.scale",
+    "slides.scoopCents",
+    "slides.scoopMs",
+    "ornaments",
+    "tone",
+    "dynamics"
+   ]
   },
   {
    "id": "rock",
    "name": "Rock",
-   "category": "Rock",
+   "category": "Genres",
    "inherits": "natural",
-   "description": "Raw, light-touch correction.",
+   "description": "Modern rock and pop-punk lead (scene, emo, post-hardcore cleans): pulled hard to pitch, straight tone, no added scoops, falls or rasp, bright and heavily compressed. The singer's own grit is kept as sung.",
    "pitch": {
-    "correction": 0.88,
-    "retuneMs": 55,
-    "keepVariation": 1.0,
-    "scale": "blues"
-   },
-   "slides": {
-    "scoopCents": 55,
-    "scoopMs": 70
-   },
-   "ornaments": {
-    "runs": 0.05,
-    "runNotes": 3,
-    "runNoteMs": 90,
-    "fallCents": 150,
-    "fallMs": 140
-   },
-   "tone": {
-    "brightness": 0.3,
-    "warmth": 0.1,
-    "grit": 0.55,
-    "breath": 0.05
-   },
-   "dynamics": {
-    "compress": 0.6
-   }
-  },
-  {
-   "id": "pop-punk",
-   "name": "Pop-Punk",
-   "category": "Rock",
-   "inherits": "rock",
-   "description": "Tighter rock tuning for fast, bright vocals.",
-   "pitch": {
-    "correction": 0.94,
-    "retuneMs": 25,
-    "keepVariation": 0.7,
-    "scale": "key"
-   },
-   "ornaments": {
-    "runs": 0,
-    "runNotes": 4,
-    "runNoteMs": 90,
-    "fallCents": 100,
-    "fallMs": 120
-   },
-   "tone": {
-    "brightness": 0.5,
-    "warmth": -0.1,
-    "grit": 0.35,
-    "breath": 0.05
-   },
-   "dynamics": {
-    "compress": 0.7
-   }
-  },
-  {
-   "id": "post-hardcore",
-   "name": "Post-Hardcore",
-   "category": "Rock",
-   "inherits": "rock",
-   "description": "Tight, bright and gritty: clean hooks pulled hard to pitch, fast vibrato tails, falls at phrase ends, heavy compression.",
-   "pitch": {
-    "correction": 0.96,
-    "retuneMs": 18,
-    "keepVariation": 0.55,
+    "correction": 1.0,
+    "retuneMs": 13,
+    "keepVariation": 0.32,
     "scale": "key"
    },
    "vibrato": {
-    "addDepthCents": 25,
-    "rateHz": 6.6,
-    "onsetMs": 350
+    "addDepthCents": 0,
+    "rateHz": 6.0,
+    "onsetMs": 400
    },
    "slides": {
-    "betweenNotesMs": 30,
-    "scoopCents": 40,
-    "scoopMs": 50
+    "betweenNotesMs": 15,
+    "maxGapMs": 80,
+    "scoopCents": 0,
+    "scoopMs": 0
+   },
+   "timing": {
+    "quantize": 0,
+    "grid": 16,
+    "swing": 0
    },
    "ornaments": {
     "runs": 0,
-    "runNotes": 4,
-    "runNoteMs": 90,
-    "fallCents": 120,
-    "fallMs": 120
+    "runNotes": 3,
+    "runNoteMs": 80,
+    "fallCents": 0,
+    "fallMs": 0
    },
    "tone": {
-    "brightness": 0.5,
-    "warmth": 0.1,
-    "grit": 0.45,
-    "breath": 0.05
+    "brightness": 0.65,
+    "warmth": -0.1,
+    "grit": 0,
+    "breath": 0
    },
    "dynamics": {
-    "compress": 0.85
-   }
+    "compress": 0.9
+   },
+   "locked": [
+    "pitch",
+    "vibrato.addDepthCents",
+    "slides",
+    "ornaments",
+    "tone",
+    "dynamics"
+   ]
   },
   {
    "id": "indie",
    "name": "Indie",
-   "category": "Rock",
-   "inherits": "rock",
-   "description": "Natural and slightly loose.",
+   "category": "Genres",
+   "inherits": "natural",
+   "description": "Indie and alt: in tune but loose, keeps the singer's drift and character, warm and soft rather than glossy.",
    "pitch": {
-    "correction": 0.85,
-    "retuneMs": 80,
+    "correction": 0.95,
+    "retuneMs": 45,
+    "keepVariation": 0.8,
     "scale": "key"
+   },
+   "vibrato": {
+    "addDepthCents": 0,
+    "rateHz": 5.5,
+    "onsetMs": 300
+   },
+   "slides": {
+    "betweenNotesMs": 40,
+    "maxGapMs": 80,
+    "scoopCents": 0,
+    "scoopMs": 0
+   },
+   "timing": {
+    "quantize": 0,
+    "grid": 16,
+    "swing": 0
    },
    "ornaments": {
     "runs": 0,
@@ -733,451 +231,177 @@
     "fallMs": 0
    },
    "tone": {
-    "brightness": -0.2,
-    "warmth": 0.2,
-    "grit": 0.1,
-    "breath": 0.3
-   },
-   "dynamics": {
-    "compress": 0.35
-   }
-  },
-  {
-   "id": "metal-clean",
-   "name": "Metal (clean)",
-   "category": "Rock",
-   "inherits": "rock",
-   "description": "Clean metal vocals with wide vibrato.",
-   "pitch": {
-    "correction": 0.91,
-    "retuneMs": 35,
-    "scale": "harmonic"
-   },
-   "vibrato": {
-    "addDepthCents": 40,
-    "rateHz": 6.5,
-    "onsetMs": 250
-   },
-   "ornaments": {
-    "runs": 0.1,
-    "runNotes": 4,
-    "runNoteMs": 80,
-    "fallCents": 80,
-    "fallMs": 120
-   },
-   "tone": {
-    "brightness": 0.4,
-    "warmth": 0.1,
-    "grit": 0.45,
+    "brightness": 0.05,
+    "warmth": 0.25,
+    "grit": 0,
     "breath": 0
    },
    "dynamics": {
-    "compress": 0.75
-   }
-  },
-  {
-   "id": "country",
-   "name": "Country",
-   "category": "Country / Folk",
-   "inherits": "natural",
-   "description": "Clean tuning with twangy scoops.",
-   "pitch": {
-    "correction": 0.93,
-    "retuneMs": 35,
-    "keepVariation": 0.9,
-    "scale": "pentatonic"
-   },
-   "slides": {
-    "betweenNotesMs": 50,
-    "scoopCents": 90,
-    "scoopMs": 90
-   },
-   "vibrato": {
-    "addDepthCents": 15,
-    "onsetMs": 320
-   },
-   "ornaments": {
-    "runs": 0.12,
-    "runNotes": 3,
-    "runNoteMs": 110,
-    "fallCents": 120,
-    "fallMs": 180
-   },
-   "tone": {
-    "brightness": 0.4,
-    "warmth": -0.1,
-    "grit": 0.1,
-    "breath": 0.05
-   },
-   "dynamics": {
     "compress": 0.45
-   }
+   },
+   "locked": [
+    "pitch.correction",
+    "pitch.scale",
+    "ornaments",
+    "tone",
+    "dynamics"
+   ]
   },
   {
-   "id": "folk",
-   "name": "Folk",
-   "category": "Country / Folk",
+   "id": "rnb",
+   "name": "R&B",
+   "category": "Genres",
    "inherits": "natural",
-   "description": "Barely-there correction.",
-   "pitch": {
-    "correction": 0.85,
-    "retuneMs": 80,
-    "scale": "pentatonic"
-   },
-   "ornaments": {
-    "runs": 0.05,
-    "runNotes": 3,
-    "runNoteMs": 120,
-    "fallCents": 0,
-    "fallMs": 0
-   },
-   "tone": {
-    "brightness": -0.15,
-    "warmth": 0.35,
-    "grit": 0,
-    "breath": 0.25
-   },
-   "dynamics": {
-    "compress": 0.2
-   }
-  },
-  {
-   "id": "singer-songwriter",
-   "name": "Singer-Songwriter",
-   "category": "Country / Folk",
-   "inherits": "folk",
-   "description": "Intimate and natural, a bit more polish than folk.",
-   "pitch": {
-    "correction": 0.88,
-    "retuneMs": 55,
-    "scale": "key"
-   },
-   "ornaments": {
-    "runs": 0.05,
-    "runNotes": 3,
-    "runNoteMs": 110,
-    "fallCents": 0,
-    "fallMs": 0
-   },
-   "tone": {
-    "brightness": 0,
-    "warmth": 0.3,
-    "grit": 0,
-    "breath": 0.2
-   },
-   "dynamics": {
-    "compress": 0.3
-   }
-  },
-  {
-   "id": "edm",
-   "name": "EDM",
-   "category": "Electronic",
-   "inherits": "pop",
-   "description": "Very tight and bright for drops and toplines.",
+   "description": "Smooth R&B: in the song's key, keeps runs, slides and vibrato as sung, with a soft scoop into notes and a warm, close tone.",
    "pitch": {
     "correction": 1.0,
-    "retuneMs": 6,
-    "keepVariation": 0.25,
+    "retuneMs": 22,
+    "keepVariation": 0.68,
     "scale": "key"
-   },
-   "timing": {
-    "quantize": 0.45,
-    "grid": 16
-   },
-   "ornaments": {
-    "runs": 0,
-    "runNotes": 4,
-    "runNoteMs": 80,
-    "fallCents": 0,
-    "fallMs": 0
-   },
-   "tone": {
-    "brightness": 0.55,
-    "warmth": 0,
-    "grit": 0,
-    "breath": 0.1
-   },
-   "dynamics": {
-    "compress": 0.8
-   }
-  },
-  {
-   "id": "house",
-   "name": "House",
-   "category": "Electronic",
-   "inherits": "edm",
-   "description": "Soulful house: tight but warm.",
-   "pitch": {
-    "retuneMs": 15,
-    "keepVariation": 0.5,
-    "scale": "modal"
    },
    "vibrato": {
     "addDepthCents": 15,
-    "onsetMs": 300
-   },
-   "timing": {
-    "quantize": 0.45,
-    "grid": 16,
-    "swing": 0.2
-   },
-   "ornaments": {
-    "runs": 0.25,
-    "runNotes": 4,
-    "runNoteMs": 85,
-    "fallCents": 0,
-    "fallMs": 0
-   },
-   "tone": {
-    "brightness": 0.4,
-    "warmth": 0.2,
-    "grit": 0,
-    "breath": 0.1
-   },
-   "dynamics": {
-    "compress": 0.7
-   }
-  },
-  {
-   "id": "future-bass",
-   "name": "Future Bass",
-   "category": "Electronic",
-   "inherits": "edm",
-   "description": "Hard tune with long melodic glides.",
-   "pitch": {
-    "retuneMs": 2,
-    "keepVariation": 0.1,
-    "scale": "pentatonic"
+    "rateHz": 5.4,
+    "onsetMs": 320
    },
    "slides": {
     "betweenNotesMs": 60,
-    "maxGapMs": 120
+    "maxGapMs": 120,
+    "scoopCents": 30,
+    "scoopMs": 70
+   },
+   "timing": {
+    "quantize": 0,
+    "grid": 16,
+    "swing": 0
    },
    "ornaments": {
-    "runs": 0.05,
-    "runNotes": 3,
-    "runNoteMs": 70,
+    "runs": 0.12,
+    "runNotes": 4,
+    "runNoteMs": 80,
     "fallCents": 0,
     "fallMs": 0
    },
    "tone": {
-    "brightness": 0.7,
-    "warmth": -0.2,
+    "brightness": 0.2,
+    "warmth": 0.35,
     "grit": 0,
-    "breath": 0.2
+    "breath": 0
    },
    "dynamics": {
-    "compress": 0.8
-   }
+    "compress": 0.6
+   },
+   "locked": [
+    "pitch.correction",
+    "pitch.scale",
+    "ornaments",
+    "tone",
+    "dynamics"
+   ]
   },
   {
-   "id": "reggaeton",
-   "name": "Reggaeton",
-   "category": "Latin / Caribbean / African",
-   "inherits": "hip-hop",
-   "description": "Fast retune with short slides.",
-   "pitch": {
-    "correction": 0.99,
-    "retuneMs": 8,
-    "keepVariation": 0.25,
-    "scale": "harmonic"
-   },
-   "slides": {
-    "betweenNotesMs": 30
-   },
-   "timing": {
-    "quantize": 0.35,
-    "grid": 16
-   },
-   "ornaments": {
-    "runs": 0.15,
-    "runNotes": 3,
-    "runNoteMs": 80,
-    "fallCents": 100,
-    "fallMs": 120
-   },
-   "tone": {
-    "brightness": 0.45,
-    "warmth": 0.1,
-    "grit": 0.05,
-    "breath": 0.05
-   },
-   "dynamics": {
-    "compress": 0.75
-   }
-  },
-  {
-   "id": "afrobeats",
-   "name": "Afrobeats",
-   "category": "Latin / Caribbean / African",
+   "id": "hip-hop",
+   "name": "Hip-Hop",
+   "category": "Genres",
    "inherits": "natural",
-   "description": "Melodic tuning with smooth, rolling slides.",
+   "description": "Rap verses and sung hooks: hooks tuned cleanly, spoken lines left alone, tight to the beat, punchy and compressed.",
    "pitch": {
-    "correction": 0.98,
-    "retuneMs": 12,
-    "keepVariation": 0.4,
-    "scale": "pentatonic"
+    "correction": 0.97,
+    "retuneMs": 20,
+    "keepVariation": 0.55,
+    "scale": "key"
+   },
+   "vibrato": {
+    "addDepthCents": 0,
+    "rateHz": 5.5,
+    "onsetMs": 300
    },
    "slides": {
-    "betweenNotesMs": 50,
-    "maxGapMs": 100
+    "betweenNotesMs": 20,
+    "maxGapMs": 80,
+    "scoopCents": 0,
+    "scoopMs": 0
    },
    "timing": {
     "quantize": 0.25,
     "grid": 16,
-    "swing": 0.35
-   },
-   "ornaments": {
-    "runs": 0.3,
-    "runNotes": 4,
-    "runNoteMs": 80,
-    "fallCents": 0,
-    "fallMs": 0
-   },
-   "tone": {
-    "brightness": 0.3,
-    "warmth": 0.2,
-    "grit": 0,
-    "breath": 0.1
-   },
-   "dynamics": {
-    "compress": 0.55
-   }
-  },
-  {
-   "id": "dancehall",
-   "name": "Dancehall",
-   "category": "Latin / Caribbean / African",
-   "inherits": "afrobeats",
-   "description": "Punchy, tight, slightly harder than afrobeats.",
-   "pitch": {
-    "retuneMs": 6,
-    "keepVariation": 0.25,
-    "scale": "pentatonic"
-   },
-   "slides": {
-    "betweenNotesMs": 25
-   },
-   "ornaments": {
-    "runs": 0.2,
-    "runNotes": 3,
-    "runNoteMs": 80,
-    "fallCents": 150,
-    "fallMs": 130
-   },
-   "tone": {
-    "brightness": 0.4,
-    "warmth": 0.1,
-    "grit": 0.2,
-    "breath": 0.05
-   },
-   "dynamics": {
-    "compress": 0.7
-   }
-  },
-  {
-   "id": "lo-fi",
-   "name": "Lo-Fi",
-   "category": "Other",
-   "inherits": "indie",
-   "description": "Relaxed and soft, light correction.",
-   "pitch": {
-    "correction": 0.87,
-    "retuneMs": 70,
-    "scale": "modal"
-   },
-   "timing": {
-    "quantize": 0.2,
-    "grid": 16,
-    "swing": 0.45
+    "swing": 0.1
    },
    "ornaments": {
     "runs": 0,
     "runNotes": 4,
     "runNoteMs": 90,
-    "fallCents": 60,
-    "fallMs": 200
-   },
-   "tone": {
-    "brightness": -0.6,
-    "warmth": 0.5,
-    "grit": 0.15,
-    "breath": 0.35
-   },
-   "dynamics": {
-    "compress": 0.5
-   }
-  },
-  {
-   "id": "jazz",
-   "name": "Jazz",
-   "category": "Other",
-   "inherits": "natural",
-   "description": "Expressive, scooped phrasing with natural vibrato.",
-   "pitch": {
-    "correction": 0.86,
-    "retuneMs": 70,
-    "keepVariation": 1.0,
-    "scale": "modal"
-   },
-   "slides": {
-    "betweenNotesMs": 60,
-    "scoopCents": 100,
-    "scoopMs": 110
-   },
-   "vibrato": {
-    "addDepthCents": 30,
-    "rateHz": 5.0,
-    "onsetMs": 380
-   },
-   "ornaments": {
-    "runs": 0.3,
-    "runNotes": 4,
-    "runNoteMs": 110,
-    "fallCents": 200,
-    "fallMs": 220
-   },
-   "tone": {
-    "brightness": -0.2,
-    "warmth": 0.5,
-    "grit": 0,
-    "breath": 0.2
-   },
-   "dynamics": {
-    "compress": 0.3
-   }
-  },
-  {
-   "id": "musical-theatre",
-   "name": "Musical Theatre",
-   "category": "Other",
-   "inherits": "pop-ballad",
-   "description": "Clear diction tuning and strong held-note vibrato.",
-   "vibrato": {
-    "addDepthCents": 50,
-    "rateHz": 5.8,
-    "onsetMs": 250
-   },
-   "pitch": {
-    "scale": "key"
-   },
-   "ornaments": {
-    "runs": 0.05,
-    "runNotes": 4,
-    "runNoteMs": 100,
     "fallCents": 0,
     "fallMs": 0
    },
    "tone": {
-    "brightness": 0.45,
-    "warmth": 0.2,
+    "brightness": 0.35,
+    "warmth": 0.25,
     "grit": 0,
-    "breath": 0.05
+    "breath": 0
    },
    "dynamics": {
-    "compress": 0.35
-   }
+    "compress": 0.8
+   },
+   "locked": [
+    "pitch",
+    "ornaments",
+    "tone",
+    "dynamics",
+    "timing"
+   ]
+  },
+  {
+   "id": "trap",
+   "name": "Trap",
+   "category": "Genres",
+   "inherits": "natural",
+   "description": "Melodic trap: hard, fast auto-tune with a flat pitch line and quick glides, on the grid, bright and squashed.",
+   "pitch": {
+    "correction": 1.0,
+    "retuneMs": 3,
+    "keepVariation": 0.08,
+    "scale": "key"
+   },
+   "vibrato": {
+    "addDepthCents": 0,
+    "rateHz": 5.5,
+    "onsetMs": 300
+   },
+   "slides": {
+    "betweenNotesMs": 18,
+    "maxGapMs": 90,
+    "scoopCents": 0,
+    "scoopMs": 0
+   },
+   "timing": {
+    "quantize": 0.35,
+    "grid": 16,
+    "swing": 0
+   },
+   "ornaments": {
+    "runs": 0,
+    "runNotes": 4,
+    "runNoteMs": 90,
+    "fallCents": 0,
+    "fallMs": 0
+   },
+   "tone": {
+    "brightness": 0.5,
+    "warmth": 0.1,
+    "grit": 0,
+    "breath": 0
+   },
+   "dynamics": {
+    "compress": 0.85
+   },
+   "locked": [
+    "pitch",
+    "ornaments",
+    "tone",
+    "dynamics",
+    "timing"
+   ]
   }
  ]
 }

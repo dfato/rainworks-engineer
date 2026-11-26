@@ -1,25 +1,25 @@
 {
   "id": "rock",
   "name": "Rock",
-  "category": "Rock",
+  "category": "Genres",
   "inherits": "natural",
-  "description": "Raw, light-touch correction. Tuned from 6 openly licensed reference vocals.",
+  "description": "Modern rock and pop-punk lead (scene, emo, post-hardcore cleans): pulled hard to pitch, straight tone, no added scoops, falls or rasp, bright and heavily compressed. The singer's own grit is kept as sung. Tuned from 6 openly licensed reference vocals.",
   "pitch": {
-    "correction": 0.97,
-    "retuneMs": 59.81,
-    "keepVariation": 1.0,
-    "scale": "blues"
+    "correction": 1.0,
+    "retuneMs": 13,
+    "keepVariation": 0.32,
+    "scale": "key"
   },
   "vibrato": {
-    "addDepthCents": 0.18,
-    "rateHz": 5.75,
-    "onsetMs": 239.31
+    "addDepthCents": 0,
+    "rateHz": 6.25,
+    "onsetMs": 389.31
   },
   "slides": {
-    "betweenNotesMs": 6.11,
-    "maxGapMs": 80.0,
-    "scoopCents": 62.71,
-    "scoopMs": 62.81
+    "betweenNotesMs": 15,
+    "maxGapMs": 80,
+    "scoopCents": 0,
+    "scoopMs": 0
   },
   "timing": {
     "quantize": 0.0,
@@ -27,20 +27,20 @@
     "swing": 0.0
   },
   "ornaments": {
-    "runs": 0.05,
+    "runs": 0,
     "runNotes": 3,
-    "runNoteMs": 90.0,
-    "fallCents": 150.0,
-    "fallMs": 140.0
+    "runNoteMs": 80,
+    "fallCents": 0,
+    "fallMs": 0
   },
   "tone": {
-    "brightness": 0.3,
-    "warmth": 0.1,
-    "grit": 0.55,
-    "breath": 0.05
+    "brightness": 0.65,
+    "warmth": -0.1,
+    "grit": 0,
+    "breath": 0
   },
   "dynamics": {
-    "compress": 0.6
+    "compress": 0.9
   },
   "learned": {
     "takes": 6,

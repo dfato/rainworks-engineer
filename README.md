@@ -189,13 +189,29 @@ notes is passed through untouched.
 1. With a take that has notes, set Monitor to **Rendered** and pick a **Style** (grouped by genre).
    Picking a style sets **Correct** to that style's default and re-renders every take.
 2. Compare a few on the same take: **Natural** keeps vibrato and glides in gently; **Trap** / **Hard Tune**
-   snap instantly to a flat line; **R&B** and **Melodic Rap** add slides between close notes and scoops into
-   notes; **Pop Ballad**, **Gospel**, **Musical Theatre** add vibrato on held notes.
+   snap instantly to a flat line; **R&B** adds slides between close notes, a soft scoop and vibrato on held
+   notes; **Rock** locks in fast with a straight tone; **Indie** stays loose.
 3. The Correct slider and per-note edits still work on top of the style.
 4. Save and reopen: the style is restored with the project.
 
-Built in: 3 basic styles (Natural, Transparent, Hard Tune) and 32 genre styles across Pop, R&B / Soul,
-Hip-hop, Rock, Country / Folk, Electronic, Latin / Caribbean / African and Other.
+Built in: 3 basic styles (Natural, Transparent, Hard Tune) and six genres, each tuned on real vocals:
+
+| Genre | Pitch | Movement | Tone |
+| --- | --- | --- | --- |
+| **Pop** | 100%, fast (14 ms), human (keeps 40% of the singer's wobble) | smooth 40 ms glides, light vibrato on held ends | bright and airy, compressed |
+| **Rock** | 100%, fast (13 ms), straight (keeps about 30%) | no added scoops, falls or vibrato | bright, slightly lean, heavily compressed; no added grit, so the singer's own rasp is all you hear |
+| **Indie** | 95%, relaxed (about 55 ms), keeps most of the drift | wider glides | warm and soft, lightly compressed |
+| **R&B** | 100%, smooth (22 ms), keeps runs and vibrato | 60 ms slides, soft 30-cent scoops, a few runs | warm and close |
+| **Hip-Hop** | sung hooks tuned cleanly (20 ms); rapped lines with no clear pitch are left as sung (Intent) | pulled a quarter of the way to the 1/16 grid, light swing | punchy, compressed |
+| **Trap** | hard, near-instant (3 ms), flat line | quick glides, pulled firmly to the grid | bright and squashed |
+
+Rock covers modern rock, pop-punk, emo and post-hardcore clean vocals. Every genre tunes to the song's own
+key, so none of them rewrites the melody onto another scale.
+
+Earlier versions had 31 genres. A project saved with one of them opens with the genre that replaced it
+(for example Post-Hardcore and Pop-Punk open as Rock, Melodic Rap as Trap, Gospel and Neo-Soul as R&B,
+Singer-Songwriter and Folk as Indie, Pop Ballad and EDM as Pop). A custom style that inherits from a
+retired genre inherits from its replacement.
 
 **Custom styles.** Drop `.json` files into `Documents\RainWorks\Engineer\Styles\` and restart FL. A style can
 inherit from any other and override only what it changes:
@@ -215,11 +231,11 @@ A file with the same `id` as a built-in replaces it.
 
 - **Runs** are quick lines through the song's own scale on held notes. In the middle of a phrase a run
   turns around the note and comes back. At a phrase end it walks down and lands on a lower scale note.
-  Gospel, Soul, R&B, Neo-Soul, Afrobeats and Jazz use the most runs.
-- **Falls** drop the pitch off the end of a phrase. Rock, Country, Drill, Melodic rap and Jazz use them.
+  R&B uses them on a few long notes; the other genres leave runs to the singer.
+- **Falls** drop the pitch off the end of a phrase. No built-in genre adds them; a custom style can.
 - **Tone** sets brightness (presence and air), warmth (low mids), grit (rasp that follows the voice's level)
-  and breath (airy noise that rides the voice), plus **compression**. Pop, Trap and K-pop are bright and
-  tightly compressed. Rock, Gospel and Metal have grit. Lo-Fi, Neo-Soul and Jazz are dark and warm.
+  and breath (airy noise that rides the voice), plus **compression**. Rock, Pop and Trap are bright and
+  tightly compressed. R&B and Indie are warm. No built-in genre adds grit or breath.
 
 The loudness of the take is kept. The **Amount** slider next to Style sets how strongly all of this is
 applied: 0% is tuning only, 100% is the style as designed, and 200% exaggerates it (double-click for 100%).
@@ -229,9 +245,8 @@ At Correct 0% the take still plays exactly as sung.
 melody as well as the delivery: `key` (the key's own major or natural minor), `pentatonic`, `blues`
 (adds the blue note), `harmonic` (raised 7th), `modal` (mixolydian in major keys, dorian in minor) or
 `chromatic` (nearest semitone). A note moved to another scale degree is moved all the way, whatever the
-Correct amount, so it never lands between two notes. Built-in examples: R&B, Soul, Gospel and Rock use
-`blues`; Country, Folk, Trap, Afrobeats and Dancehall use `pentatonic`; Drill, Metal and Reggaeton use
-`harmonic`; Jazz, Neo-Soul, House and Lo-Fi use `modal`.
+Correct amount, so it never lands between two notes. All built-in styles use `key`; the other scales are
+there for custom styles.
 
 **Learn a style from vocals.** At the bottom of the Style menu, pick **Learn style from vocals...**, choose
 one or more dry, solo vocals sung the way you want, and name the style. Engineer measures how they are sung
@@ -242,7 +257,8 @@ does not copy the voice, words or melody, so it shapes your take toward the refe
 making you sound like that singer. Several references (ideally different songs) give a steadier result.
 Timing (swing/quantize) is not learned here because a reference file's tempo is unknown.
 
-The built-in genre styles were tuned the same way from openly licensed singing (see
+The built-in genre styles were tuned the same way from openly licensed singing, with each genre's
+signature (scale, tone, compression and, for Rock, Hip-Hop and Trap, the whole pitch feel) set by hand (see
 `tools/style-learning/README.md` for the sources, licences and which genres had data).
 
 ### 11. Timing: quantize, swing and note nudges
@@ -267,7 +283,8 @@ The built-in genre styles were tuned the same way from openly licensed singing (
 | Slide (pitch glides through the note) | 40% of Correct, so the glide stays |
 | Vibrato on a held note | Corrected, and the singer's own vibrato is kept even on flatter styles (not on Hard Tune) |
 | Scoop into a note | 80% of Correct |
-| Passing note (short, between two others) | 50% of Correct |
+| Passing note (short, between two others) | 50% of Correct, and it keeps the semitone it was sung on |
+| Short note sung cleanly on a semitone outside the key (a run, a quick turn) | Stays on that semitone |
 | Chosen accidental (held, steady, on a semitone outside the key) | Stays on that semitone instead of being pulled into the key |
 | Spoken or rapped line | Left as sung |
 | Ad-lib (much quieter than the take) | 60% of Correct |

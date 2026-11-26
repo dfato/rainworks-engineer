@@ -96,7 +96,11 @@ namespace ve
     }
     void SessionModel::setMonitoringMode (MonitoringMode m) { tree.setProperty (IDs::monitoringMode, (int) m, nullptr); }
 
-    juce::String SessionModel::getStyleId() const { return tree.getProperty (IDs::styleId, "natural").toString(); }
+    juce::String SessionModel::getStyleId() const
+    {
+        // Sessions saved with a retired genre open on the core genre that replaced it.
+        return sharedStyleLibrary().canonicalId (tree.getProperty (IDs::styleId, "natural").toString());
+    }
     void SessionModel::setStyleId (const juce::String& id) { tree.setProperty (IDs::styleId, id, nullptr); }
     float SessionModel::getStyleAmount() const { return juce::jlimit (0.0f, 2.0f, (float) tree.getProperty (IDs::styleAmount, 1.0f)); }
     void SessionModel::setStyleAmount (float a) { tree.setProperty (IDs::styleAmount, juce::jlimit (0.0f, 2.0f, a), nullptr); }

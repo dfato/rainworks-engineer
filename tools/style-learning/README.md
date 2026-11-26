@@ -41,56 +41,42 @@ as an untreated reference and does not tune any style.
 
 ### Coverage
 
+The built-ins are three utility modes (Natural, Transparent, Hard Tune) and six genres: Pop, Rock, Indie,
+R&B, Hip-Hop and Trap. Reference vocals labelled with a finer genre count toward the core genre they sound
+like (`GENRE_FOLD` in `learn_styles.py`): pop ballads, dance-pop, K-pop and musical theatre toward Pop;
+singer-songwriter, folk and country toward Indie.
+
 Learning works by **contrast**. Each genre's measurements are compared with all the material pooled
 together, and the hand-tuned style (`handtuned.json`) is moved by that difference times `--gain` (2 for
 the built-ins), scaled by how much evidence the genre had. What every singer does alike cancels out, so
-a genre only moves where its singers really differ from the rest, and those differences are
-exaggerated so the styles stay clearly apart. Each style's scale and its main signature (for example
-Gospel's wide vibrato or Country's scoops) are set by hand in `handtuned.json`. Styles with no data keep
-their hand-tuned sound exactly, even when a parent they inherit from was re-tuned. The two rap
-recordings in URSing are kept as reference only, since rap pitch statistics describe speech-like delivery.
+a genre only moves where its singers really differ from the rest. Each style's `"locked"` list in
+`handtuned.json` names what learning may not move: its signature, set by hand. Every genre locks its scale
+(always the song's key), its default Correct amount, its tone and its compression. Rock, Hip-Hop and Trap
+lock their whole pitch feel too, because the open data has no modern rock, rap or trap singing: the
+recordings labelled rock are soft-rock covers (Hey Jude, Yellow, The Scientist). Styles with no data keep
+their hand-tuned sound exactly. The two rap recordings in URSing are kept as reference only, since rap pitch
+statistics describe speech-like delivery.
 
-| Style | Recordings | Evidence |
+| Style | Recordings | What learning moved |
 |---|---|---|
-| singer-songwriter | 20 | good |
-| pop-ballad | 19 | good |
-| pop | 14 | good |
-| indie | 11 | good |
-| folk | 8 | good |
-| rock | 6 | thin |
-| country | 2 | very thin (moved a little) |
-| musical-theatre | 2 | very thin (moved a little) |
-| dance-pop | 1 | very thin (moved a little) |
-| k-pop | 1 | very thin (moved a little) |
-| rnb | 1 | very thin (moved a little) |
-| hip-hop | 0 | none: hand-tuned values kept |
-| afrobeats | 0 | none: hand-tuned values kept |
-| contemporary-rnb | 0 | none: hand-tuned values kept |
-| dancehall | 0 | none: hand-tuned values kept |
-| drill | 0 | none: hand-tuned values kept |
-| edm | 0 | none: hand-tuned values kept |
-| emo-rap | 0 | none: hand-tuned values kept |
-| future-bass | 0 | none: hand-tuned values kept |
-| gospel | 0 | none: hand-tuned values kept |
-| house | 0 | none: hand-tuned values kept |
-| hyperpop | 0 | none: hand-tuned values kept |
-| jazz | 0 | none: hand-tuned values kept |
-| lo-fi | 0 | none: hand-tuned values kept |
-| melodic-rap | 0 | none: hand-tuned values kept |
-| metal-clean | 0 | none: hand-tuned values kept |
-| neo-soul | 0 | none: hand-tuned values kept |
-| pop-punk | 0 | none: hand-tuned values kept |
-| reggaeton | 0 | none: hand-tuned values kept |
-| soul | 0 | none: hand-tuned values kept |
-| trap | 0 | none: hand-tuned values kept |
+| indie | 41 (indie 11, singer-songwriter 20, folk 8, country 2) | retune 45 to 56 ms, glides 40 to 54 ms |
+| pop | 37 (pop 14, pop ballad 19, musical theatre 2, dance-pop 1, K-pop 1) | vibrato rate only (pop is close to the pooled average) |
+| rock | 6 (thin) | vibrato rate and onset only (rest locked) |
+| rnb | 1 (very thin) | vibrato a little |
+| hip-hop | 0 | none: hand-tuned |
+| trap | 0 | none: hand-tuned |
+
+The hand-tuned values were checked on 21 real lead vocals (3 or 4 per genre) from MUSDB18-HQ, a research-only
+dataset that is used for listening tests and measurements only: nothing from it is learned, committed or
+shipped. On every test vocal the genre lands 79-98% of held notes within 10 cents and 87-100% within 25 cents
+of the target (measured by re-tracking the output), with Trap the flattest line and Indie the loosest.
 
 Timing (`quantize`, `swing`) was not learned for any style: none of these datasets gives the song tempo.
 
 ### Gaps and where the data would come from
 
-No openly licensed, downloadable, dry vocals were found for trap, drill, melodic rap, emo rap, EDM,
-house, future bass, hyperpop, afrobeats, dancehall, reggaeton, gospel, soul, neo-soul, contemporary R&B,
-jazz, lo-fi, pop-punk or clean metal. ccMixter has about 1,500 CC BY / CC0 acapellas tagged across many of
+No openly licensed, downloadable, dry vocals were found for trap, hip-hop hooks, modern rock or
+contemporary R&B. ccMixter has about 1,500 CC BY / CC0 acapellas tagged across many of
 these genres, but it refuses downloads from scripts, so they were not used. Freesound also has CC0 and
 CC BY vocal packs by genre; its API needs a free API key. Either source can be added to `sources.json`
 (each item needs its licence and source page) and the pipeline re-run.
@@ -120,6 +106,6 @@ $TOOL --base rnb --id my-rnb --name "My R&B" --out my-rnb.json take1.wav take2.w
 To hear a style on a vocal without the plugin (pitch and expression only, no timing moves):
 
 ```
-$TOOL --render pop-ballad out.wav my-take.wav
+$TOOL --render pop out.wav my-take.wav
 ```
 

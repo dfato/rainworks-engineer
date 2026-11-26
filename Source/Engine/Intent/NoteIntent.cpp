@@ -171,6 +171,15 @@ namespace ve::NoteIntent
             out.flags |= accidental;
             out.target = (float) nearest;
         }
+        // A passing note in a run or a quick turn keeps the semitone it was sung on: chromatic
+        // passing tones are part of the line (R&B and pop runs are full of them), and moving a
+        // 100 ms note a whole semitone to the key, then pulling it only part of the way, makes
+        // the run warble instead of sounding in tune.
+        // The same goes for any short note sung cleanly on its semitone: too brief to be a
+        // chosen accidental, but moving it is a rewrite of the line, not a fix.
+        const bool cleanShort = durMs < s.accidentalMinMs && std::abs (centre - (float) nearest) * 100.0f <= s.accidentalMaxCents;
+        if ((out.flags & passing || cleanShort) && ! (out.flags & spoken))
+            out.target = (float) nearest;
 
         float scale = 1.0f;
         // Marked spoken by the classifier alone: corrected fully.

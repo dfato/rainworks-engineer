@@ -1,25 +1,25 @@
 {
   "id": "pop",
   "name": "Pop",
-  "category": "Pop",
+  "category": "Genres",
   "inherits": "natural",
-  "description": "Tight, polished modern pop. Tuned from 14 openly licensed reference vocals.",
+  "description": "Radio pop lead: every note locked in fast but still human, smooth glides and a light vibrato on held ends, bright, airy and up front. Tuned from 37 openly licensed reference vocals.",
   "pitch": {
     "correction": 1.0,
-    "retuneMs": 15.0,
-    "keepVariation": 0.45,
+    "retuneMs": 14.0,
+    "keepVariation": 0.4,
     "scale": "key"
   },
   "vibrato": {
-    "addDepthCents": 0.0,
-    "rateHz": 5.17,
-    "onsetMs": 252.63
+    "addDepthCents": 14.62,
+    "rateHz": 5.85,
+    "onsetMs": 350.0
   },
   "slides": {
-    "betweenNotesMs": 30.0,
+    "betweenNotesMs": 40.0,
     "maxGapMs": 80.0,
-    "scoopCents": 0.0,
-    "scoopMs": 0.0
+    "scoopCents": 0,
+    "scoopMs": 0
   },
   "timing": {
     "quantize": 0.0,
@@ -27,24 +27,24 @@
     "swing": 0.0
   },
   "ornaments": {
-    "runs": 0.08,
+    "runs": 0,
     "runNotes": 4,
-    "runNoteMs": 85.0,
-    "fallCents": 0.0,
-    "fallMs": 0.0
+    "runNoteMs": 90,
+    "fallCents": 0,
+    "fallMs": 0
   },
   "tone": {
-    "brightness": 0.35,
-    "warmth": 0.0,
-    "grit": 0.0,
-    "breath": 0.1
+    "brightness": 0.5,
+    "warmth": 0.05,
+    "grit": 0,
+    "breath": 0
   },
   "dynamics": {
-    "compress": 0.55
+    "compress": 0.7
   },
   "learned": {
-    "takes": 14,
-    "notes": 6161,
-    "voicedMinutes": 30.79
+    "takes": 37,
+    "notes": 16494,
+    "voicedMinutes": 87.37
   }
 }

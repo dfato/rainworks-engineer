@@ -868,27 +868,59 @@ public:
 
     void runTest() override
     {
-        beginTest ("Built-in library loads 30+ genres with inheritance resolved");
+        beginTest ("Built-in library: three utility modes and the six core genres");
         {
             StyleLibrary lib;
-            int genres = 0;
-            for (auto& e : lib.list()) genres += e.category != "Basic" ? 1 : 0;
-            expectGreaterOrEqual (genres, 30);
+            juce::StringArray genres, basics;
+            for (auto& e : lib.list())
+                (e.category == "Basic" ? basics : genres).add (e.id);
+            expectEquals (basics.joinIntoString (","), juce::String ("hard-tune,natural,transparent"));
+            expectEquals (genres.joinIntoString (","), juce::String ("hip-hop,indie,pop,rnb,rock,trap"));
 
             const auto trap = lib.get ("trap");
             expectEquals (trap.name, juce::String ("Trap"));
-            expectEquals (trap.category, juce::String ("Hip-hop"));
-            expectWithinAbsoluteError (trap.retuneMs, 4.0f, 1e-6f);
-            expectWithinAbsoluteError (trap.slideMs, 20.0f, 1e-6f);       // own value
-            expectWithinAbsoluteError (trap.vibratoRateHz, 5.5f, 1e-6f);  // from natural, via hip-hop
+            expectEquals (trap.category, juce::String ("Genres"));
+            expectLessThan (trap.retuneMs, 6.0f);
+            expectWithinAbsoluteError (trap.vibratoRateHz, 5.5f, 1e-6f);
 
-            const auto emo = lib.get ("emo-rap"); // emo-rap -> melodic-rap -> trap -> hip-hop -> natural
-            expectWithinAbsoluteError (emo.scoopCents, 50.0f, 1e-6f);
-            expectWithinAbsoluteError (emo.vibratoDepthCents, 15.0f, 1e-6f);
-            expectWithinAbsoluteError (emo.correction, 1.0f, 1e-6f);
+            // Every genre targets the song's key: none rewrites notes onto a pentatonic or blues scale.
+            for (auto& id : genres)
+                expect (lib.get (id).scale == ScaleMode::key, id + " uses the key scale");
+            // Rock is the polished modern-rock lead: no added scoops, falls or rasp on clean singing.
+            const auto rock = lib.get ("rock");
+            expect (rock.scoopCents == 0.0f && rock.fallCents == 0.0f && rock.grit == 0.0f);
+            expectGreaterOrEqual (rock.correction, 0.99f);
 
             expectEquals (lib.get ("does-not-exist").id, juce::String ("natural"));
             expect (lib.get ("trap").hash() != lib.get ("pop").hash());
+        }
+
+        beginTest ("Retired genres open as the core genre that replaced them");
+        {
+            StyleLibrary lib;
+            const auto rock = lib.get ("rock");
+            expectEquals (lib.canonicalId ("post-hardcore"), juce::String ("rock"));
+            expectEquals (lib.canonicalId ("melodic-rap"), juce::String ("trap"));
+            expectEquals (lib.canonicalId ("gospel"), juce::String ("rnb"));
+            expectEquals (lib.canonicalId ("singer-songwriter"), juce::String ("indie"));
+            expectEquals (lib.canonicalId ("pop"), juce::String ("pop"));
+            expectEquals (lib.canonicalId ("never-was"), juce::String ("natural"));
+            expectEquals (lib.get ("post-hardcore").id, juce::String ("rock"));
+            expect (lib.get ("pop-ballad").hash() == lib.get ("pop").hash());
+
+            // A user style inheriting from a retired built-in (or the old Scene test style) still
+            // inherits from its replacement.
+            expect (lib.addJson (R"({"id":"my-ph","name":"My PH","inherits":"post-hardcore","vibrato":{"addDepthCents":12}})").isEmpty());
+            const auto mine = lib.get ("my-ph");
+            expectEquals (mine.id, juce::String ("my-ph"));
+            expectWithinAbsoluteError (mine.vibratoDepthCents, 12.0f, 1e-6f);
+            expectWithinAbsoluteError (mine.retuneMs, rock.retuneMs, 1e-6f);
+            expect (lib.addJson (R"({"id":"rd","inherits":"scene","tone":{"grit":0.29}})").isEmpty());
+            expectWithinAbsoluteError (lib.get ("rd").brightness, rock.brightness, 1e-6f);
+            // A user file with a retired id is a real style again and wins.
+            expect (lib.addJson (R"({"id":"post-hardcore","name":"PH","inherits":"rock","tone":{"grit":0.5}})").isEmpty());
+            expectEquals (lib.canonicalId ("post-hardcore"), juce::String ("post-hardcore"));
+            expectWithinAbsoluteError (lib.get ("post-hardcore").grit, 0.5f, 1e-6f);
         }
 
         beginTest ("User JSON styles override and inherit; bad JSON is reported");
@@ -897,7 +929,7 @@ public:
             expect (lib.addJson (R"({"id":"my-trap","name":"My Trap","inherits":"trap","vibrato":{"addDepthCents":40}})").isEmpty());
             const auto mine = lib.get ("my-trap");
             expectWithinAbsoluteError (mine.vibratoDepthCents, 40.0f, 1e-6f);
-            expectWithinAbsoluteError (mine.retuneMs, 4.0f, 1e-6f);
+            expectWithinAbsoluteError (mine.retuneMs, lib.get ("trap").retuneMs, 1e-6f);
             expect (lib.addJson ("{ not json").isNotEmpty());
             expect (lib.addJson (R"({"name":"no id"})").isNotEmpty());
             expect (lib.addJson (R"({"id":"loop-a","inherits":"loop-b"})").isEmpty());
@@ -1072,8 +1104,9 @@ public:
             expectGreaterThan (highEnergy (g), highEnergy (voice) * 1.2);
 
             StyleLibrary lib;
-            expect (lib.get ("gospel").runs > lib.get ("pop").runs);
-            expect (lib.get ("rock").grit > 0.3f && lib.get ("lo-fi").brightness < 0.0f);
+            expect (lib.get ("rnb").runs > lib.get ("pop").runs);
+            expect (lib.get ("rock").brightness > lib.get ("indie").brightness && lib.get ("indie").warmth > 0.0f);
+            expect (lib.get ("rock").compress > lib.get ("indie").compress);
             expect (lib.get ("natural").hasTone() == false);
         }
     }
@@ -1251,12 +1284,12 @@ public:
         beginTest ("Style timing parses swing and is part of the style hash");
         {
             StyleLibrary lib;
-            const auto lofi = lib.get ("lo-fi");
-            expect (lofi.swing > 0.0f && lofi.quantize > 0.0f);
-            expect (lib.get ("trap").quantize > 0.0f);
+            const auto hiphop = lib.get ("hip-hop");
+            expect (hiphop.swing > 0.0f && hiphop.quantize > 0.0f);
+            expect (lib.get ("trap").quantize > hiphop.quantize);
             expect (lib.get ("natural").quantize <= 0.0f);
-            auto a = lofi; a.swing = 0.0f;
-            expect (a.hash() != lofi.hash());
+            auto a = hiphop; a.swing = 0.0f;
+            expect (a.hash() != hiphop.hash());
         }
     }
 };

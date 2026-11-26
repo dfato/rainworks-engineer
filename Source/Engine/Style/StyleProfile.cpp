@@ -151,17 +151,46 @@ namespace ve
         return errors;
     }
 
+    juce::String StyleLibrary::replacementFor (const juce::String& retiredId)
+    {
+        // Earlier versions shipped 31 genres. Each retired one maps to the core genre
+        // closest to how it was sung, so old sessions and user styles that inherit from
+        // one keep working.
+        static const std::map<juce::String, juce::String> retired {
+            { "pop-ballad", "pop" }, { "dance-pop", "pop" }, { "k-pop", "pop" }, { "hyperpop", "pop" },
+            { "edm", "pop" }, { "house", "pop" }, { "future-bass", "pop" }, { "musical-theatre", "pop" },
+            { "contemporary-rnb", "rnb" }, { "neo-soul", "rnb" }, { "soul", "rnb" }, { "gospel", "rnb" },
+            { "jazz", "rnb" },
+            { "melodic-rap", "trap" }, { "drill", "trap" }, { "emo-rap", "trap" },
+            { "reggaeton", "hip-hop" }, { "afrobeats", "hip-hop" }, { "dancehall", "hip-hop" },
+            { "pop-punk", "rock" }, { "post-hardcore", "rock" }, { "metal-clean", "rock" }, { "scene", "rock" },
+            { "country", "indie" }, { "folk", "indie" }, { "singer-songwriter", "indie" }, { "lo-fi", "indie" },
+        };
+        const auto it = retired.find (retiredId);
+        return it != retired.end() ? it->second : juce::String();
+    }
+
+    juce::String StyleLibrary::canonicalId (const juce::String& id) const
+    {
+        if (raw.count (id) > 0) return id;
+        if (const auto r = replacementFor (id); r.isNotEmpty() && raw.count (r) > 0) return r;
+        return "natural";
+    }
+
     juce::var StyleLibrary::resolve (const juce::String& id, int depth) const
     {
         auto it = raw.find (id);
         if (it == raw.end() || depth > 16) return {};
-        const auto parentId = it->second.getProperty ("inherits", {}).toString();
+        auto parentId = it->second.getProperty ("inherits", {}).toString();
         if (parentId.isEmpty() || parentId == id) return it->second;
+        if (raw.count (parentId) == 0) parentId = canonicalId (parentId);   // a retired parent
+        if (parentId == id) return it->second;
         return merge (resolve (parentId, depth + 1), it->second);
     }
 
-    StyleProfile StyleLibrary::get (const juce::String& id) const
+    StyleProfile StyleLibrary::get (const juce::String& requested) const
     {
+        const auto id = canonicalId (requested);
         auto v = resolve (id, 0);
         if (v.isVoid()) v = resolve ("natural", 0);
         auto p = fromVar (v);
