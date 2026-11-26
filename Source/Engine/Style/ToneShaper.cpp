@@ -1,5 +1,6 @@
 #include "ToneShaper.h"
 #include <cmath>
+#include <algorithm>
 #include <random>
 
 namespace ve::ToneShaper
@@ -66,6 +67,74 @@ namespace ve::ToneShaper
                 for (int i = 0; i < b.getNumSamples(); ++i) { const double x = b.getSample (ch, i); s += x * x; ++count; }
             return count > 0 ? std::sqrt (s / (double) count) : 0.0;
         }
+
+        // How much voice there is at each sample, 0..1: 0 within 6 dB of the take's noise
+        // floor, 1 from 18 dB above it. The floor is the quiet end (5th percentile) of the
+        // take's 20 ms levels, ignoring digital silence, kept 45 to 80 dB under the peak.
+        std::vector<float> presenceGate (const juce::AudioBuffer<float>& b, double sr)
+        {
+            const int n = b.getNumSamples(), chs = b.getNumChannels();
+            std::vector<float> mono ((size_t) n, 0.0f);
+            for (int ch = 0; ch < chs; ++ch)
+                for (int i = 0; i < n; ++i) mono[(size_t) i] += b.getSample (ch, i) / (float) chs;
+
+            const int frame = juce::jmax (1, (int) (0.02 * sr));
+            std::vector<float> levels;
+            float peak = 0.0f;
+            for (int a = 0; a < n; a += frame)
+            {
+                double s = 0.0;
+                const int e = juce::jmin (n, a + frame);
+                for (int i = a; i < e; ++i) { s += (double) mono[(size_t) i] * mono[(size_t) i]; peak = juce::jmax (peak, std::abs (mono[(size_t) i])); }
+                const float r = (float) std::sqrt (s / (double) (e - a));
+                if (r > 1.0e-7f) levels.push_back (r);
+            }
+            float floorLevel = peak * 1.0e-4f;
+            if (! levels.empty())
+            {
+                const auto k = levels.size() / 20;
+                std::nth_element (levels.begin(), levels.begin() + (std::ptrdiff_t) k, levels.end());
+                // A take with no real gaps (a dense, bled-into stem) has no noise floor to find:
+                // its quiet end is singing, so the estimate is capped 45 dB under the peak.
+                floorLevel = juce::jlimit (floorLevel, peak * 0.0056f, levels[k]);
+            }
+            const float lo = floorLevel * 2.0f, hi = floorLevel * 8.0f;   // +6 dB .. +18 dB
+
+            // Level: RMS of 5 ms blocks, held for 40 ms after and 10 ms before (so the gate
+            // closes promptly in a gap but not between the syllables of a word), mapped through
+            // a smooth ramp in dB, then a 10 ms smoother both ways so the blend never clicks.
+            // (A one-pole release would need most of a second to fall 60 dB to the floor.)
+            const int blk = juce::jmax (1, (int) (0.005 * sr));
+            const int nb = (n + blk - 1) / blk;
+            std::vector<float> br ((size_t) nb, 0.0f), bt ((size_t) nb, 0.0f);
+            for (int k = 0; k < nb; ++k)
+            {
+                double s = 0.0;
+                const int a0 = k * blk, e = juce::jmin (n, a0 + blk);
+                for (int i = a0; i < e; ++i) s += (double) mono[(size_t) i] * mono[(size_t) i];
+                br[(size_t) k] = (float) std::sqrt (s / (double) (e - a0));
+            }
+            const float span = std::log (hi / lo);
+            for (int k = 0; k < nb; ++k)
+            {
+                float lvl = 0.0f;
+                for (int j = juce::jmax (0, k - 8); j <= juce::jmin (nb - 1, k + 2); ++j) lvl = juce::jmax (lvl, br[(size_t) j]);
+                float t = lvl <= lo ? 0.0f : lvl >= hi ? 1.0f : std::log (lvl / lo) / span;
+                bt[(size_t) k] = t * t * (3.0f - 2.0f * t);
+            }
+            std::vector<float> g ((size_t) n, 0.0f);
+            const float sm = (float) std::exp (-1.0 / (0.01 * sr));
+            float out = 0.0f;
+            for (int i = 0; i < n; ++i)
+            {
+                const float t = bt[(size_t) (i / blk)];
+                out = t + sm * (out - t);
+                g[(size_t) i] = out;
+            }
+            // Run the smoother backwards too, so the gate opens a little before each word.
+            for (int i = n - 2; i >= 0; --i) g[(size_t) i] = juce::jmax (g[(size_t) i], g[(size_t) i + 1] * sm);
+            return g;
+        }
     }
 
     void process (juce::AudioBuffer<float>& audio, double sr, const StyleProfile& st)
@@ -77,8 +146,9 @@ namespace ve::ToneShaper
         if (before < 1.0e-6) return;
 
         const auto envCoef = [sr] (double ms) { return (float) std::exp (-1.0 / (ms * 0.001 * sr)); };
-        std::mt19937 rng (12345u);
         std::uniform_real_distribution<float> uni (-1.0f, 1.0f);
+        const juce::AudioBuffer<float> dry (audio);
+        const auto gate = presenceGate (dry, sr);
 
         for (int ch = 0; ch < audio.getNumChannels(); ++ch)
         {
@@ -109,22 +179,32 @@ namespace ve::ToneShaper
                     const float band = lp (hp (x[i]));
                     const float level = juce::jmax (env[(size_t) i], 1.0e-4f);
                     const float sat = level * std::tanh (drive * band / level) / norm;
-                    x[i] += 0.8f * st.grit * post (sat - band);
+                    x[i] += 0.8f * st.grit * gate[(size_t) i] * post (sat - band);
                 }
             }
 
-            // Breath: shaped noise riding the voice envelope.
+            // Breath: aspiration noise. Real breathiness is noise pulsed by every glottal
+            // cycle, so the noise here is gated by the voice's own pulses (a ~0.5 ms follower
+            // of the mids over a 25 ms one). Plain steady noise riding the level, as this used
+            // to be, does not fuse with the voice: it is heard as a hiss bed under every note,
+            // and compressors after the plugin bring it right up.
             if (st.breath > 0.0f)
             {
                 auto hp1 = Biquad::pass (sr, 1800.0, true), hp2 = Biquad::pass (sr, 1800.0, true);
                 auto lp = Biquad::pass (sr, juce::jmin (11000.0, sr * 0.45), false);
                 auto bump = Biquad::peak (sr, 5000.0, 4.0, 0.8);
-                const float slow = envCoef (25.0);
-                float e = 0.0f;
+                auto mhp = Biquad::pass (sr, 300.0, true), mlp = Biquad::pass (sr, 2500.0, false);
+                const float slow = envCoef (25.0), fast = envCoef (0.5);
+                std::mt19937 rng (12345u);   // same noise on every channel: no stereo hiss
+                float e = 0.0f, pf = 0.0f, ps = 0.0f;
                 for (int i = 0; i < n; ++i)
                 {
                     e = env[(size_t) i] + slow * (e - env[(size_t) i]);
-                    x[i] += st.breath * 0.22f * e * bump (lp (hp2 (hp1 (uni (rng)))));
+                    const float r = std::abs (mlp (mhp (dry.getSample (ch, i))));
+                    pf = r + fast * (pf - r);
+                    ps = r + slow * (ps - r);
+                    const float pulse = juce::jlimit (0.0f, 3.0f, pf / (ps + 1.0e-9f));
+                    x[i] += st.breath * 0.16f * gate[(size_t) i] * e * pulse * bump (lp (hp2 (hp1 (uni (rng)))));
                 }
             }
 
@@ -158,17 +238,38 @@ namespace ve::ToneShaper
         }
 
         // Same loudness as before; the odd peak that would then clip is rounded off softly.
-        const double after = rms (audio);
-        if (after > 1.0e-9)
+        // Where there is no voice (gaps: room tone, mic and interface hiss) the take is left as it
+        // was: the make-up gain, EQ, grit and breath would otherwise lift the noise floor by
+        // several dB, which is heard as hiss, more so after the compressors that follow.
+        // The make-up gain g is solved so that the blend dry * (1 - gate) + g * wet * gate has
+        // the take's loudness: sum (A + gB)^2 = sum dry^2, a quadratic in g.
+        double aa = 0.0, ab = 0.0, bb = 0.0, target = 0.0;
+        for (int ch = 0; ch < audio.getNumChannels(); ++ch)
         {
-            audio.applyGain ((float) (before / after));
+            const float* x = audio.getReadPointer (ch);
+            const float* d = dry.getReadPointer (ch);
+            for (int i = 0; i < n; ++i)
+            {
+                const double gi = gate[(size_t) i], A = d[i] * (1.0 - gi), B = x[i] * gi;
+                aa += A * A; ab += A * B; bb += B * B; target += (double) d[i] * d[i];
+            }
+        }
+        if (bb > 1.0e-18)
+        {
+            const double disc = ab * ab - bb * (aa - target);
+            const double g = disc > 0.0 ? (-ab + std::sqrt (disc)) / bb : 1.0;
             const float knee = 0.9f, room = 0.09f;
             for (int ch = 0; ch < audio.getNumChannels(); ++ch)
             {
                 float* x = audio.getWritePointer (ch);
+                const float* d = dry.getReadPointer (ch);
                 for (int i = 0; i < n; ++i)
+                {
+                    const float gi = gate[(size_t) i];
+                    x[i] = d[i] * (1.0f - gi) + (float) g * x[i] * gi;
                     if (const float a = std::abs (x[i]); a > knee)
                         x[i] = std::copysign (knee + room * std::tanh ((a - knee) / room), x[i]);
+                }
             }
         }
     }

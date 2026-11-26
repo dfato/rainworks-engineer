@@ -218,10 +218,11 @@ A file with the same `id` as a built-in replaces it.
   Gospel, Soul, R&B, Neo-Soul, Afrobeats and Jazz use the most runs.
 - **Falls** drop the pitch off the end of a phrase. Rock, Country, Drill, Melodic rap and Jazz use them.
 - **Tone** sets brightness (presence and air), warmth (low mids), grit (rasp that follows the voice's level)
-  and breath (airy noise that rides the voice), plus **compression**. Pop, Trap and K-pop are bright and
+  and breath (aspiration noise pulsed by the voice's own cycles), plus **compression**. Pop, Trap and K-pop are bright and
   tightly compressed. Rock, Gospel and Metal have grit. Lo-Fi, Neo-Soul and Jazz are dark and warm.
 
-The loudness of the take is kept. The **Amount** slider next to Style sets how strongly all of this is
+The loudness of the take is kept, and the gaps between phrases stay exactly as recorded, so the tone stage
+never raises the hiss floor (before, the compressor's make-up gain lifted it 2 to 7 dB). The **Amount** slider next to Style sets how strongly all of this is
 applied: 0% is tuning only, 100% is the style as designed, and 200% exaggerates it (double-click for 100%).
 At Correct 0% the take still plays exactly as sung.
 

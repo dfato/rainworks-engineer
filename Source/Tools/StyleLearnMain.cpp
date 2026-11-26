@@ -25,6 +25,7 @@
 //   --amount <0..2>    with --render: style amount (1 = as designed)
 //   --correct <0..1>   with --render: the Correct amount (default: the style's)
 //   --no-intent        with --render: correct every note alike (the plugin's Intent toggle off)
+//   --no-tone          with --render: skip the ToneShaper (pitch and expression only)
 //   --key <key>        with --render: the song's key (e.g. Gm, F#), instead of guessing it from the vocal
 //   --engine <e>       pitch tracker: auto (neural when its model is installed, default), dsp or neural
 //   --referee <e>      with --render: tracker that measures the result (default: dsp, so trackers compare fairly)
@@ -181,6 +182,7 @@ int main (int argc, char* argv[])
     juce::String keyName;
     float correctOverride = -1.0f;
     bool useIntent = true;
+    bool noTone = false;
     juce::String renderStyle, renderOut;
     juce::StringArray inputs;
     auto engine = PitchTracker::Engine::automatic, referee = PitchTracker::Engine::dsp;
@@ -206,6 +208,7 @@ int main (int argc, char* argv[])
         else if (a == "--key")        keyName = next();
         else if (a == "--correct")    correctOverride = next().getFloatValue();
         else if (a == "--no-intent")  useIntent = false;
+        else if (a == "--no-tone")    noTone = true;
         else if (a == "--render")     { renderStyle = next(); renderOut = next(); }
         else if (a == "--engine")     engine = parseEngine (next());
         else if (a == "--referee")    referee = parseEngine (next());
@@ -318,13 +321,14 @@ int main (int argc, char* argv[])
         }
         juce::AudioBuffer<float> out;
         PitchCorrectRenderer::psolaShift (audio, out, sr, f0, shift);
-        ToneShaper::process (out, sr, style);
+        if (! noTone) ToneShaper::process (out, sr, style);
 
         auto outFile = juce::File::getCurrentWorkingDirectory().getChildFile (renderOut);
         outFile.deleteFile();
         std::unique_ptr<juce::OutputStream> os = std::make_unique<juce::FileOutputStream> (outFile);
         juce::WavAudioFormat wav;
-        auto w = wav.createWriterFor (os, juce::AudioFormatWriterOptions{}.withSampleRate (sr).withNumChannels (1).withBitsPerSample (16));
+        auto w = wav.createWriterFor (os, juce::AudioFormatWriterOptions{}.withSampleRate (sr).withNumChannels (1).withBitsPerSample (32)
+                                                       .withSampleFormat (juce::AudioFormatWriterOptions::SampleFormat::floatingPoint));
         if (w == nullptr) return fail ("cannot write " + renderOut);
         w->writeFromAudioSampleBuffer (out, 0, out.getNumSamples());
         // How in tune the result is: re-track the output and compare each note's middle with its

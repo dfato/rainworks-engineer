@@ -1076,6 +1076,45 @@ public:
             expect (lib.get ("rock").grit > 0.3f && lib.get ("lo-fi").brightness < 0.0f);
             expect (lib.get ("natural").hasTone() == false);
         }
+
+        beginTest ("Tone shaping leaves the noise floor in gaps alone (no hiss lift)");
+        {
+            // Phrases of a 220 Hz voice with 0.5 s gaps, over a -66 dBFS hiss floor.
+            const double sr = 44100.0;
+            const int n = (int) (4.0 * sr);
+            juce::AudioBuffer<float> take (1, n);
+            juce::Random rng (11);
+            const float floorRms = std::pow (10.0f, -66.0f / 20.0f);
+            auto inGap = [sr] (int i) { const double t = std::fmod ((double) i / sr, 1.0); return t >= 0.5; };
+            for (int i = 0; i < n; ++i)
+            {
+                const double t = (double) i / sr, ph = std::fmod (t, 1.0);
+                const float env = inGap (i) ? 0.0f : (float) std::sin (juce::MathConstants<double>::pi * ph / 0.5);
+                const float voice = 0.3f * env * (float) (std::sin (juce::MathConstants<double>::twoPi * 220.0 * t)
+                                                         + 0.3 * std::sin (juce::MathConstants<double>::twoPi * 440.0 * t));
+                take.setSample (0, i, voice + floorRms * 1.732f * (rng.nextFloat() * 2.0f - 1.0f));
+            }
+            StyleProfile heavy; heavy.brightness = 0.6f; heavy.grit = 0.5f; heavy.breath = 0.4f; heavy.compress = 0.9f;
+            auto out = take;
+            ToneShaper::process (out, sr, heavy);
+
+            // Middle of each gap, away from the phrase tails.
+            double si = 0.0, so = 0.0;
+            for (int i = 0; i < n; ++i)
+                if (const double ph = std::fmod ((double) i / sr, 1.0); ph > 0.65 && ph < 0.95)
+                {
+                    si += (double) take.getSample (0, i) * take.getSample (0, i);
+                    so += (double) out.getSample (0, i) * out.getSample (0, i);
+                }
+            const double liftDb = 10.0 * std::log10 (so / si);
+            logMessage ("Gap level change: " + juce::String (liftDb, 2) + " dB");
+            expectLessThan (std::abs (liftDb), 0.5);
+            // The tone still applies to the voice, and the loudness is kept.
+            expectWithinAbsoluteError ((double) out.getRMSLevel (0, 0, n), (double) take.getRMSLevel (0, 0, n), take.getRMSLevel (0, 0, n) * 0.02);
+            float maxDiff = 0.0f;
+            for (int i = 0; i < n; ++i) if (! inGap (i)) maxDiff = juce::jmax (maxDiff, std::abs (out.getSample (0, i) - take.getSample (0, i)));
+            expectGreaterThan (maxDiff, 0.02f);
+        }
     }
 };
 
