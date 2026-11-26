@@ -35,12 +35,13 @@ namespace ve
             float spokenMinConfidence = 0.7f, spokenMaxSpreadCents = 60.0f;
             float quietBelowDb = -18.0f;
             // With the neural tracker, confidence is the network's peak salience, not YIN's.
-            float spokenMinSalience = 0.6f;
+            float spokenMinSalience = 0.3f;
             // Technique classifier: probability needed to mark a note.
             float techniqueThreshold = 0.5f;
-            float spokenClassifierThreshold = 0.6f;   // marked spoken, 80% of Correct
-            float spokenSureThreshold = 0.85f;        // left as sung
-            float gritScale = 0.5f;    // screamed/gritty notes: pitch is rough, a hard pull makes it warble
+            float spokenClassifierThreshold = 0.6f;   // marked spoken (still corrected)
+            float gritThreshold = 0.6f;      // marked gritty
+            float screamThreshold = 0.85f;   // pulled more gently: a hard pull makes a scream warble
+            float gritScale = 0.6f;
         };
 
         struct Analysis

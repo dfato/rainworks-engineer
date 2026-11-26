@@ -741,7 +741,7 @@ juce::String VocalEngineProcessor::intentSummary (const std::vector<ve::Note>& n
     int counts[kinds] = {};
     for (auto& n : notes)
         for (int b = 0; b < kinds; ++b)
-            if (n.intent & (1 << b)) ++counts[b];
+            if ((n.intent & (1 << b)) && (b != 5 || n.intentScale < 1.0f)) ++counts[b];   // spoken: only when it changed the pull
     static const char* names[] = { "slides", "vibrato", "scoops", "passing notes", "chosen accidentals", "spoken", "ad-libs",
                                    "breathy", "gritty", "belted" };
     juce::StringArray parts;

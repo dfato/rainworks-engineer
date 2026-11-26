@@ -271,8 +271,9 @@ The built-in genre styles were tuned the same way from openly licensed singing (
 | Chosen accidental (held, steady, on a semitone outside the key) | Stays on that semitone instead of being pulled into the key |
 | Spoken or rapped line | Left as sung |
 | Ad-lib (much quieter than the take) | 60% of Correct |
-| Gritty: scream, growl, fry, rasp (technique classifier) | 50% of Correct, so a scream doesn't warble |
+| Screamed or growled (technique classifier sure of it) | 60% of Correct, so a scream doesn't warble. Some rasp is marked "gritty" and corrected as usual |
 | Breathy or belted (technique classifier) | Marked only; corrected as usual |
+| Spoken or rapped (technique classifier) | Marked only; pitch evidence (above) decides whether it's corrected |
 
 1. Import or record a take sung with some slides, a blue note and a spoken line. The status bar lists what
    was found ("12 notes. Kept as sung or corrected gently: 2 slides, 1 chosen accidental, ...").
@@ -305,11 +306,20 @@ Measured on vocadito (40 solo vocals with reference pitch, CC BY 4.0), as raw pi
 | Noise floor (15 dB SNR) | 95.2%, 2.3% | 97.4%, 0.1% |
 | Notes heard where nothing is sung (clean) | 21.6% of silent frames | 11.0% |
 
-`tools/pitch-models/eval_pitch.py` reproduces this; the Windows CI build runs it on every push.
+Notes found correctly (onset within 50 ms, pitch within 50 cents of vocadito's note annotations) go from
+67.9% to 69.9% on clean takes and from 58.8% to 65.7% with reverb, mostly because far fewer phantom notes
+are made from breaths and room tails.
+
+The final tuning is about the same as before: rendered with Pop and Intent on, 98-99% of held notes land
+within 25 cents either way (DSP 99.0-99.3%, neural 98.4-99.0% across clean, reverb and noisy copies), with
+a slightly tighter median (1.2-1.5 cents against 1.3-1.6). The DSP path was already near the ceiling on
+those takes; the neural path's gain is that it is wrong less often about *what* was sung.
+
+`tools/pitch-models/eval_pitch.py` reproduces the tracker numbers; the Windows CI build runs it on every push.
 
 1. Import a take. The status bar says "Pitch analysis: Neural pitch (FCPE) + technique detection".
    If it says "DSP pitch tracker (...)", the reason is in the brackets.
-2. Right-click a screamed or breathy note: "Sung as: Gritty (50% of Correct)".
+2. Right-click a screamed or breathy note: "Sung as: Gritty (60% of Correct)".
 
 ### 12b. Voice models (Stage 5)
 

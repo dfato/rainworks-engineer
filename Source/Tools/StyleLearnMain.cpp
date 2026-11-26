@@ -30,6 +30,7 @@
 //   --referee <e>      with --render: tracker that measures the result (default: dsp, so trackers compare fairly)
 //   --voicing <0..1>   neural tracker: salience below which a frame is unvoiced
 //   --refine <cents>   neural tracker: keep YIN's estimate where it agrees within this many cents (default 50, 0 = off)
+//   --no-techniques    neural tracker: skip the technique classifier
 //   --rescue <0..1>    neural tracker: keep frames down to this salience voiced where a confident YIN agrees
 //   --pitch-eval <csv> instead of learning: compare the tracker on the first input with a reference
 //                      f0 file ("time,hz" per line, 0 Hz = unvoiced, as vocadito/MIR datasets ship)
@@ -211,6 +212,7 @@ int main (int argc, char* argv[])
         else if (a == "--voicing")    neural.voicingThreshold = next().getFloatValue();
         else if (a == "--refine")     neural.refineCents = next().getFloatValue();
         else if (a == "--rescue")     neural.rescueThreshold = next().getFloatValue();
+        else if (a == "--no-techniques") neural.techniques = false;
         else if (a == "--pitch-eval") pitchEvalRef = next();
         else if (a == "--note-eval")  noteEvalRef = next();
         else if (a == "--help" || a == "-h") { std::cout << "See the comment at the top of Source/Tools/StyleLearnMain.cpp" << std::endl; return 0; }
@@ -349,8 +351,12 @@ int main (int argc, char* argv[])
                         if (v.size() < 3) continue;
                         std::sort (v.begin(), v.end());
                         const float med = v[v.size() / 2];
-                        errs.push_back (std::abs (med - n.targetMidi) * 100.0f);
-                        if (std::abs (med - n.targetMidi) > 0.25f && juce::SystemStats::getEnvironmentVariable ("VE_OFF_NOTES", {}).isNotEmpty())
+                        // Whole octaves are the measuring tracker slipping, not the render (the
+                        // shift curve never moves a note an octave), so they are folded out.
+                        float d = med - n.targetMidi;
+                        d -= 12.0f * std::round (d / 12.0f);
+                        errs.push_back (std::abs (d) * 100.0f);
+                        if (std::abs (d) * 100.0f > juce::SystemStats::getEnvironmentVariable ("VE_OFF_NOTES", "25").getFloatValue() && juce::SystemStats::getEnvironmentVariable ("VE_OFF_NOTES", {}).isNotEmpty())
                             std::cerr << "  " << label << " off: " << juce::String ((double) n.start / sr, 2) << "s len "
                                       << juce::String ((double) (n.end - n.start) / sr, 2) << " sung " << juce::String (n.detectedMidi, 2)
                                       << " target " << n.targetMidi << " got " << juce::String (med, 2) << " corr "

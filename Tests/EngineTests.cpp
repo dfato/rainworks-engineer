@@ -1675,11 +1675,11 @@ public:
             mark (notes[3], TechniqueFrame::belt, 0.7f);
             NoteIntent::apply (t, notes, cMajor);
             expect ((notes[0].intent & NoteIntent::grit) != 0, "grit");
-            expectWithinAbsoluteError (notes[0].intentScale, 0.5f, 1.0e-6f);
+            expectWithinAbsoluteError (notes[0].intentScale, 0.6f, 1.0e-6f);
             expect ((notes[1].intent & NoteIntent::breathy) != 0 && (notes[1].intent & NoteIntent::belt) == 0, "breathy");
             expectWithinAbsoluteError (notes[1].intentScale, 1.0f, 1.0e-6f);
-            expect ((notes[2].intent & NoteIntent::spoken) != 0, "rapped line");
-            expectWithinAbsoluteError (notes[2].intentScale, 0.0f, 1.0e-6f);
+            expect ((notes[2].intent & NoteIntent::spoken) != 0, "speech-like line is marked...");
+            expectWithinAbsoluteError (notes[2].intentScale, 1.0f, 1.0e-6f, "...but in a sung take still corrected");
             expect ((notes[3].intent & NoteIntent::belt) != 0, "belt");
             expect (NoteIntent::describe (notes[0].intent).containsIgnoreCase ("gritty"));
 

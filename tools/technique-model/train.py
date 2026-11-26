@@ -32,7 +32,24 @@ def load(path):
     return files
 
 
+def reverb(m):
+    """Room reverb in the mel domain: each band's magnitude smeared by a decaying tail.
+    Without this, a wet vocal's noisy tail reads as grit."""
+    rt60 = random.uniform(0.3, 2.0)                          # seconds
+    n = int(rt60 * 100)
+    k = np.exp(-6.9 * np.arange(1, n + 1) / (rt60 * 100))    # 10 ms frames
+    k *= np.exp(0.3 * np.random.randn(n))                    # rough, like a real tail
+    k /= k.sum()
+    mag = np.exp(m)
+    tail = np.stack([np.convolve(mag[:, b], k)[: len(mag)] for b in range(mag.shape[1])], 1)
+    tail = np.concatenate([np.zeros_like(tail[:1]), tail[:-1]])
+    wet = random.uniform(0.3, 1.5) * mag.mean() / max(1e-9, tail.mean())
+    return np.log(np.maximum(mag + wet * tail, 1e-5))
+
+
 def augment(m):
+    if random.random() < 0.4:
+        m = reverb(m)
     m = m + random.uniform(-2.5, 1.0)                                   # gain
     m = m + np.linspace(-1, 1, m.shape[1])[None, :] * random.uniform(-0.8, 0.8)  # spectral tilt (mic/EQ)
     if random.random() < 0.5:                                           # noise floor

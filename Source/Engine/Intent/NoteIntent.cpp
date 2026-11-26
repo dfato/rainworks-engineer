@@ -144,14 +144,18 @@ namespace ve::NoteIntent
         // Only a confident call leaves the note alone; a likely one is treated like a wandering note.
         const float spokenP = hasTech ? tech[TechniqueFrame::spoken] : 0.0f;
         const bool classifiedSpoken = spokenP >= s.spokenClassifierThreshold;
-        const bool unpitched = median (conf) < minConf || spokenP >= s.spokenSureThreshold;
-        if (unpitched || classifiedSpoken || (! isVibrato && ! (out.flags & slide) && spreadCents > s.spokenMaxSpreadCents))
+        // The classifier alone never leaves a note uncorrected: sung words, a low voice or a
+        // language it hasn't heard can sound like speech to it (on vocadito it called one sung
+        // French take 95% spoken). Pitch evidence decides; the classifier's call is a mark.
+        const bool unpitched = median (conf) < minConf;
+        const bool wanders = ! isVibrato && ! (out.flags & slide) && spreadCents > s.spokenMaxSpreadCents;
+        if (unpitched || classifiedSpoken || wanders)
             out.flags |= spoken;
 
         if (hasTech)
         {
             if (tech[TechniqueFrame::breathy] >= s.techniqueThreshold) out.flags |= breathy;
-            if (tech[TechniqueFrame::grit] >= s.techniqueThreshold)    out.flags |= grit;
+            if (tech[TechniqueFrame::grit] >= s.gritThreshold)         out.flags |= grit;
             if (tech[TechniqueFrame::belt] >= s.techniqueThreshold)    out.flags |= belt;
         }
 
@@ -169,12 +173,14 @@ namespace ve::NoteIntent
         }
 
         float scale = 1.0f;
-        if (out.flags & spoken)  scale = juce::jmin (scale, unpitched ? 0.0f : 0.8f);
+        // Marked spoken by the classifier alone: corrected fully.
+        if (unpitched || wanders) scale = juce::jmin (scale, unpitched ? 0.0f : 0.8f);
         if (out.flags & slide)   scale = juce::jmin (scale, 0.4f);
         if (out.flags & passing) scale = juce::jmin (scale, 0.5f);
         if (out.flags & quiet)   scale = juce::jmin (scale, 0.6f);
         if (out.flags & scoop)   scale = juce::jmin (scale, 0.8f);
-        if (out.flags & grit)    scale = juce::jmin (scale, s.gritScale);
+        // Only a clear scream or growl is pulled more gently; a bit of rasp is still tuned.
+        if (hasTech && tech[TechniqueFrame::grit] >= s.screamThreshold) scale = juce::jmin (scale, s.gritScale);
         out.scale = scale;
         return out;
     }
