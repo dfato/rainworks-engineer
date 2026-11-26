@@ -50,7 +50,15 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
 
     timeline.onDeleteRegion = [this] (const juce::String& id) { processor.deleteRegion (id); };
     timeline.onAnalyseRegion = [this] (const juce::String& id) { processor.analyseRegion (id); };
-    timeline.onNoteChanged = [this] (const juce::String& id, int idx, const ve::Note& n) { processor.updateNote (id, idx, n); };
+    timeline.onNotesChanged = [this] (const std::vector<ve::ui::TimelineNoteEdit>& edits)
+    {
+        std::vector<VocalEngineProcessor::NoteEditItem> items;
+        for (auto& e : edits) items.push_back ({ e.regionId, e.index, e.note });
+        processor.updateNotes (items);
+    };
+    timeline.onUndo = [this] { processor.undoNoteEdit(); };
+    timeline.onRedo = [this] { processor.redoNoteEdit(); };
+    timeline.onSnapToScaleChanged = [this] (bool on) { processor.setSnapToScale (on); };
     timeline.onSplitNote = [this] (const juce::String& id, int idx, std::int64_t at) { processor.splitNote (id, idx, at); };
     timeline.onMergeNote = [this] (const juce::String& id, int idx) { processor.mergeNoteWithNext (id, idx); };
     controls.onCorrectionChanged = [this] (float a) { processor.setGlobalCorrection (a); };
@@ -222,6 +230,18 @@ void VocalEngineEditor::rebuildFromSession()
     const auto key = session.getEffectiveKey (&isOverride);
     d.keyText = key.isValid() ? ve::Analysis::keyName (key.tonic, key.minor) : "not analysed";
     d.keyIsOverride = isOverride;
+    d.scaleKey = processor.getSnappingKey();
+    if (d.scaleKey.isValid())
+    {
+        d.scaleText = ve::Analysis::keyName (d.scaleKey.tonic, d.scaleKey.minor);
+        if (d.scaleKey.scale != ve::ScaleMode::key)
+            d.scaleText << ", " << ve::toString (d.scaleKey.scale);
+    }
+    else
+        d.scaleText = "no key yet: snapping to semitones";
+    d.snapToScale = session.getSnapToScale();
+    d.canUndo = processor.canUndoNoteEdit();
+    d.canRedo = processor.canRedoNoteEdit();
 
     for (auto& desc : session.getRegionDescriptors())
     {

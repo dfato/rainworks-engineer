@@ -18,6 +18,10 @@ namespace ve
         std::int64_t timeShift = 0;  // user timing nudge in samples (+ = later); applied by time-stretching
         std::uint16_t intent = 0;    // Stage 4 NoteIntent::Flags
         float intentScale = 1.0f;    // how much of the global correction this note gets (from intent)
+        float vibrato = 1.0f;        // graph editor: scales the vibrato kept/added on this note (0 = flat, 2 = double)
+        float drift = -1.0f;         // graph editor: share of the sung pitch drift kept (0..1); < 0 = automatic
+
+        bool hasDriftOverride() const noexcept { return drift >= 0.0f; }
 
         float centsOff() const noexcept { return (detectedMidi - targetMidi) * 100.0f; }
     };
@@ -51,6 +55,14 @@ namespace ve
 
         // Re-snaps targets of notes the user has not edited (e.g. after a key change).
         void resnap (std::vector<Note>&, const KeyEstimate& key);
+
+        // True when the semitone is one of the key's scale notes (the style's scale; every
+        // semitone without a key or with the chromatic scale).
+        bool isInScale (int midi, const KeyEstimate& key) noexcept;
+
+        // Moves `steps` scale notes up (+) or down (-) from the nearest semitone to `midi`.
+        // Without a key (or chromatic) a step is a semitone.
+        float stepInScale (float midi, const KeyEstimate& key, int steps) noexcept;
     }
 
     namespace NoteEdit
@@ -66,5 +78,10 @@ namespace ve
         // Joins note `index` with the next one: spans both, keeps the first note's target,
         // correction and nudge, detected pitch from the track over the joined span.
         bool mergeWithNext (std::vector<Note>&, int index, const PitchTrack*);
+
+        // Copies only what the graph editor changes (target, correction, timing nudge,
+        // vibrato, drift, the edited flag) so analysis fields are left alone.
+        void copyEditableFields (Note& to, const Note& from) noexcept;
+        bool editableFieldsEqual (const Note&, const Note&) noexcept;
     }
 }

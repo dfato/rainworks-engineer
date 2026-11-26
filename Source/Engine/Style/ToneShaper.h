@@ -8,7 +8,9 @@ namespace ve::ToneShaper
     // Colours a rendered take the way a genre's singers and their engineers usually do:
     // brightness (presence + air shelf), warmth (low-mid shelf), grit (saturation of the
     // mids that tracks the voice's level, so quiet words get rasp too), breath (airy noise
-    // that follows the voice) and compression. The take's overall loudness is kept.
+    // pulsed by the voice's own glottal cycles) and compression. The take's overall loudness
+    // is kept, and the gaps between phrases (noise floor) are left exactly as recorded, so
+    // the render never has more hiss than the take.
     // A style with no tone settings leaves the audio untouched.
     void process (juce::AudioBuffer<float>&, double sampleRate, const StyleProfile&);
 }

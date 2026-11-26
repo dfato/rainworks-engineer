@@ -234,10 +234,11 @@ A file with the same `id` as a built-in replaces it.
   R&B uses them on a few long notes; the other genres leave runs to the singer.
 - **Falls** drop the pitch off the end of a phrase. No built-in genre adds them; a custom style can.
 - **Tone** sets brightness (presence and air), warmth (low mids), grit (rasp that follows the voice's level)
-  and breath (airy noise that rides the voice), plus **compression**. Rock, Pop and Trap are bright and
+  and breath (aspiration noise pulsed by the voice's own cycles), plus **compression**. Rock, Pop and Trap are bright and
   tightly compressed. R&B and Indie are warm. No built-in genre adds grit or breath.
 
-The loudness of the take is kept. The **Amount** slider next to Style sets how strongly all of this is
+The loudness of the take is kept, and the gaps between phrases stay exactly as recorded, so the tone stage
+never raises the hiss floor (before, the compressor's make-up gain lifted it 2 to 7 dB). The **Amount** slider next to Style sets how strongly all of this is
 applied: 0% is tuning only, 100% is the style as designed, and 200% exaggerates it (double-click for 100%).
 At Correct 0% the take still plays exactly as sung.
 
@@ -273,6 +274,30 @@ signature (scale, tone, compression and, for Rock, Hip-Hop and Trap, the whole p
    way). Pitch, vibrato and formants are kept. Audio away from moved notes is untouched.
 5. Right-click a blob > **Split note here** cuts it where you clicked (each half gets its own pitch);
    **Merge with next note** joins it with the following blob.
+
+### 11b. Graph editing: selection, snap to scale, undo
+
+The Notes lane is the note graph; it now takes half the timeline height and has a tool row above it.
+
+1. **Select**: click a blob to select it (white outline). **Ctrl/Cmd-click** or **Shift-click** adds or removes
+   notes; **drag on empty graph space** for a box selection (hold Shift/Ctrl to add to it); **Ctrl+A** selects
+   everything, **Esc** clears. Right-click a blob > **Select all notes at this pitch**.
+2. **Move together**: drag any selected blob and the whole selection moves (up/down in pitch, **Shift + drag** in
+   time, snapping to 1/16; hold Alt for free moves).
+3. **Snap to scale** (tool row, on by default, saved with the project): pitch moves land on the notes of the key
+   and the style's scale (shown at the right, e.g. "A minor, pentatonic"; scale rows are shaded in the graph).
+   Off: semitone steps. Alt always moves freely in cents. Right-click > **Snap to scale** or **S** puts selected
+   notes onto the nearest scale note.
+4. **Correct / Vibrato / Drift sliders** edit the selection: Correct = how far notes are pulled (0-100%);
+   Vibrato = vibrato kept (0% flat line, 100% as the style decides, 200% double); Drift = slow pitch wander kept
+   inside the note (0% dead steady, 100% as sung; far left = Auto, set by Correct). Notes with custom vibrato or
+   drift show a small "v0" / "d50" tag. The right-click menu has the same options for the selection.
+5. **Undo / Redo**: buttons, or **Ctrl+Z** and **Ctrl+Shift+Z / Ctrl+Y**. Covers drags, sliders, menu edits,
+   split and merge. Undo only puts back what you edited, so a key or style change made since is kept.
+6. **Keys** (click in the graph first so it has focus): **Up/Down** = one scale step (semitone with Snap off),
+   **Shift+Up/Down** = octave, **Alt+Up/Down** = 5 cents, **Left/Right** = move 1/16 in time,
+   **Enter** = correct 100%, **Delete/Backspace** = leave as sung (0%). If FL Studio plays notes instead, turn off
+   "Typing keyboard to piano roll" in FL's Options menu.
 
 ### 12. Intent (Stage 4)
 
