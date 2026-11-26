@@ -68,7 +68,7 @@ statistics describe speech-like delivery.
 
 The hand-tuned values were checked on 21 real lead vocals (3 or 4 per genre) from MUSDB18-HQ, a research-only
 dataset that is used for listening tests and measurements only: nothing from it is learned, committed or
-shipped. On every test vocal the genre lands 79-98% of held notes within 10 cents and 87-100% within 25 cents
+shipped. On every test vocal the genre lands 75-100% of held notes within 10 cents and 87-100% within 25 cents
 of the target (measured by re-tracking the output), with Trap the flattest line and Indie the loosest.
 
 Timing (`quantize`, `swing`) was not learned for any style: none of these datasets gives the song tempo.
