@@ -14,6 +14,7 @@
 #include "Engine/SidechainAnalysis.h"
 #include "Engine/TakeImporter.h"
 #include "Engine/NotePlan.h"
+#include "Engine/NoteHistory.h"
 #include "Engine/PitchTracker.h"
 #include "Engine/PitchCorrectRenderer.h"
 #include "Engine/TimeWarp.h"
@@ -27,6 +28,7 @@
 #include "Engine/TempoMap.h"
 #include "Engine/TripleBuffer.h"
 #include "State/SessionModel.h"
+#include <map>
 
 using namespace ve;
 
@@ -1971,6 +1973,152 @@ public:
         }
     }
 };
+
+class GraphEditTests final : public juce::UnitTest
+{
+public:
+    GraphEditTests() : juce::UnitTest ("Graph editing", "VocalEngine") {}
+
+    void runTest() override
+    {
+        beginTest ("Scale snapping and scale steps follow the key and the style's scale");
+        {
+            KeyEstimate c; c.tonic = 0;
+            expect (NoteSegmenter::isInScale (60, c) && NoteSegmenter::isInScale (64, c) && ! NoteSegmenter::isInScale (61, c));
+            expectEquals (NoteSegmenter::stepInScale (60.0f, c, 1), 62.0f);
+            expectEquals (NoteSegmenter::stepInScale (64.0f, c, 1), 65.0f);
+            expectEquals (NoteSegmenter::stepInScale (61.0f, c, 1), 62.0f);   // off-scale: next scale note up
+            expectEquals (NoteSegmenter::stepInScale (60.0f, c, -2), 57.0f);
+            expectEquals (NoteSegmenter::snapToKey (61.4f, c), 62.0f);
+            KeyEstimate penta = c; penta.scale = ScaleMode::pentatonic;
+            expectEquals (NoteSegmenter::stepInScale (64.0f, penta, 1), 67.0f);
+            expectEquals (NoteSegmenter::snapToKey (65.2f, penta), 64.0f);
+            KeyEstimate aMinor; aMinor.tonic = 9; aMinor.minor = true;
+            expectEquals (NoteSegmenter::stepInScale (57.0f, aMinor, 1), 59.0f);
+            expect (! NoteSegmenter::isInScale (66, aMinor));   // F# is not in A natural minor
+            KeyEstimate none;
+            expectEquals (NoteSegmenter::stepInScale (60.3f, none, 3), 63.0f);
+        }
+
+        beginTest ("Undo puts back only the edited notes and keeps later key changes");
+        {
+            std::map<juce::String, std::vector<Note>> takes;
+            auto make = [] (float d) { Note n; n.detectedMidi = d; n.targetMidi = std::round (d); return n; };
+            takes["a"] = { make (60.2f), make (62.1f), make (64.3f) };
+            const auto get = [&] (const juce::String& id) -> std::optional<std::vector<Note>>
+            {
+                if (auto it = takes.find (id); it != takes.end()) return it->second;
+                return std::nullopt;
+            };
+            const auto set = [&] (const juce::String& id, const std::vector<Note>& v) { takes[id] = v; };
+
+            NoteHistory h;
+            auto before = takes["a"];
+            auto after = before;
+            after[1].targetMidi = 65.0f; after[1].vibrato = 0.0f; after[1].userEdited = true;
+            takes["a"] = after;
+            h.record ({ { "a", before, after } });
+            h.record ({ { "a", after, after } });            // no change: not a step
+            expectEquals (h.getNumUndoSteps(), 1);
+
+            takes["a"][0].targetMidi = 59.0f;                   // e.g. a key change re-snaps another note
+            expect (h.undo (get, set).contains ("a"));
+            expectEquals (takes["a"][1].targetMidi, 62.0f);
+            expectEquals (takes["a"][1].vibrato, 1.0f);
+            expectEquals (takes["a"][0].targetMidi, 59.0f, "untouched note keeps the later change");
+            expect (h.canRedo());
+            h.redo (get, set);
+            expectEquals (takes["a"][1].targetMidi, 65.0f);
+
+            // Split: the note count changes, undo swaps the list back.
+            auto split = takes["a"];
+            split.insert (split.begin() + 1, make (61.0f));
+            h.record ({ { "a", takes["a"], split } });
+            takes["a"] = split;
+            h.undo (get, set);
+            expectEquals ((int) takes["a"].size(), 3);
+            expect (h.canRedo());
+
+            // Re-analysed since: the history no longer lines up and is dropped.
+            takes["a"].push_back (make (70.0f));
+            expect (h.undo (get, set).isEmpty());
+            expect (! h.canUndo() && ! h.canRedo());
+        }
+
+        beginTest ("Per-note vibrato and drift change the render and survive a session round trip");
+        {
+            const double sr = 48000.0;
+            const int n = (int) sr;
+            std::vector<float> f0 ((size_t) n);
+            for (int i = 0; i < n; ++i) // 57.3 with +-30 cent, 5 Hz vibrato and a slow 40 cent sag
+            {
+                const float t = (float) i / (float) sr;
+                f0[(size_t) i] = PitchTrack::midiToHz (57.3f + 0.3f * std::sin (juce::MathConstants<float>::twoPi * 5.0f * t) - 0.4f * t);
+            }
+            Note note; note.start = 0; note.end = n; note.detectedMidi = 57.1f; note.targetMidi = 57.0f; note.correction = 1.0f;
+            note.intent = NoteIntent::vibrato;
+            StyleProfile style;   // natural: keeps the singer's vibrato
+
+            auto measure = [&] (const Note& nt)
+            {
+                const auto sh = ExpressionLayer::buildShiftCurve (NotePlan { { nt } }, style, f0, sr);
+                // Vibrato: spread around a 200 ms moving average; drift: start vs end of the note.
+                std::vector<float> out ((size_t) n);
+                for (int i = 0; i < n; ++i) out[(size_t) i] = PitchTrack::hzToMidi (f0[(size_t) i]) + sh[(size_t) i];
+                float vib = 0.0f;
+                const int w = (int) (0.1 * sr);
+                for (int i = n / 4; i < n * 3 / 4; i += 64)
+                {
+                    double avg = 0.0;
+                    for (int j = i - w; j < i + w; j += 16) avg += out[(size_t) j];
+                    avg /= (double) (2 * w / 16);
+                    vib = juce::jmax (vib, std::abs (out[(size_t) i] - (float) avg));
+                }
+                auto mean = [&] (int a, int b) { double m = 0.0; for (int i = a; i < b; ++i) m += out[(size_t) i]; return (float) (m / (b - a)); };
+                const float sag = mean ((int) (0.2 * sr), (int) (0.4 * sr)) - mean ((int) (0.7 * sr), (int) (0.9 * sr));
+                return std::make_pair (vib, sag);
+            };
+
+            const auto normal = measure (note);
+            Note flat = note; flat.vibrato = 0.0f;
+            Note wide = note; wide.vibrato = 2.0f;
+            Note keepDrift = note; keepDrift.drift = 1.0f;
+            const auto f = measure (flat), wv = measure (wide), kd = measure (keepDrift);
+            logMessage ("vibrato normal " + juce::String (normal.first) + " flat " + juce::String (f.first) + " double " + juce::String (wv.first)
+                        + "; sag auto " + juce::String (normal.second) + " kept " + juce::String (kd.second));
+            expect (normal.first > 0.15f, "natural keeps the vibrato");
+            expect (f.first < normal.first * 0.25f, "Vibrato 0% flattens it");
+            expect (wv.first > normal.first * 1.6f, "Vibrato 200% widens it");
+            expect (std::abs (normal.second) < 0.1f, "auto drift: a corrected note is held steady");
+            expect (kd.second > 0.15f, "Drift 100% keeps the sag");
+
+            NotePlan p0 { { note } }, p1 { { flat } }, p2 { { keepDrift } };
+            expect (p0.hash() != p1.hash() && p0.hash() != p2.hash());
+            Note quiet = note; quiet.targetMidi = quiet.detectedMidi; quiet.vibrato = 0.0f;
+            expect (! NotePlan { { quiet } }.isIdentity(), "flattening vibrato is a change even on target");
+
+            SessionModel s;
+            CapturedRegion cr; cr.id = "r1"; cr.lengthSamples = n; cr.sampleRate = sr; cr.numChannels = 1;
+            s.addRegion (cr);
+            s.setNotes ("r1", { flat, keepDrift, note });
+            auto xml = s.toXml();
+            SessionModel back;
+            expect (back.restoreFromXml (*xml).wasOk());
+            const auto notes = back.getNotePlan ("r1").notes;
+            expectEquals ((int) notes.size(), 3);
+            if (notes.size() == 3)
+            {
+                expectEquals (notes[0].vibrato, 0.0f);
+                expect (! notes[0].hasDriftOverride());
+                expectEquals (notes[1].drift, 1.0f);
+                expectEquals (notes[2].vibrato, 1.0f);
+            }
+            expect (back.getSnapToScale(), "snap to scale defaults on");
+        }
+    }
+};
+
+static GraphEditTests graphEditTests;
 
 static NeuralTests neuralTests;
 static IntentTests intentTests;

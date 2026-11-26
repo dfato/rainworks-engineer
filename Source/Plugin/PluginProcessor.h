@@ -4,6 +4,7 @@
 #include "Engine/CaptureEngine.h"
 #include "Engine/HostContext.h"
 #include "Engine/JobQueue.h"
+#include "Engine/NoteHistory.h"
 #include "Engine/PlaybackEngine.h"
 #include "Engine/RenderCache.h"
 #include "Engine/TripleBuffer.h"
@@ -94,6 +95,15 @@ public:
     void rescanVoices();
     void setVoiceGpu (bool);
     void updateNote (const juce::String& regionId, int noteIndex, const ve::Note&);
+    // Graph editor: several notes (possibly in several takes) changed together, one undo step.
+    struct NoteEditItem { juce::String regionId; int index = -1; ve::Note note; };
+    void updateNotes (const std::vector<NoteEditItem>&);
+    void undoNoteEdit();
+    void redoNoteEdit();
+    bool canUndoNoteEdit() const noexcept { return noteHistory.canUndo(); }
+    bool canRedoNoteEdit() const noexcept { return noteHistory.canRedo(); }
+    void setSnapToScale (bool);
+    ve::KeyEstimate getSnappingKey() const { return snappingKey(); }
     void splitNote (const juce::String& regionId, int noteIndex, std::int64_t atSample);  // sung (input) time
     void mergeNoteWithNext (const juce::String& regionId, int noteIndex);
 
@@ -146,6 +156,8 @@ private:
     std::shared_ptr<ve::RegionRenderer> pitchRenderer;       // Stage 2 pitch correction
     std::shared_ptr<ve::VoiceRenderer> voiceRenderer;        // Stage 5 voice conversion
     std::set<juce::String> pendingRerender;                  // debounced after edits
+    ve::NoteHistory noteHistory;                             // graph editor undo/redo
+    void notesEdited (const juce::String& regionId);         // marks a take for re-render after an edit
     juce::uint32 lastEditMs = 0;
     std::set<juce::String> loadingRegions;
     juce::String lastMessage;

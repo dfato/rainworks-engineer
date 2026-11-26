@@ -9,6 +9,8 @@ namespace ve
         for (auto& n : notes)
             if ((n.correction > 0.0f && std::abs (n.targetMidi - n.detectedMidi) > 1.0e-4f) || n.timeShift != 0)
                 return false;
+            else if (n.correction > 0.0f && (std::abs (n.vibrato - 1.0f) > 1.0e-4f || n.hasDriftOverride()))
+                return false;
         return true;
     }
 
@@ -30,6 +32,8 @@ namespace ve
             mix (&n.correction, sizeof (float));
             if (n.timeShift != 0) mix (&n.timeShift, sizeof (n.timeShift)); // keeps old hashes stable
             if (n.intent != 0) mix (&n.intent, sizeof (n.intent));       // vibrato intent changes the render
+            if (std::abs (n.vibrato - 1.0f) > 1.0e-4f) mix (&n.vibrato, sizeof (float));
+            if (n.hasDriftOverride()) mix (&n.drift, sizeof (float));
         }
         return h;
     }
@@ -70,6 +74,23 @@ namespace ve
             for (auto& n : notes)
                 if (! n.userEdited)
                     n.targetMidi = snapToKey (n.detectedMidi, key);
+        }
+
+        bool isInScale (int midi, const KeyEstimate& key) noexcept
+        {
+            return (int) snapToKey ((float) midi, key) == midi;
+        }
+
+        float stepInScale (float midi, const KeyEstimate& key, int steps) noexcept
+        {
+            int m = (int) std::lround (midi);
+            const int dir = steps > 0 ? 1 : -1;
+            for (int moved = 0, guard = 0; moved < std::abs (steps) && guard < 128; ++guard)
+            {
+                m += dir;
+                if (isInScale (m, key)) ++moved;
+            }
+            return (float) m;
         }
 
         namespace
@@ -168,6 +189,24 @@ namespace ve
 
     namespace NoteEdit
     {
+        void copyEditableFields (Note& to, const Note& from) noexcept
+        {
+            to.targetMidi = from.targetMidi;
+            to.correction = from.correction;
+            to.userEdited = from.userEdited;
+            to.timeShift = from.timeShift;
+            to.vibrato = from.vibrato;
+            to.drift = from.drift;
+        }
+
+        bool editableFieldsEqual (const Note& a, const Note& b) noexcept
+        {
+            // Bitwise: an edit is any change at all, however small.
+            auto same = [] (float x, float y) { return std::memcmp (&x, &y, sizeof (float)) == 0; };
+            return same (a.targetMidi, b.targetMidi) && same (a.correction, b.correction) && a.userEdited == b.userEdited
+                && a.timeShift == b.timeShift && same (a.vibrato, b.vibrato) && same (a.drift, b.drift);
+        }
+
         float medianMidi (const PitchTrack& t, std::int64_t start, std::int64_t end, float fallback)
         {
             if (t.hopSize <= 0 || t.frames.empty()) return fallback;

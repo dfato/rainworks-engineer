@@ -475,13 +475,74 @@ float VocalEngineProcessor::getGlobalCorrection() const
 
 void VocalEngineProcessor::updateNote (const juce::String& id, int index, const ve::Note& note)
 {
-    auto plan = session.getNotePlan (id);
-    if (index < 0 || index >= (int) plan.notes.size()) return;
-    plan.notes[(size_t) index] = note;
-    plan.notes[(size_t) index].userEdited = true;
-    session.setNotes (id, plan.notes);
+    updateNotes ({ { id, index, note } });
+}
+
+void VocalEngineProcessor::notesEdited (const juce::String& id)
+{
     pendingRerender.insert (id);
     lastEditMs = juce::Time::getMillisecondCounter();
+}
+
+void VocalEngineProcessor::updateNotes (const std::vector<NoteEditItem>& edits)
+{
+    std::vector<ve::NoteHistory::Change> step;
+    for (auto& e : edits)
+    {
+        auto it = std::find_if (step.begin(), step.end(), [&] (auto& c) { return c.regionId == e.regionId; });
+        if (it == step.end())
+        {
+            if (! session.hasNotes (e.regionId)) continue;
+            auto notes = session.getNotePlan (e.regionId).notes;
+            step.push_back ({ e.regionId, notes, notes });
+            it = step.end() - 1;
+        }
+        if (e.index < 0 || e.index >= (int) it->after.size()) continue;
+        auto& n = it->after[(size_t) e.index];
+        n = e.note;
+        n.userEdited = true;
+    }
+    if (step.empty()) return;
+    for (auto& c : step)
+    {
+        session.setNotes (c.regionId, c.after);
+        notesEdited (c.regionId);
+    }
+    noteHistory.record (std::move (step));
+    sendChangeMessage();
+}
+
+void VocalEngineProcessor::undoNoteEdit()
+{
+    const auto get = [this] (const juce::String& id) -> std::optional<std::vector<ve::Note>>
+    {
+        if (! session.hasNotes (id)) return std::nullopt;
+        return session.getNotePlan (id).notes;
+    };
+    const auto set = [this] (const juce::String& id, const std::vector<ve::Note>& notes) { session.setNotes (id, notes); notesEdited (id); };
+    const bool had = noteHistory.canUndo();
+    if (noteHistory.undo (get, set).isEmpty() && had)
+        postMessage ("Can't undo: the notes were re-analysed since that edit");
+    sendChangeMessage();
+}
+
+void VocalEngineProcessor::redoNoteEdit()
+{
+    const auto get = [this] (const juce::String& id) -> std::optional<std::vector<ve::Note>>
+    {
+        if (! session.hasNotes (id)) return std::nullopt;
+        return session.getNotePlan (id).notes;
+    };
+    const auto set = [this] (const juce::String& id, const std::vector<ve::Note>& notes) { session.setNotes (id, notes); notesEdited (id); };
+    const bool had = noteHistory.canRedo();
+    if (noteHistory.redo (get, set).isEmpty() && had)
+        postMessage ("Can't redo: the notes were re-analysed since that edit");
+    sendChangeMessage();
+}
+
+void VocalEngineProcessor::setSnapToScale (bool on)
+{
+    session.setSnapToScale (on);
     sendChangeMessage();
 }
 
@@ -501,14 +562,15 @@ void VocalEngineProcessor::splitNote (const juce::String& id, int index, std::in
     ve::PitchTrack track;
     const bool haveTrack = loadPitchTrack (d, track);
     const auto minLen = (std::int64_t) (0.03 * juce::jmax (1.0, d.captureSampleRate));
+    const auto before = plan.notes;
     if (! ve::NoteEdit::split (plan.notes, index, at, haveTrack ? &track : nullptr, minLen))
     {
         postMessage ("Can't split there: both halves need to be at least 30 ms long.");
         return;
     }
     session.setNotes (id, plan.notes);
-    pendingRerender.insert (id);
-    lastEditMs = juce::Time::getMillisecondCounter();
+    noteHistory.record ({ { id, before, plan.notes } });
+    notesEdited (id);
     sendChangeMessage();
 }
 
@@ -518,11 +580,12 @@ void VocalEngineProcessor::mergeNoteWithNext (const juce::String& id, int index)
     const auto d = session.getRegionDescriptor (session.findRegion (id));
     ve::PitchTrack track;
     const bool haveTrack = loadPitchTrack (d, track);
+    const auto before = plan.notes;
     if (! ve::NoteEdit::mergeWithNext (plan.notes, index, haveTrack ? &track : nullptr))
         return;
     session.setNotes (id, plan.notes);
-    pendingRerender.insert (id);
-    lastEditMs = juce::Time::getMillisecondCounter();
+    noteHistory.record ({ { id, before, plan.notes } });
+    notesEdited (id);
     sendChangeMessage();
 }
 
@@ -708,6 +771,7 @@ void VocalEngineProcessor::applyState (const juce::XmlElement& xml)
     }
 
     jobs->cancelAll();
+    noteHistory.clear();
     loadingRegions.clear();
     monitoringMode.store ((int) session.getMonitoringMode());
     capture.setDataFolder (session.getDataFolder());
