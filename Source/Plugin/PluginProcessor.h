@@ -154,6 +154,8 @@ private:
     juce::CriticalSection cachedStateLock; // never taken on the audio thread
     juce::MemoryBlock cachedState;
 
+    juce::String lastPitchEngine;   // message thread: last analysis engine reported to the user
+
     std::shared_ptr<std::atomic<bool>> alive = std::make_shared<std::atomic<bool>> (true);
 
     // Declared last so it is destroyed first: workers stop before anything they touch.

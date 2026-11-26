@@ -9,16 +9,37 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Configure (with ONNX Runtime for voice models)
-        run: cmake -S . -B build -A x64 -DVE_WITH_ONNX=ON
-      - name: Build
-        run: cmake --build build --config Release --parallel
-      - name: Engine tests + ONNX smoke test
-        run: ctest --test-dir build -C Release --output-on-failure
-      - name: Check ONNX Runtime + DirectML ship inside the VST3 bundle
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Export the neural pitch model (FCPE, MIT)
         shell: pwsh
         run: |
-          foreach ($name in "onnxruntime.dll", "DirectML.dll") {
+          python -m pip install --quiet torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --quiet torchfcpe==0.0.4 onnx onnxruntime numpy soundfile
+          New-Item -ItemType Directory -Force build | Out-Null
+          python tools/pitch-models/export_fcpe.py --out build/pitch-fcpe.onnx
+      - name: Configure (with ONNX Runtime for voice models)
+        run: cmake -S . -B build -A x64 -DVE_WITH_ONNX=ON -DVE_PITCH_MODEL_FILE="${{ github.workspace }}/build/pitch-fcpe.onnx"
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Engine tests + ONNX smoke test (neural pitch and technique models included)
+        env:
+          VE_PITCH_MODEL: ${{ github.workspace }}/build/pitch-fcpe.onnx
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Neural vs DSP pitch on vocadito (CC BY 4.0, reference f0)
+        shell: pwsh
+        env:
+          VE_PITCH_MODEL: ${{ github.workspace }}/build/pitch-fcpe.onnx
+        run: |
+          Invoke-WebRequest https://zenodo.org/api/records/5578807/files/vocadito.zip/content -OutFile vocadito.zip
+          Expand-Archive vocadito.zip -DestinationPath vocadito
+          python tools/pitch-models/eval_pitch.py --tool build/EngineerStyleLearn_artefacts/Release/EngineerStyleLearn.exe `
+            --audio vocadito/Audio --f0 vocadito/Annotations/F0 --config "dsp:--engine dsp" --config "neural:--engine neural"
+      - name: Check ONNX Runtime, DirectML and the pitch model ship inside the VST3 bundle
+        shell: pwsh
+        run: |
+          foreach ($name in "onnxruntime.dll", "DirectML.dll", "pitch-fcpe.onnx") {
             $dll = Get-ChildItem -Recurse build/VocalEngine_artefacts/Release/VST3 -Filter $name
             if (-not $dll) { throw "$name missing from the VST3 bundle" }
             $dll.FullName

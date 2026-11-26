@@ -1,4 +1,5 @@
 #include "NoteIntent.h"
+#include "../ML/TechniqueDetector.h"
 #include <algorithm>
 #include <cmath>
 
@@ -87,8 +88,17 @@ namespace ve::NoteIntent
         for (float x : core) spread += (double) (x - centre) * (x - centre);
         const float spreadCents = 100.0f * (float) std::sqrt (spread / (double) core.size());
 
-        const bool isVibrato = durMs >= s.vibratoMinMs && out.vibratoCents >= s.vibratoMinCents
-                               && out.vibratoHz >= s.vibratoMinHz && out.vibratoHz <= s.vibratoMaxHz;
+        // Technique classifier means over the note (all zero when the track has none).
+        const bool hasTech = t.hasTechnique();
+        if (hasTech) out.technique = TechniqueDetector::summarise (t, n.start, n.end);
+        const auto& tech = out.technique;
+
+        // Vibrato: the pitch-curve test, or the classifier is sure and the wobble is at least
+        // half the usual depth at a vibrato rate (it hears loudness/timbre vibrato too).
+        const bool rateOk = out.vibratoHz >= s.vibratoMinHz && out.vibratoHz <= s.vibratoMaxHz;
+        const bool isVibrato = durMs >= s.vibratoMinMs && rateOk
+                               && (out.vibratoCents >= s.vibratoMinCents
+                                   || (hasTech && tech[TechniqueFrame::vibrato] >= s.techniqueThreshold && out.vibratoCents >= 0.5f * s.vibratoMinCents));
         if (isVibrato) out.flags |= vibrato;
 
         // Slide: start and end sit far apart and the pitch moves steadily between them.
@@ -127,9 +137,27 @@ namespace ve::NoteIntent
         // Only the first is left alone: a clearly pitched note that wanders is most often a
         // singer not holding the note, which is exactly what correction is for, so it is still
         // pulled in (most of the way; the drift itself is smoothed by the expression layer).
-        const bool unpitched = median (conf) < s.spokenMinConfidence;
-        if (unpitched || (! isVibrato && ! (out.flags & slide) && spreadCents > s.spokenMaxSpreadCents))
+        // Neural tracks carry the network's salience as confidence, a different scale from YIN's.
+        const float minConf = t.engine == PitchEngine::neural ? s.spokenMinSalience : s.spokenMinConfidence;
+        // The classifier recognises talking and rapping from the sound itself (rhythm of
+        // syllables, no held vowels), which pitch alone can't separate from a sloppy note.
+        // Only a confident call leaves the note alone; a likely one is treated like a wandering note.
+        const float spokenP = hasTech ? tech[TechniqueFrame::spoken] : 0.0f;
+        const bool classifiedSpoken = spokenP >= s.spokenClassifierThreshold;
+        // The classifier alone never leaves a note uncorrected: sung words, a low voice or a
+        // language it hasn't heard can sound like speech to it (on vocadito it called one sung
+        // French take 95% spoken). Pitch evidence decides; the classifier's call is a mark.
+        const bool unpitched = median (conf) < minConf;
+        const bool wanders = ! isVibrato && ! (out.flags & slide) && spreadCents > s.spokenMaxSpreadCents;
+        if (unpitched || classifiedSpoken || wanders)
             out.flags |= spoken;
+
+        if (hasTech)
+        {
+            if (tech[TechniqueFrame::breathy] >= s.techniqueThreshold) out.flags |= breathy;
+            if (tech[TechniqueFrame::grit] >= s.gritThreshold)         out.flags |= grit;
+            if (tech[TechniqueFrame::belt] >= s.techniqueThreshold)    out.flags |= belt;
+        }
 
         // Quiet: ad-lib / ghost note.
         if (takeRms > 0.0f && median (rms) < takeRms * std::pow (10.0f, s.quietBelowDb / 20.0f))
@@ -145,11 +173,14 @@ namespace ve::NoteIntent
         }
 
         float scale = 1.0f;
-        if (out.flags & spoken)  scale = juce::jmin (scale, unpitched ? 0.0f : 0.8f);
+        // Marked spoken by the classifier alone: corrected fully.
+        if (unpitched || wanders) scale = juce::jmin (scale, unpitched ? 0.0f : 0.8f);
         if (out.flags & slide)   scale = juce::jmin (scale, 0.4f);
         if (out.flags & passing) scale = juce::jmin (scale, 0.5f);
         if (out.flags & quiet)   scale = juce::jmin (scale, 0.6f);
         if (out.flags & scoop)   scale = juce::jmin (scale, 0.8f);
+        // Only a clear scream or growl is pulled more gently; a bit of rasp is still tuned.
+        if (hasTech && tech[TechniqueFrame::grit] >= s.screamThreshold) scale = juce::jmin (scale, s.gritScale);
         out.scale = scale;
         return out;
     }
@@ -179,7 +210,7 @@ namespace ve::NoteIntent
         }
     }
 
-    juce::String describe (std::uint8_t f)
+    juce::String describe (std::uint16_t f)
     {
         juce::StringArray parts;
         if (f & slide)      parts.add ("slide");
@@ -189,6 +220,9 @@ namespace ve::NoteIntent
         if (f & accidental) parts.add ("chosen accidental");
         if (f & spoken)     parts.add ("spoken");
         if (f & quiet)      parts.add ("ad-lib");
+        if (f & breathy)    parts.add ("breathy");
+        if (f & grit)       parts.add ("gritty");
+        if (f & belt)       parts.add ("belted");
         auto s = parts.joinIntoString (", ");
         return s.isEmpty() ? s : s.substring (0, 1).toUpperCase() + s.substring (1);
     }

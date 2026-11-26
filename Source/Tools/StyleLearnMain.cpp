@@ -26,6 +26,18 @@
 //   --correct <0..1>   with --render: the Correct amount (default: the style's)
 //   --no-intent        with --render: correct every note alike (the plugin's Intent toggle off)
 //   --key <key>        with --render: the song's key (e.g. Gm, F#), instead of guessing it from the vocal
+//   --engine <e>       pitch tracker: auto (neural when its model is installed, default), dsp or neural
+//   --referee <e>      with --render: tracker that measures the result (default: dsp, so trackers compare fairly)
+//   --voicing <0..1>   neural tracker: salience below which a frame is unvoiced
+//   --refine <cents>   neural tracker: keep YIN's estimate where it agrees within this many cents (default 50, 0 = off)
+//   --no-techniques    neural tracker: skip the technique classifier
+//   --rescue <0..1>    neural tracker: keep frames down to this salience voiced where a confident YIN agrees
+//   --pitch-eval <csv> instead of learning: compare the tracker on the first input with a reference
+//                      f0 file ("time,hz" per line, 0 Hz = unvoiced, as vocadito/MIR datasets ship)
+//                      and print accuracy as one JSON line
+//   --note-eval <csv>  with --pitch-eval: also score the note segmentation against reference notes
+//                      ("onset,hz,duration" per line, as vocadito ships): a note counts when its onset
+//                      is within 50 ms and its pitch within 50 cents of an unmatched reference note
 
 #include <juce_audio_formats/juce_audio_formats.h>
 #include "Engine/Style/StyleLearner.h"
@@ -35,6 +47,8 @@
 #include "Engine/PitchCorrectRenderer.h"
 #include "Engine/SidechainAnalysis.h"
 #include "Engine/Intent/NoteIntent.h"
+#include "Engine/ML/NeuralPitch.h"
+#include "Engine/ML/TechniqueDetector.h"
 #include <iostream>
 
 using namespace ve;
@@ -57,6 +71,104 @@ namespace
         sr = r->sampleRate;
         return true;
     }
+
+    PitchTracker::Engine parseEngine (const juce::String& e)
+    {
+        if (e == "dsp") return PitchTracker::Engine::dsp;
+        if (e == "neural") return PitchTracker::Engine::neural;
+        return PitchTracker::Engine::automatic;
+    }
+
+    // Raw pitch accuracy and friends (as mir_eval.melody), against a reference f0 file.
+    int pitchEval (const juce::File& refFile, const PitchTrack& track, double sr, const juce::String& label,
+                   const juce::File& notesFile)
+    {
+        juce::StringArray lines;
+        lines.addLines (refFile.loadFileAsString());
+        int refVoiced = 0, refUnvoiced = 0, hit50 = 0, chroma50 = 0, within25 = 0, voicedHit = 0, falseAlarm = 0, octave = 0;
+        std::vector<float> errs;
+        for (auto& l : lines)
+        {
+            const auto parts = juce::StringArray::fromTokens (l, ", \t", "");
+            if (parts.size() < 2) continue;
+            const double t = parts[0].getDoubleValue();
+            const float ref = parts[1].getFloatValue();
+            // Our frame nearest to t.
+            const int i = (int) std::lround (t * sr / track.hopSize);
+            if (i < 0 || i >= (int) track.frames.size()) continue;
+            const float est = track.frames[(size_t) i].f0;
+            if (ref <= 0.0f)
+            {
+                ++refUnvoiced;
+                if (est > 0.0f) ++falseAlarm;
+                continue;
+            }
+            ++refVoiced;
+            if (est <= 0.0f) continue;
+            ++voicedHit;
+            const float c = 1200.0f * std::log2 (est / ref);
+            const float ac = std::abs (c);
+            if (ac <= 50.0f) ++hit50;
+            if (ac <= 25.0f) ++within25;
+            float cm = std::fmod (ac, 1200.0f);
+            cm = juce::jmin (cm, 1200.0f - cm);
+            if (cm <= 50.0f) ++chroma50;
+            if (ac > 50.0f && cm <= 50.0f) ++octave;
+            if (ac <= 50.0f) errs.push_back (ac);
+        }
+        if (refVoiced == 0) return fail ("no voiced reference frames in " + refFile.getFullPathName());
+        std::sort (errs.begin(), errs.end());
+        const float medErr = errs.empty() ? 0.0f : errs[errs.size() / 2];
+        double meanErr = 0.0;
+        for (auto e : errs) meanErr += e;
+        meanErr = errs.empty() ? 0.0 : meanErr / (double) errs.size();
+        juce::DynamicObject::Ptr o = new juce::DynamicObject();
+        o->setProperty ("file", label);
+        o->setProperty ("engine", track.engine == PitchEngine::neural ? "neural" : "dsp");
+        o->setProperty ("voicedFrames", refVoiced);
+        o->setProperty ("rawPitchAccuracy", (double) hit50 / refVoiced);          // est within 50 cents, of all voiced reference frames
+        o->setProperty ("rawChromaAccuracy", (double) chroma50 / refVoiced);
+        o->setProperty ("within25", (double) within25 / refVoiced);
+        o->setProperty ("octaveErrors", (double) octave / refVoiced);
+        o->setProperty ("voicingRecall", (double) voicedHit / refVoiced);
+        o->setProperty ("voicingFalseAlarm", refUnvoiced > 0 ? (double) falseAlarm / refUnvoiced : 0.0);
+        o->setProperty ("medianCents", medErr);                                    // over frames within 50 cents
+        o->setProperty ("meanCents", meanErr);
+        if (notesFile.existsAsFile())
+        {
+            struct RefNote { double onset; float midi; bool used = false; };
+            std::vector<RefNote> refs;
+            juce::StringArray nl;
+            nl.addLines (notesFile.loadFileAsString());
+            for (auto& l : nl)
+            {
+                const auto parts = juce::StringArray::fromTokens (l, ", \t", "");
+                if (parts.size() >= 2 && parts[1].getFloatValue() > 0.0f)
+                    refs.push_back ({ parts[0].getDoubleValue(), PitchTrack::hzToMidi (parts[1].getFloatValue()) });
+            }
+            const auto notes = NoteSegmenter::segment (track, {});
+            int matched = 0;
+            for (auto& n : notes)
+            {
+                const double onset = (double) n.start / sr;
+                RefNote* best = nullptr;
+                for (auto& r : refs)
+                    if (! r.used && std::abs (r.onset - onset) <= 0.05 && std::abs (r.midi - n.detectedMidi) <= 0.5f
+                        && (best == nullptr || std::abs (r.onset - onset) < std::abs (best->onset - onset)))
+                        best = &r;
+                if (best != nullptr) { best->used = true; ++matched; }
+            }
+            const double p = notes.empty() ? 0.0 : (double) matched / (double) notes.size();
+            const double r = refs.empty() ? 0.0 : (double) matched / (double) refs.size();
+            o->setProperty ("refNotes", (int) refs.size());
+            o->setProperty ("notes", (int) notes.size());
+            o->setProperty ("notePrecision", p);
+            o->setProperty ("noteRecall", r);
+            o->setProperty ("noteF", p + r > 0.0 ? 2.0 * p * r / (p + r) : 0.0);
+        }
+        std::cout << juce::JSON::toString (juce::var (o.get()), true) << std::endl;
+        return 0;
+    }
 }
 
 int main (int argc, char* argv[])
@@ -71,6 +183,9 @@ int main (int argc, char* argv[])
     bool useIntent = true;
     juce::String renderStyle, renderOut;
     juce::StringArray inputs;
+    auto engine = PitchTracker::Engine::automatic, referee = PitchTracker::Engine::dsp;
+    PitchTracker::NeuralSettings neural;
+    juce::String pitchEvalRef, noteEvalRef;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -92,6 +207,14 @@ int main (int argc, char* argv[])
         else if (a == "--correct")    correctOverride = next().getFloatValue();
         else if (a == "--no-intent")  useIntent = false;
         else if (a == "--render")     { renderStyle = next(); renderOut = next(); }
+        else if (a == "--engine")     engine = parseEngine (next());
+        else if (a == "--referee")    referee = parseEngine (next());
+        else if (a == "--voicing")    neural.voicingThreshold = next().getFloatValue();
+        else if (a == "--refine")     neural.refineCents = next().getFloatValue();
+        else if (a == "--rescue")     neural.rescueThreshold = next().getFloatValue();
+        else if (a == "--no-techniques") neural.techniques = false;
+        else if (a == "--pitch-eval") pitchEvalRef = next();
+        else if (a == "--note-eval")  noteEvalRef = next();
         else if (a == "--help" || a == "-h") { std::cout << "See the comment at the top of Source/Tools/StyleLearnMain.cpp" << std::endl; return 0; }
         else inputs.add (a);
     }
@@ -99,6 +222,21 @@ int main (int argc, char* argv[])
 
     juce::AudioFormatManager formats;
     formats.registerBasicFormats();
+
+    if (pitchEvalRef.isNotEmpty())
+    {
+        const auto file = juce::File::getCurrentWorkingDirectory().getChildFile (inputs[0]);
+        juce::AudioBuffer<float> audio;
+        double sr = 0.0;
+        if (! readMono (formats, file, audio, sr)) return fail ("could not read audio " + file.getFullPathName());
+        PitchTrack track;
+        juce::String status;
+        if (auto r = PitchTracker::trackBest (audio, sr, {}, nullptr, track, engine, neural, &status); r.failed())
+            return fail ("pitch tracking failed: " + r.getErrorMessage());
+        std::cerr << status << std::endl;
+        return pitchEval (juce::File::getCurrentWorkingDirectory().getChildFile (pitchEvalRef), track, sr, file.getFileName(),
+                          noteEvalRef.isNotEmpty() ? juce::File::getCurrentWorkingDirectory().getChildFile (noteEvalRef) : juce::File());
+    }
 
     if (renderStyle.isNotEmpty())
     {
@@ -112,7 +250,10 @@ int main (int argc, char* argv[])
         if (! readMono (formats, file, audio, sr)) return fail ("could not read audio " + file.getFullPathName());
 
         PitchTrack track;
-        if (PitchTracker::track (audio, sr, {}, nullptr, track).failed()) return fail ("pitch tracking failed");
+        juce::String status;
+        if (auto r = PitchTracker::trackBest (audio, sr, {}, nullptr, track, engine, neural, &status); r.failed())
+            return fail ("pitch tracking failed: " + r.getErrorMessage());
+        std::cerr << status << std::endl;
         auto notes = NoteSegmenter::segment (track, {});
         // Key from the sung notes, weighted by length.
         Chroma chroma {};
@@ -190,7 +331,9 @@ int main (int argc, char* argv[])
         // target, before (the take as sung) and after.
         {
             PitchTrack outTrack;
-            if (PitchTracker::track (out, sr, {}, nullptr, outTrack).ok())
+            PitchTracker::NeuralSettings refereeSettings = neural;
+            refereeSettings.techniques = false;
+            if (PitchTracker::trackBest (out, sr, {}, nullptr, outTrack, referee, refereeSettings).wasOk())
             {
                 auto report = [&] (const PitchTrack& tr, const char* label)
                 {
@@ -208,8 +351,12 @@ int main (int argc, char* argv[])
                         if (v.size() < 3) continue;
                         std::sort (v.begin(), v.end());
                         const float med = v[v.size() / 2];
-                        errs.push_back (std::abs (med - n.targetMidi) * 100.0f);
-                        if (std::abs (med - n.targetMidi) > 0.25f && juce::SystemStats::getEnvironmentVariable ("VE_OFF_NOTES", {}).isNotEmpty())
+                        // Whole octaves are the measuring tracker slipping, not the render (the
+                        // shift curve never moves a note an octave), so they are folded out.
+                        float d = med - n.targetMidi;
+                        d -= 12.0f * std::round (d / 12.0f);
+                        errs.push_back (std::abs (d) * 100.0f);
+                        if (std::abs (d) * 100.0f > juce::SystemStats::getEnvironmentVariable ("VE_OFF_NOTES", "25").getFloatValue() && juce::SystemStats::getEnvironmentVariable ("VE_OFF_NOTES", {}).isNotEmpty())
                             std::cerr << "  " << label << " off: " << juce::String ((double) n.start / sr, 2) << "s len "
                                       << juce::String ((double) (n.end - n.start) / sr, 2) << " sung " << juce::String (n.detectedMidi, 2)
                                       << " target " << n.targetMidi << " got " << juce::String (med, 2) << " corr "
@@ -225,7 +372,10 @@ int main (int argc, char* argv[])
                               << (100 * within25 / (int) errs.size()) << "% within 25, pitch spread inside notes "
                               << juce::String (median (wobble), 1) << " cents" << std::endl;
                 };
-                report (track, "before");
+                PitchTrack inTrack;
+                if (PitchTracker::trackBest (audio, sr, {}, nullptr, inTrack, referee, refereeSettings).failed()) inTrack = track;
+                std::cerr << "measured with the " << (outTrack.engine == PitchEngine::neural ? "neural" : "DSP") << " tracker" << std::endl;
+                report (inTrack, "before");
                 report (outTrack, "after ");
             }
         }
@@ -259,7 +409,7 @@ int main (int argc, char* argv[])
         double sr = 0.0;
         if (! readMono (formats, file, audio, sr)) return fail ("could not read audio " + path);
 
-        auto st = StyleLearner::analyseAudio (audio, sr, bpm);
+        auto st = StyleLearner::analyseAudio (audio, sr, bpm, nullptr, engine);
         std::cerr << file.getFileName() << ": " << st.notes << " notes, " << juce::String (st.voicedSeconds, 1) << " s voiced" << std::endl;
         if (statsDir.isNotEmpty())
         {

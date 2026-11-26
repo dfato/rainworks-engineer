@@ -26,6 +26,7 @@ set(VE_ONNX_VERSION "1.20.1" CACHE STRING "Prebuilt ONNX Runtime version to down
 set(VE_ONNX_ROOT "" CACHE PATH "Optional: an extracted ONNX Runtime release zip (has include/ and lib/). Skips the download.")
 option(VE_ONNX_DIRECTML "Windows: use the DirectML build of ONNX Runtime so voice models can run on the GPU" ON)
 set(VE_DIRECTML_VERSION "1.15.4" CACHE STRING "Microsoft.AI.DirectML package version (DirectML.dll shipped next to the plugin)")
+set(VE_PITCH_MODEL_FILE "" CACHE FILEPATH "Optional: pitch-fcpe.onnx (tools/pitch-models/export_fcpe.py) to ship next to the plugin binary")
 
 # ---- Engine + State sources (no GUI modules) ---------------------------------
 set(VE_ENGINE_SOURCES
@@ -35,6 +36,7 @@ set(VE_ENGINE_SOURCES
     Source/Engine/NotePlan.cpp
     Source/Engine/PitchCorrectRenderer.cpp
     Source/Engine/PitchTracker.cpp
+    Source/Engine/PitchTrackerBest.cpp
     Source/Engine/PlaybackEngine.cpp
     Source/Engine/RenderCache.cpp
     Source/Engine/SidechainAnalysis.cpp
@@ -50,11 +52,23 @@ set(VE_ENGINE_SOURCES
     Source/Engine/Voice/VoiceRenderer.cpp
     Source/Engine/TempoMap.cpp
     Source/Engine/TimeWarp.cpp
+    Source/Engine/ML/MelSpectrogram.cpp
+    Source/Engine/ML/NeuralPitch.cpp
     Source/Engine/ML/OnnxBackend.cpp
     Source/Engine/ML/SmokeTestModel.cpp
+    Source/Engine/ML/TechniqueDetector.cpp
     Source/State/SessionModel.cpp
 )
+# Small models compiled into every binary (the technique classifier, ~1.5 MB).
+# The pitch model (pitch-fcpe.onnx, 43 MB) is a separate file: see tools/pitch-models.
+juce_add_binary_data(VE_ModelData
+    HEADER_NAME VEModelData.h
+    NAMESPACE   VEModels
+    SOURCES     Models/technique-classifier.onnx)
+set_target_properties(VE_ModelData PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 set(VE_ENGINE_MODULES
+    VE_ModelData
     juce::juce_core
     juce::juce_events
     juce::juce_data_structures
@@ -182,6 +196,10 @@ if(VE_WITH_ONNX)
                 target_link_libraries(VocalEngine_${_fmt} PRIVATE delayimp)
             endif()
             ve_copy_runtime(VocalEngine_${_fmt})
+            if(VE_PITCH_MODEL_FILE)
+                add_custom_command(TARGET VocalEngine_${_fmt} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${VE_PITCH_MODEL_FILE}" "$<TARGET_FILE_DIR:VocalEngine_${_fmt}>/pitch-fcpe.onnx")
+            endif()
         endif()
     endforeach()
 else()
@@ -197,6 +215,7 @@ target_compile_definitions(VocalEngine PUBLIC
 
 target_link_libraries(VocalEngine
     PRIVATE
+        VE_ModelData
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC
@@ -246,5 +265,6 @@ if(VE_BUILD_TOOLS)
         PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
     if(VE_WITH_ONNX)
         target_link_libraries(EngineerStyleLearn PRIVATE ve_onnxruntime)
+        ve_copy_runtime(EngineerStyleLearn)
     endif()
 endif()
