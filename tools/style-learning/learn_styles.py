@@ -149,10 +149,35 @@ ORDER = ["id", "name", "category", "inherits", "description", "pitch", "vibrato"
          "ornaments", "tone", "dynamics", "learned"]
 SECTIONS = ("pitch", "vibrato", "slides", "timing", "ornaments", "tone", "dynamics")
 
+# The built-ins are three utility modes and six core genres. Reference vocals labelled with a
+# finer genre (in sources.json and older manifests) count toward the core genre they sound like.
+GENRE_FOLD = {
+    "pop-ballad": "pop", "dance-pop": "pop", "k-pop": "pop", "musical-theatre": "pop",
+    "singer-songwriter": "indie", "folk": "indie", "country": "indie",
+    "pop-punk": "rock", "post-hardcore": "rock",
+    "contemporary-rnb": "rnb", "soul": "rnb", "neo-soul": "rnb", "gospel": "rnb",
+    "melodic-rap": "trap",
+}
+
 
 def handtuned():
     styles = json.loads(HANDTUNED.read_text(encoding="utf-8"))["styles"]
     return {st["id"]: st for st in styles}, [st["id"] for st in styles]
+
+
+def apply_locks(learned, hand):
+    """Put back the values a style's "locked" list pins ("tone" = a whole section,
+    "pitch.scale" = one key): each genre's signature is set by hand, not by measurements."""
+    for lock in hand.get("locked", []):
+        sec, _, key = lock.partition(".")
+        if sec not in hand:
+            continue
+        if key:
+            if key in hand[sec]:
+                learned.setdefault(sec, {})[key] = hand[sec][key]
+        else:
+            learned[sec] = json.loads(json.dumps(hand[sec]))
+    return learned
 
 
 def resolve(raw, gid, depth=0):
@@ -205,16 +230,18 @@ def cmd_learn(args):
         ds = sources[it["dataset"]]
         used = st["notes"] >= MIN_NOTES and st["voicedSeconds"] >= MIN_VOICED_SECONDS
         reason = "" if used else "too little singing detected"
-        if used and it["genre"] not in base_raw:
+        genre = GENRE_FOLD.get(it["genre"], it["genre"])
+        if used and genre not in base_raw:
             used, reason = False, "reference only" if it["genre"] == "reference" else "no matching style"
         manifest.append({
             "id": it["id"], "title": it["title"], "dataset": ds["title"], "page": ds["page"],
             "file": it["member"], "license": ds["license"], "licenseUrl": ds["licenseUrl"],
-            "authors": ds["authors"], "genre": it["genre"], "genreSource": ds["genreSource"],
+            "authors": ds["authors"], "genre": it["genre"],
+            **({"style": genre} if genre != it["genre"] else {}), "genreSource": ds["genreSource"],
             "used": used, **({"skipped": reason} if reason else {}), "stats": st,
         })
         if used:
-            by_genre.setdefault(it["genre"], []).append(st_path)
+            by_genre.setdefault(genre, []).append(st_path)
             pool_files.append(st_path)
 
     # Everything together: what all these singers do alike, which contrast learning cancels out.
@@ -240,13 +267,14 @@ def cmd_learn(args):
         base = base_raw[gid]
         flat = resolve(base_raw, gid)
         flat.pop("inherits", None)
+        flat.pop("locked", None)
         flat_path = work / f"base-{gid}.json"
         flat_path.write_text(json.dumps(flat, ensure_ascii=False), encoding="utf-8")
         out = learned_dir / f"{gid}.json"
         subprocess.run([args.tool, "--base-json", str(flat_path), "--id", gid, "--name", base["name"],
                         "--category", base["category"], "--pool", str(pool), "--gain", str(args.gain),
                         "--out", str(out)] + [str(f) for f in files], check=True, stderr=subprocess.DEVNULL)
-        prof = json.loads(out.read_text())
+        prof = apply_locks(json.loads(out.read_text()), base)
         if base.get("inherits"):
             prof["inherits"] = base["inherits"]
         n = len(files)

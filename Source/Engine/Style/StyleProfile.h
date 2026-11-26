@@ -88,8 +88,14 @@ namespace ve
         // Adds one JSON profile (raw, unresolved). Returns an error message or empty.
         juce::String addJson (const juce::String& json);
 
-        // Resolved profile (inheritance applied). Unknown ids give "natural".
+        // Resolved profile (inheritance applied). A retired built-in id gives the core genre
+        // that replaced it (see canonicalId); any other unknown id gives "natural".
         StyleProfile get (const juce::String& id) const;
+        // The id a session should use: the id itself when it exists, the core genre that
+        // replaced a retired built-in (e.g. "post-hardcore" -> "rock"), else "natural".
+        juce::String canonicalId (const juce::String& id) const;
+        // Built-ins that were folded into the six core genres, and where each went.
+        static juce::String replacementFor (const juce::String& retiredId);
         bool contains (const juce::String& id) const { return raw.count (id) > 0; }
 
         struct Entry { juce::String id, name, category; };

@@ -147,21 +147,21 @@ When a note is moved in time it keeps its length and the gaps on either side str
 
 ### Built-in styles
 
-A style decides how hard and fast notes snap, which scale they snap to, and how much vibrato, scoops, slides, runs, falls, swing and tone shaping are added. There are 35 built in:
+A style decides how hard and fast notes snap and how much vibrato, scoops, slides, runs, swing and tone shaping are added. There are three basic modes and six genres:
 
 | Category | Styles |
 | --- | --- |
 | Basic | Natural, Transparent, Hard Tune |
-| Pop | Pop, Pop Ballad, Dance Pop, K-Pop, Hyperpop |
-| R&B / Soul | R&B, Contemporary R&B, Neo-Soul, Soul, Gospel |
-| Hip-hop | Hip-Hop, Trap, Melodic Rap, Drill, Emo Rap |
-| Rock | Rock, Pop-Punk, Post-Hardcore, Indie, Metal (clean) |
-| Country / Folk | Country, Folk, Singer-Songwriter |
-| Electronic | EDM, House, Future Bass |
-| Latin / Caribbean / African | Reggaeton, Afrobeats, Dancehall |
-| Other | Lo-Fi, Jazz, Musical Theatre |
+| Genres | Hip-Hop, Indie, Pop, R&B, Rock, Trap |
 
-Some styles also change which notes are allowed. R&B, Soul, Gospel and Rock allow the blues note. Country, Folk, Trap, Afrobeats and Dancehall use the pentatonic scale. Drill, Metal and Reggaeton use harmonic minor, and Jazz, Neo-Soul, House and Lo-Fi use a modal scale. Trap, EDM, Hyperpop and Hard Tune pull notes toward the 1/16 grid; Lo-Fi, Neo-Soul, Afrobeats, Drill and House add swing.
+- **Pop**: locked in fast but human, smooth glides, light vibrato on held ends, bright and airy.
+- **Rock**: modern rock, pop-punk, emo and post-hardcore cleans. Pulled hard to pitch, straight tone, no added scoops or grit, bright and heavily compressed.
+- **Indie**: in tune but loose, keeps the singer's drift, warm and soft.
+- **R&B**: smooth, keeps runs, slides and vibrato, soft scoops, warm and close.
+- **Hip-Hop**: sung hooks tuned cleanly, rapped lines with no clear pitch left alone, tight to the beat.
+- **Trap**: hard, near-instant tune with a flat line, quick glides, firmly on the grid.
+
+Every genre tunes to the song's own key, so none of them changes your melody. Hip-Hop and Trap pull notes toward the 1/16 grid. A project saved with an older genre (Post-Hardcore, Melodic Rap, Gospel, Pop Ballad and so on) opens with the genre that replaced it.
 
 Picking a style resets **Correct** to that style's default, so pick the style first, then fine-tune Correct.
 
@@ -205,13 +205,12 @@ Pick the style first (it sets Correct), then adjust. Always listen with **Monito
 | --- | --- | --- | --- | --- |
 | Natural tuning, any genre | Natural or Transparent | Style default (about 90%) | 100% | On |
 | Hard tuned trap or melodic rap | Trap or Hard Tune | 100% | 100% | Off (so every note snaps) |
-| Melodic rap that keeps its slides | Melodic Rap | Style default | 100% | On |
+| Melodic rap that keeps its slides | Trap | Style default | 100% to 150% | On |
 | Rapped verse with a sung hook | Hip-Hop | Style default | 100% | On (spoken lines are left alone) |
-| Pop lead | Pop or Dance Pop | Style default | 100% | On |
-| Ballad | Pop Ballad | Style default | 100% | On |
-| R&B, soul, gospel with runs | R&B, Soul or Gospel | Style default | 100% to 130% | On (keeps blue notes) |
-| Rock or punk | Rock or Pop-Punk | Style default | 100% | On |
-| Lo-fi or neo-soul, laid back | Lo-Fi or Neo-Soul | Style default | 100% | On |
+| Pop lead or ballad | Pop | Style default | 100% | On |
+| R&B, soul, gospel with runs | R&B | Style default | 100% to 130% | On (keeps chromatic notes in runs) |
+| Rock, punk, emo, post-hardcore | Rock | Style default | 100% | On |
+| Indie, folk, singer-songwriter, lo-fi | Indie | Style default | 100% | On |
 | Light touch-up, keep the performance | Transparent | 40% to 60% | 0% to 50% | On |
 | Pitch only, no added effects | Any | Your choice | 0% | On |
 

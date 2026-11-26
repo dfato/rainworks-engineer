@@ -1,25 +1,25 @@
 {
   "id": "rnb",
   "name": "R&B",
-  "category": "R&B / Soul",
+  "category": "Genres",
   "inherits": "natural",
-  "description": "Smooth tuning that keeps runs and slides. Tuned from 1 openly licensed reference vocal.",
+  "description": "Smooth R&B: in the song's key, keeps runs, slides and vibrato as sung, with a soft scoop into notes and a warm, close tone. Tuned from 1 openly licensed reference vocal.",
   "pitch": {
-    "correction": 0.86,
-    "retuneMs": 30.0,
-    "keepVariation": 0.85,
-    "scale": "blues"
+    "correction": 1.0,
+    "retuneMs": 22.0,
+    "keepVariation": 0.68,
+    "scale": "key"
   },
   "vibrato": {
-    "addDepthCents": 22.05,
-    "rateHz": 6.1,
-    "onsetMs": 273.96
+    "addDepthCents": 17.05,
+    "rateHz": 6.0,
+    "onsetMs": 313.96
   },
   "slides": {
-    "betweenNotesMs": 80.0,
+    "betweenNotesMs": 60.0,
     "maxGapMs": 120.0,
-    "scoopCents": 69.55,
-    "scoopMs": 80.0
+    "scoopCents": 29.55,
+    "scoopMs": 70.0
   },
   "timing": {
     "quantize": 0.0,
@@ -27,20 +27,20 @@
     "swing": 0.0
   },
   "ornaments": {
-    "runs": 0.45,
-    "runNotes": 5,
-    "runNoteMs": 80.0,
-    "fallCents": 0.0,
-    "fallMs": 0.0
+    "runs": 0.12,
+    "runNotes": 4,
+    "runNoteMs": 80,
+    "fallCents": 0,
+    "fallMs": 0
   },
   "tone": {
-    "brightness": 0.1,
-    "warmth": 0.4,
-    "grit": 0.0,
-    "breath": 0.25
+    "brightness": 0.2,
+    "warmth": 0.35,
+    "grit": 0,
+    "breath": 0
   },
   "dynamics": {
-    "compress": 0.5
+    "compress": 0.6
   },
   "learned": {
     "takes": 1,

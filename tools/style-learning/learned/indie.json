@@ -1,25 +1,25 @@
 {
   "id": "indie",
   "name": "Indie",
-  "category": "Rock",
-  "inherits": "rock",
-  "description": "Natural and slightly loose. Tuned from 11 openly licensed reference vocals.",
+  "category": "Genres",
+  "inherits": "natural",
+  "description": "Indie and alt: in tune but loose, keeps the singer's drift and character, warm and soft rather than glossy. Tuned from 41 openly licensed reference vocals.",
   "pitch": {
-    "correction": 0.8,
-    "retuneMs": 90.44,
-    "keepVariation": 1.0,
+    "correction": 0.95,
+    "retuneMs": 56.26,
+    "keepVariation": 0.8,
     "scale": "key"
   },
   "vibrato": {
-    "addDepthCents": 6.91,
-    "rateHz": 5.98,
-    "onsetMs": 265.4
+    "addDepthCents": 0.09,
+    "rateHz": 5.21,
+    "onsetMs": 305.63
   },
   "slides": {
-    "betweenNotesMs": 13.17,
+    "betweenNotesMs": 54.11,
     "maxGapMs": 80.0,
-    "scoopCents": 53.47,
-    "scoopMs": 90.84
+    "scoopCents": 0.12,
+    "scoopMs": 0.0
   },
   "timing": {
     "quantize": 0.0,
@@ -27,24 +27,24 @@
     "swing": 0.0
   },
   "ornaments": {
-    "runs": 0.0,
+    "runs": 0,
     "runNotes": 4,
-    "runNoteMs": 90.0,
-    "fallCents": 0.0,
-    "fallMs": 0.0
+    "runNoteMs": 90,
+    "fallCents": 0,
+    "fallMs": 0
   },
   "tone": {
-    "brightness": -0.2,
-    "warmth": 0.2,
-    "grit": 0.1,
-    "breath": 0.3
+    "brightness": 0.05,
+    "warmth": 0.25,
+    "grit": 0,
+    "breath": 0
   },
   "dynamics": {
-    "compress": 0.35
+    "compress": 0.45
   },
   "learned": {
-    "takes": 11,
-    "notes": 4455,
-    "voicedMinutes": 21.39
+    "takes": 41,
+    "notes": 15173,
+    "voicedMinutes": 79.72
   }
 }

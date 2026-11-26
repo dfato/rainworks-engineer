@@ -5,38 +5,12 @@
   "natural": 0,
   "transparent": 0,
   "hard-tune": 0,
-  "pop": 14,
-  "pop-ballad": 19,
-  "dance-pop": 1,
-  "k-pop": 1,
-  "hyperpop": 0,
-  "rnb": 1,
-  "contemporary-rnb": 0,
-  "neo-soul": 0,
-  "soul": 0,
-  "gospel": 0,
-  "hip-hop": 0,
-  "trap": 0,
-  "melodic-rap": 0,
-  "drill": 0,
-  "emo-rap": 0,
+  "pop": 37,
   "rock": 6,
-  "pop-punk": 0,
-  "post-hardcore": 0,
-  "indie": 11,
-  "metal-clean": 0,
-  "country": 2,
-  "folk": 8,
-  "singer-songwriter": 20,
-  "edm": 0,
-  "house": 0,
-  "future-bass": 0,
-  "reggaeton": 0,
-  "afrobeats": 0,
-  "dancehall": 0,
-  "lo-fi": 0,
-  "jazz": 0,
-  "musical-theatre": 2
+  "indie": 41,
+  "rnb": 1,
+  "hip-hop": 0,
+  "trap": 0
  },
  "pool": {
   "voicedSeconds": 11037.88,
@@ -65,6 +39,11 @@
   "onsetSpreadMs": 0.0,
   "swing": 0.0,
   "offbeatOnsets": 0,
+  "techniqueSeconds": 0.0,
+  "gritShare": 0.0,
+  "breathyShare": 0.0,
+  "beltShare": 0.0,
+  "spokenShare": 0.0,
   "takes": 85
  },
  "items": [
@@ -2168,6 +2147,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "folk",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -2209,6 +2189,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -2291,6 +2272,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -2332,6 +2314,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "folk",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -2414,6 +2397,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -2455,6 +2439,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -2496,6 +2481,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "folk",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -2537,6 +2523,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -2661,6 +2648,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -2702,6 +2690,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "folk",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -2784,6 +2773,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -2866,6 +2856,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -2989,6 +2980,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "country",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3030,6 +3022,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3071,6 +3064,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3112,6 +3106,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "folk",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3194,6 +3189,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3235,6 +3231,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "country",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3276,6 +3273,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3317,6 +3315,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "dance-pop",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3399,6 +3398,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3440,6 +3440,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "folk",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3481,6 +3482,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3522,6 +3524,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3563,6 +3566,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "k-pop",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3604,6 +3608,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3686,6 +3691,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "musical-theatre",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3810,6 +3816,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3851,6 +3858,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -3933,6 +3941,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4015,6 +4024,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4056,6 +4066,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "musical-theatre",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4220,6 +4231,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "folk",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4261,6 +4273,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4343,6 +4356,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4384,6 +4398,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "folk",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4466,6 +4481,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4589,6 +4605,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Bochen Li, Yuxuan Wang, Zhiyao Duan",
    "genre": "pop-ballad",
+   "style": "pop",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4712,6 +4729,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4753,6 +4771,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4794,6 +4813,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4835,6 +4855,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4876,6 +4897,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4917,6 +4939,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4958,6 +4981,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -4999,6 +5023,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -5040,6 +5065,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -5081,6 +5107,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -5122,6 +5149,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -5163,6 +5191,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -5204,6 +5233,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -5245,6 +5275,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
@@ -5286,6 +5317,7 @@
    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
    "authors": "Simon Schwär, Michael Krause, Michael Fast, Sebastian Rosenzweig, Frank Scherbaum, Meinard Müller",
    "genre": "singer-songwriter",
+   "style": "indie",
    "genreSource": "ours",
    "used": true,
    "stats": {
