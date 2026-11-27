@@ -270,23 +270,63 @@ public:
         PlaybackSnapshot snap;
         RegionDescriptor a; a.id = "a"; a.order = 1; a.startSample = 1000; a.captureSampleRate = sr;
         RegionDescriptor b; b.id = "b"; b.order = 2; b.startSample = 1500; b.captureSampleRate = sr;  // punch-in over a
-        snap.add (a, constantAudio ("a", 1000, 0.25f), sr);
+        snap.add (a, constantAudio ("a", 4000, 0.25f), sr);
         snap.add (b, constantAudio ("b", 200, 0.75f), sr);
         snap.finalise();
 
         beginTest ("Rendered playback is sample accurate with punch-in precedence");
         {
+            const int f = (int) std::lround (PlaybackSnapshot::edgeFadeSeconds * sr);   // 480
+            expectEquals (snap.regions[1].fade, 100);                                   // b is short: half its length
             juce::AudioBuffer<float> out (2, 1000);
             out.clear();
             for (int i = 0; i < 1000; ++i) out.setSample (0, i, -1.0f); // marks "input"
             expect (PlaybackEngine::renderSnapshot (snap, out, playingAt (900, sr)));
 
             expectEquals (out.getSample (0, 99), -1.0f);                         // 999: before region a, input kept
-            expectWithinAbsoluteError (out.getSample (0, 100), 0.25f, 1e-7f);    // 1000: a[0]
+            expectGreaterThan (out.getSample (0, 100), -1.0f);                   // 1000: a starts fading in over the input
+            expectLessThan (out.getSample (0, 100), -0.99f);
+            expectWithinAbsoluteError (out.getSample (0, 100 + f), 0.25f + (float) f * 1e-6f, 1e-7f); // a, fully in
             expectWithinAbsoluteError (out.getSample (0, 599), 0.25f + 499e-6f, 1e-7f); // 1499: a[499]
-            expectWithinAbsoluteError (out.getSample (0, 600), 0.75f, 1e-7f);    // 1500: b[0] wins
+            expectWithinAbsoluteError (out.getSample (0, 700), 0.75f + 100e-6f, 1e-3f); // 1600: middle of b, b wins
+            expectGreaterThan (out.getSample (0, 600), 0.25f);                   // 1500: b fading in over a
+            expectLessThan (out.getSample (0, 600), 0.27f);
             expectWithinAbsoluteError (out.getSample (0, 800), 0.25f + 700e-6f, 1e-7f); // 1700: back to a[700]
-            expectWithinAbsoluteError (out.getSample (1, 100), 0.25f, 1e-7f);    // mono -> stereo
+            expectWithinAbsoluteError (out.getSample (1, 100 + f), out.getSample (0, 100 + f), 1e-7f); // mono -> stereo
+
+            // No step anywhere: the biggest sample-to-sample change stays near the fade's slope.
+            float jump = 0.0f;
+            for (int i = 1; i < 1000; ++i) jump = juce::jmax (jump, std::abs (out.getSample (0, i) - out.getSample (0, i - 1)));
+            expectLessThan (jump, 0.02f);
+        }
+
+        beginTest ("A punch-in crossfades with the take under it (no click)");
+        {
+            // Two takes of the same 220 Hz note, the punch-in a half cycle out of phase: a hard cut
+            // jumps by about twice the amplitude.
+            auto sine = [&] (const juce::String& id, int len, double phase)
+            {
+                auto r = std::make_shared<RenderedAudio>();
+                r->regionId = id; r->sampleRate = sr;
+                r->audio.setSize (1, len);
+                for (int i = 0; i < len; ++i)
+                    r->audio.setSample (0, i, 0.5f * (float) std::sin (juce::MathConstants<double>::twoPi * 220.0 * i / sr + phase));
+                return r;
+            };
+            PlaybackSnapshot s2;
+            RegionDescriptor ta; ta.id = "ta"; ta.order = 1; ta.startSample = 0; ta.captureSampleRate = sr;
+            RegionDescriptor tb; tb.id = "tb"; tb.order = 2; tb.startSample = 12000 + 54; tb.captureSampleRate = sr;
+            s2.add (ta, sine ("ta", 48000, 0.0), sr);
+            s2.add (tb, sine ("tb", 12000, 1.0), sr);
+            s2.finalise();
+            juce::AudioBuffer<float> out (1, 30000);
+            out.clear();
+            expect (PlaybackEngine::renderSnapshot (s2, out, playingAt (1000, sr)));
+            // Steepest step of a 0.5-amplitude 220 Hz sine is 0.5 * 2 pi * 220 / 48000 = 0.0144.
+            float jump = 0.0f;
+            for (int i = 1; i < 30000; ++i) jump = juce::jmax (jump, std::abs (out.getSample (0, i) - out.getSample (0, i - 1)));
+            logMessage ("Largest step across the punch-in: " + juce::String (jump, 4));
+            expectLessThan (jump, 0.02f);
         }
 
         beginTest ("Loop wrap inside a block jumps to the loop start");
@@ -301,7 +341,7 @@ public:
             out.clear();
             PlaybackEngine::renderSnapshot (snap, out, h);
             expectWithinAbsoluteError (out.getSample (0, 49), 0.25f + 949e-6f, 1e-7f); // 1949
-            expectWithinAbsoluteError (out.getSample (0, 50), 0.25f, 1e-7f);           // wrapped to 1000
+            expectLessThan (std::abs (out.getSample (0, 50)), 0.01f);                  // wrapped to 1000: a fading in
         }
 
         beginTest ("Stopped transport leaves input untouched");
@@ -320,12 +360,12 @@ public:
             for (int i = 0; i < 200; ++i)
             {
                 auto s = std::make_unique<PlaybackSnapshot>();
-                s->add (a, constantAudio ("a", 1000, 0.5f), sr);
+                s->add (a, constantAudio ("a", 4000, 0.5f), sr);
                 pe.publish (std::move (s));
                 juce::AudioBuffer<float> out (1, 128);
                 out.clear();
-                pe.render (out, playingAt (1000, sr));
-                expectWithinAbsoluteError (out.getSample (0, 0), 0.5f, 1e-7f);
+                pe.render (out, playingAt (2000, sr));   // a[1000], clear of its fades
+                expectWithinAbsoluteError (out.getSample (0, 0), 0.5f + 1000e-6f, 1e-7f);
             }
             pe.collectGarbage();
         }

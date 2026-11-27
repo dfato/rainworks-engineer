@@ -17,12 +17,18 @@ namespace ve
         std::int64_t start = 0;      // host timeline sample
         std::int64_t length = 0;
         std::int64_t order = 0;
+        int fade = 0;                // crossfade length at each edge, samples
         const juce::AudioBuffer<float>* audio = nullptr;
     };
 
     // Immutable once published. Built on the message thread.
     struct PlaybackSnapshot
     {
+        // Each take fades in and out over this long at its edges (inside the take), so a punch-in
+        // blends with the take under it, and a take's start and end blend with the input,
+        // instead of jumping from one waveform to another (a click).
+        static constexpr double edgeFadeSeconds = 0.01;
+
         double sampleRate = 0.0;
         std::vector<PlaybackRegion> regions;                     // sorted by order, oldest first
         std::vector<std::shared_ptr<const RenderedAudio>> keepAlive;

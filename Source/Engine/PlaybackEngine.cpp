@@ -13,6 +13,7 @@ namespace ve
         r.start = (std::int64_t) std::llround ((double) d.startSample * scale);
         r.length = audio->audio.getNumSamples();
         r.order = d.order;
+        r.fade = (int) juce::jmin<std::int64_t> ((std::int64_t) std::lround (edgeFadeSeconds * engineRate), r.length / 2);
         r.audio = &audio->audio;
         regions.push_back (r);
         keepAlive.push_back (std::move (audio));
@@ -82,7 +83,19 @@ namespace ve
 
     namespace
     {
+        // Raised-cosine fade gain for sample p of a region (1 inside, rising over its first `fade`
+        // samples and falling over its last). Constant sum with the take underneath.
+        inline float edgeGain (const PlaybackRegion& r, std::int64_t p) noexcept
+        {
+            if (r.fade <= 0) return 1.0f;
+            const auto fromEdge = std::min (p, r.length - 1 - p);
+            if (fromEdge >= r.fade) return 1.0f;
+            const float s = std::sin (juce::MathConstants<float>::halfPi * ((float) fromEdge + 0.5f) / (float) r.fade);
+            return s * s;
+        }
+
         // Copies region audio for timeline range [t, t + len) into out at outOffset.
+        // Later takes are laid over earlier ones (and over the input), fading at their edges.
         bool renderSegment (const PlaybackSnapshot& snap, juce::AudioBuffer<float>& out,
                             std::int64_t t, int outOffset, int len) noexcept
         {
@@ -102,17 +115,42 @@ namespace ve
                 const int src = (int) (from - r.start);
                 const auto& a = *r.audio;
                 const int inCh = a.getNumChannels();
+                const bool downmix = outCh == 1 && inCh >= 2;
 
-                if (outCh == 1 && inCh >= 2)
+                // The part of [src, src + n) clear of both fades is a straight copy.
+                const int bodyA = juce::jlimit (src, src + n, r.fade);
+                const int bodyB = juce::jlimit (bodyA, src + n, (int) (r.length - r.fade));
+
+                auto copyBody = [&] (int s0, int s1)
                 {
-                    out.copyFrom (0, dst, a.getReadPointer (0, src), n, 0.5f);
-                    out.addFrom (0, dst, a, 1, src, n, 0.5f);
-                }
-                else
+                    if (s1 <= s0) return;
+                    const int d0 = dst + (s0 - src);
+                    if (downmix)
+                    {
+                        out.copyFrom (0, d0, a.getReadPointer (0, s0), s1 - s0, 0.5f);
+                        out.addFrom (0, d0, a, 1, s0, s1 - s0, 0.5f);
+                    }
+                    else
+                        for (int ch = 0; ch < outCh; ++ch)
+                            out.copyFrom (ch, d0, a, std::min (ch, inCh - 1), s0, s1 - s0);
+                };
+                auto blendEdge = [&] (int s0, int s1)
                 {
-                    for (int ch = 0; ch < outCh; ++ch)
-                        out.copyFrom (ch, dst, a, std::min (ch, inCh - 1), src, n);
-                }
+                    for (int s = s0; s < s1; ++s)
+                    {
+                        const float g = edgeGain (r, s);
+                        const int d = dst + (s - src);
+                        for (int ch = 0; ch < outCh; ++ch)
+                        {
+                            const float v = downmix ? 0.5f * (a.getSample (0, s) + a.getSample (1, s))
+                                                    : a.getSample (std::min (ch, inCh - 1), s);
+                            out.setSample (ch, d, out.getSample (ch, d) + g * (v - out.getSample (ch, d)));
+                        }
+                    }
+                };
+                blendEdge (src, bodyA);
+                copyBody (bodyA, bodyB);
+                blendEdge (bodyB, src + n);
             }
             return any;
         }
