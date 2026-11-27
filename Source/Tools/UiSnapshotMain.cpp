@@ -6,6 +6,7 @@
 //   01-main-view.png        a take loaded, analysed, host transport playing
 //   02-graph-selected.png   same, with every note selected (Ctrl+A)
 //   03-empty-no-take.png    a fresh session, nothing loaded, no host transport
+//   04-hunted.png           the take after one press of Hunt (fixed seed)
 //   menus/*.png             every drop-down and right-click menu, drawn with the editor's LookAndFeel
 //
 // It drives the real processor and editor, so what you see is what FL Studio shows.
@@ -168,7 +169,7 @@ int main (int argc, char* argv[])
     const auto dataDir = juce::File::createTempFile ("engineer-ui-snapshot");
     dataDir.createDirectory();
 
-    auto render = [&] (bool withTake, const juce::String& name, bool selectAll, bool menus)
+    auto render = [&] (bool withTake, const juce::String& name, bool selectAll, bool menus, bool hunted = false)
     {
         std::unique_ptr<VocalEngineProcessor> proc (dynamic_cast<VocalEngineProcessor*> (createPluginFilter()));
         const double sr = 44100.0;
@@ -222,6 +223,13 @@ int main (int argc, char* argv[])
                 pump (100);
             }
 
+        if (hunted)
+            if (auto* tl = findChild<ve::ui::TimelineComponent> (*ed))
+            {
+                std::cout << tl->huntWith (7).toStdString() << std::endl;
+                for (int i = 0; i < 20; ++i) { runBlock(); pump (40); }
+            }
+
         savePng (snapshot (*ed, scale), outDir.getChildFile (name + ".png"));
 
         if (menus)
@@ -234,6 +242,8 @@ int main (int argc, char* argv[])
                     savePng (drawMenu (*root, lf, scale, box->getWidth(), box->getSelectedId()),
                              outDir.getChildFile ("menus/" + (box->getName().isNotEmpty() ? box->getName() : juce::String ("combo"))
                                                   + "-dropdown.png"));
+            if (auto* tl = findChild<ve::ui::TimelineComponent> (*ed))
+                savePng (drawMenu (tl->getHuntMenu(), lf, scale, 200), outDir.getChildFile ("menus/hunt-menu.png"));
         }
         ed.reset();
         proc->releaseResources();
@@ -242,6 +252,7 @@ int main (int argc, char* argv[])
     render (true, "01-main-view", false, true);
     render (true, "02-graph-selected", true, false);
     render (false, "03-empty-no-take", false, false);
+    render (true, "04-hunted", false, false, true);
     dataDir.deleteRecursively();
     return 0;
 }

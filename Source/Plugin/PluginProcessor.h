@@ -4,6 +4,7 @@
 #include "Engine/CaptureEngine.h"
 #include "Engine/HostContext.h"
 #include "Engine/JobQueue.h"
+#include "Engine/MelodyHunter.h"
 #include "Engine/NoteHistory.h"
 #include "Engine/PlaybackEngine.h"
 #include "Engine/RenderCache.h"
@@ -107,6 +108,10 @@ public:
     struct NoteEditItem { juce::String regionId; int index = -1; ve::Note note; };
     void updateNotes (const std::vector<NoteEditItem>&);
     void undoNoteEdit();
+    // Graph editor Hunt options (kept while the plugin is loaded) and its status line.
+    ve::MelodyHunt::Options getHuntOptions() const noexcept { return huntOptions; }
+    void setHuntOptions (const ve::MelodyHunt::Options& o) noexcept { huntOptions = o; }
+    void reportToStatus (const juce::String& m) { postMessage (m); }
     void redoNoteEdit();
     bool canUndoNoteEdit() const noexcept { return noteHistory.canUndo(); }
     bool canRedoNoteEdit() const noexcept { return noteHistory.canRedo(); }
@@ -173,6 +178,7 @@ private:
     juce::uint32 lastEditMs = 0;
     std::set<juce::String> loadingRegions;
     juce::String lastMessage;
+    ve::MelodyHunt::Options huntOptions;
     bool stateDirty = true;
 
     juce::CriticalSection cachedStateLock; // never taken on the audio thread

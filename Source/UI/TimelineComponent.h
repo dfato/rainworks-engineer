@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "Engine/HostContext.h"
+#include "Engine/MelodyHunter.h"
 #include "Engine/NotePlan.h"
 #include "Engine/RenderCache.h"
 #include "Engine/SidechainAnalysis.h"
@@ -36,6 +37,8 @@ namespace ve::ui
         juce::String scaleText;               // e.g. "A minor, pentatonic"
         bool snapToScale = true;
         bool canUndo = false, canRedo = false;
+        juce::String styleId;                 // the loaded style: Hunt's "Follow the style" flavour
+        MelodyHunt::Options huntOptions;
     };
 
     struct TimelineNoteEdit
@@ -54,6 +57,8 @@ namespace ve::ui
     // Dragging moves every selected note (up/down in pitch; Shift + drag in time).
     // With Snap to scale on, pitch moves land on the key's scale notes; Alt is free.
     // The tool row edits Correct, Vibrato and Drift of the selection.
+    // Hunt (H) writes a new melody into the selection, or every note when nothing is
+    // selected; its arrow opens the options. Each press is a new idea and one undo step.
     class TimelineComponent final : public juce::Component,
                                     private juce::ScrollBar::Listener
     {
@@ -72,6 +77,13 @@ namespace ve::ui
         std::function<void (bool)> onSnapToScaleChanged;
         std::function<void (const juce::String&, int, std::int64_t)> onSplitNote;   // region, note, sung sample
         std::function<void (const juce::String&, int)> onMergeNote;                 // region, note (joins with next)
+        std::function<void (const MelodyHunt::Options&)> onHuntOptionsChanged;
+        std::function<void (const juce::String&)> onStatus;                         // one line for the status bar
+
+        // Re-pitches the selection (or every note) into a new melody. Returns the status line.
+        juce::String hunt();
+        juce::String huntWith (std::uint32_t seed);
+        juce::PopupMenu getHuntMenu() const;
 
         void paint (juce::Graphics&) override;
         void resized() override;
@@ -125,6 +137,11 @@ namespace ve::ui
         void showLaneMenu();
         void refreshTools();
         float snapPitch (float midi, bool fine) const;
+        std::vector<NoteHit> huntScope() const;      // the selection, or every note
+        void commitHits (const std::vector<NoteHit>&);
+        void showHuntMenu();
+        void handleHuntMenu (int result);
+        void putBackSung();
 
         struct DragStart { float target = 0.0f; std::int64_t shift = 0; double out = 0.0; };
         std::map<NoteKey, DragStart> dragStarts;
@@ -162,6 +179,7 @@ namespace ve::ui
 
         juce::ToggleButton snapButton { "Snap to scale" };
         juce::TextButton undoButton { "Undo" }, redoButton { "Redo" };
+        juce::TextButton huntButton { "Hunt" }, huntMenuButton;
         juce::Label selectionLabel;
         juce::Label correctLabel { {}, "Correct" }, vibratoLabel { {}, "Vibrato" }, driftLabel { {}, "Drift" };
         juce::Slider correctSlider { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };

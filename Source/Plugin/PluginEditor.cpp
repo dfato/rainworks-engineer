@@ -67,6 +67,8 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
     timeline.onSnapToScaleChanged = [this] (bool on) { processor.setSnapToScale (on); };
     timeline.onSplitNote = [this] (const juce::String& id, int idx, std::int64_t at) { processor.splitNote (id, idx, at); };
     timeline.onMergeNote = [this] (const juce::String& id, int idx) { processor.mergeNoteWithNext (id, idx); };
+    timeline.onHuntOptionsChanged = [this] (const ve::MelodyHunt::Options& o) { processor.setHuntOptions (o); };
+    timeline.onStatus = [this] (const juce::String& m) { processor.reportToStatus (m); };
     controls.onCorrectionChanged = [this] (float a) { processor.setGlobalCorrection (a); };
     controls.onStyleAmountChanged = [this] (float a) { processor.setStyleAmount (a); };
     controls.onStyleChanged = [this] (const juce::String& id) { processor.setStyle (id); };
@@ -339,6 +341,8 @@ void VocalEngineEditor::rebuildFromSession()
     d.snapToScale = session.getSnapToScale();
     d.canUndo = processor.canUndoNoteEdit();
     d.canRedo = processor.canRedoNoteEdit();
+    d.styleId = session.getStyleId();
+    d.huntOptions = processor.getHuntOptions();
 
     for (auto& desc : session.getRegionDescriptors())
     {

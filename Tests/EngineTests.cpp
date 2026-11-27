@@ -15,6 +15,7 @@
 #include "Engine/TakeImporter.h"
 #include "Engine/NotePlan.h"
 #include "Engine/NoteHistory.h"
+#include "Engine/MelodyHunter.h"
 #include "Engine/PitchTracker.h"
 #include "Engine/PitchCorrectRenderer.h"
 #include "Engine/TimeWarp.h"
@@ -2559,3 +2560,150 @@ int main()
     std::cout << (failures == 0 ? "ALL TESTS PASSED" : "TESTS FAILED: " + std::to_string (failures)) << std::endl;
     return failures == 0 ? 0 : 1;
 }
+
+//==============================================================================
+class MelodyHuntTests final : public juce::UnitTest
+{
+public:
+    MelodyHuntTests() : juce::UnitTest ("Melody hunt", "VocalEngine") {}
+
+    // Four bars of a typical sung phrase pattern in A minor around A3..E4.
+    static std::vector<MelodyHunt::InNote> take()
+    {
+        std::vector<MelodyHunt::InNote> v;
+        const double rhythm[][2] = { { 0.0, 0.5 }, { 0.5, 0.5 }, { 1.0, 1.0 }, { 2.0, 0.5 }, { 2.5, 1.0 },
+                                     { 4.0, 0.5 }, { 4.5, 0.5 }, { 5.0, 0.5 }, { 5.5, 0.5 }, { 6.0, 1.5 } };
+        const float sung[] = { 57, 60, 59, 57, 55, 57, 60, 62, 64, 62 };
+        for (int rep = 0; rep < 2; ++rep)
+            for (int i = 0; i < 10; ++i)
+                v.push_back ({ rhythm[i][0] + 8.0 * rep, rhythm[i][1], sung[i] + 0.3f, sung[i] });
+        return v;
+    }
+
+    static KeyEstimate aMinor() { KeyEstimate k; k.tonic = 9; k.minor = true; k.confidence = 0.8f; return k; }
+
+    void runTest() override
+    {
+        using namespace MelodyHunt;
+        const auto notes = take();
+        const auto key = aMinor();
+
+        beginTest ("Same seed, same melody; new seed, new melody");
+        {
+            Options o;
+            o.flavour = Flavour::pop;
+            const auto a = hunt (notes, key, {}, o, 1234), b = hunt (notes, key, {}, o, 1234);
+            expect (a.midi == b.midi);
+            int differentIdeas = 0;
+            for (std::uint32_t s = 1; s <= 8; ++s)
+                if (hunt (notes, key, {}, o, 1234 + s).midi != a.midi) ++differentIdeas;
+            expectGreaterOrEqual (differentIdeas, 7);
+            logMessage (a.description);
+        }
+
+        beginTest ("Stays in the scale, near the voice, ends on the root");
+        {
+            for (auto f : { Flavour::pop, Flavour::rock, Flavour::rnb, Flavour::hipHop, Flavour::trap, Flavour::indie })
+                for (std::uint32_t s = 0; s < 25; ++s)
+                {
+                    Options o;
+                    o.flavour = f;
+                    o.variation = s % 3 == 0 ? Variation::wild : Variation::fresh;
+                    const auto r = hunt (notes, key, {}, o, s * 7919u + 3);
+                    expectEquals ((int) r.midi.size(), (int) notes.size());
+                    for (float m : r.midi)
+                    {
+                        expect (NoteSegmenter::isInScale ((int) m, key), "note out of scale");
+                        expect (m >= 47.0f && m <= 72.0f, "note far from the voice: " + juce::String (m));
+                    }
+                    expectEquals (((int) r.midi.back()) % 12, 9, "last note should be A");
+                }
+        }
+
+        beginTest ("Mostly steps and small leaps, chord tones on downbeats");
+        {
+            std::vector<ChordSpan> chords;
+            const int roots[] = { 9, 5, 0, 7 };   // Am F C G
+            const ChordQuality q[] = { ChordQuality::minor, ChordQuality::major, ChordQuality::major, ChordQuality::major };
+            for (int b = 0; b < 4; ++b)
+                chords.push_back ({ b * 4.0, b * 4.0 + 4.0, roots[b], q[b], 0.8f });
+            int moves = 0, small = 0, downbeats = 0, onChord = 0;
+            for (std::uint32_t s = 0; s < 40; ++s)
+            {
+                Options o;
+                o.flavour = Flavour::pop;
+                const auto r = hunt (notes, key, chords, o, s + 100);
+                expect (r.usedDetectedChords);
+                for (size_t i = 1; i < r.midi.size(); ++i, ++moves)
+                    if (std::abs (r.midi[i] - r.midi[i - 1]) <= 4.0f) ++small;
+                for (size_t i = 0; i < notes.size(); ++i)
+                    if (std::fmod (notes[i].startPpq, 4.0) == 0.0)
+                    {
+                        ++downbeats;
+                        const auto& ch = chords[(size_t) (notes[i].startPpq / 4.0) % 4];
+                        const int iv = (((int) r.midi[i] - ch.root) % 12 + 12) % 12;
+                        if (iv == 0 || iv == 7 || iv == (ch.quality == ChordQuality::minor ? 3 : 4)) ++onChord;
+                    }
+            }
+            logMessage ("Moves of a third or less: " + juce::String (100 * small / moves) + "%, downbeats on a chord tone: "
+                        + juce::String (100 * onChord / downbeats) + "%");
+            expectGreaterThan ((double) small / moves, 0.75);
+            expectGreaterThan ((double) onChord / downbeats, 0.8);
+        }
+
+        beginTest ("Subtle keeps most notes, Trap stays tighter than Rock");
+        {
+            int movedSubtle = 0, movedFresh = 0;
+            float spanTrap = 0, spanRock = 0;
+            for (std::uint32_t s = 0; s < 20; ++s)
+            {
+                Options o;
+                o.flavour = Flavour::pop;
+                o.variation = Variation::subtle;
+                for (size_t i = 0; auto m : hunt (notes, key, {}, o, s).midi) movedSubtle += m != notes[i++].currentMidi;
+                o.variation = Variation::fresh;
+                for (size_t i = 0; auto m : hunt (notes, key, {}, o, s).midi) movedFresh += m != notes[i++].currentMidi;
+                o.flavour = Flavour::trap;
+                auto t = hunt (notes, key, {}, o, s).midi;
+                o.flavour = Flavour::rock;
+                auto k = hunt (notes, key, {}, o, s).midi;
+                spanTrap += *std::max_element (t.begin(), t.end()) - *std::min_element (t.begin(), t.end());
+                spanRock += *std::max_element (k.begin(), k.end()) - *std::min_element (k.begin(), k.end());
+            }
+            logMessage ("Notes moved: subtle " + juce::String (movedSubtle) + ", fresh " + juce::String (movedFresh)
+                        + "; average span trap " + juce::String (spanTrap / 20, 1) + ", rock " + juce::String (spanRock / 20, 1));
+            expectLessThan (movedSubtle * 2, movedFresh);
+            expectLessThan (spanTrap, spanRock);
+        }
+
+        beginTest ("Works with no key, a pentatonic scale, and one note");
+        {
+            Options o;
+            const auto r = hunt (notes, {}, {}, o, 9);
+            expect (r.key.isValid());
+            auto penta = key;
+            penta.scale = ScaleMode::pentatonic;
+            for (float m : hunt (notes, penta, {}, o, 11).midi)
+                expect (NoteSegmenter::isInScale ((int) m, penta));
+            const auto one = hunt ({ notes.front() }, key, {}, o, 5);
+            expectEquals ((int) one.midi.size(), 1);
+            expect (hunt ({}, key, {}, o, 5).midi.empty());
+        }
+
+        beginTest ("Hooky brings the opening phrase back");
+        {
+            int returns = 0;
+            for (std::uint32_t s = 0; s < 20; ++s)
+            {
+                Options o;
+                o.flavour = Flavour::trap;
+                o.repetition = Repetition::hooky;
+                const auto form = hunt (notes, key, {}, o, s).form;
+                if (form.indexOfChar ('A') != form.lastIndexOfChar ('A')) ++returns;
+            }
+            expectGreaterThan (returns, 10);
+        }
+    }
+};
+
+static MelodyHuntTests melodyHuntTests;

@@ -35,6 +35,7 @@ set(VE_ENGINE_SOURCES
     Source/Engine/JobQueue.cpp
     Source/Engine/NotePlan.cpp
     Source/Engine/NoteHistory.cpp
+    Source/Engine/MelodyHunter.cpp
     Source/Engine/PitchCorrectRenderer.cpp
     Source/Engine/PitchTracker.cpp
     Source/Engine/PitchTrackerBest.cpp

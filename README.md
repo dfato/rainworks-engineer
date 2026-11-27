@@ -77,7 +77,8 @@ from reference vocals, or write one as a small JSON file.
 ### Graph editing
 A full note graph: click, box-select or select every note at a pitch, drag in pitch or time with snap to
 scale, split and merge notes, and set Correct, Vibrato and Drift per note. Full undo and redo, plus keyboard
-shortcuts.
+shortcuts. **Hunt** writes a new catchy melody into the notes, in the key, with
+genre flavours, and a new idea on every press.
 
 </td>
 <td valign="top">

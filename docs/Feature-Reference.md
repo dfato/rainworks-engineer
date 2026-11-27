@@ -235,6 +235,32 @@ The Notes lane is the note graph; it now takes half the timeline height and has 
    **Enter** = correct 100%, **Delete/Backspace** = leave as sung (0%). If FL Studio plays notes instead, turn off
    "Typing keyboard to piano roll" in FL's Options menu.
 
+### 11c. Hunt: new melodies in the scale
+
+The pink **Hunt** button in the graph tool row writes a new melody into the notes. It keeps the rhythm you sang
+and changes only the pitches, all inside the loaded key and scale (with no key set, it guesses one from the notes).
+
+1. Select some notes (or none, for every note) and press **Hunt** or **H**. Each press gives a new idea; it is one
+   undo step, so **Ctrl+Z** goes back to what you had. Right-click a note or the graph > **Hunt a new melody** too.
+2. How it writes: it splits the take into phrases (at rests, or every two bars), writes a short motif and brings it
+   back in a verse/chorus-like form (e.g. "A A' B A'"), puts chord tones on the strong beats (the beat's detected
+   chords, or a common chord loop for the key when there's no beat), moves mostly in steps, turns around after a
+   leap, aims each phrase at a contour, lifts the peak phrase and lands the last note on the root. Notes stay within
+   reach of where they were sung so the pitch shift doesn't sound processed. The status bar says what it did.
+3. The arrow next to Hunt opens the options (the menu stays open so you can set several, then pick **Hunt**):
+   - **Genre flavour**: Follow the style (default), Pop, Rock (soaring, scene/emo-pop lift), R&B (smooth steps),
+     Hip-Hop and Trap (tight, chant-like, repeated notes and hooks), Indie (wider, less predictable).
+   - **How different**: Subtle (touch up the notes that are there), Fresh (a new melody), Wild (bolder choices).
+   - **Contour**: Automatic, Arch, Rise, Fall, Wave, Valley, Chant hook.
+   - **Repetition**: Hooky, Balanced, Free. **Range**: Tight (a fifth), Normal (an octave), Wide.
+     **Register**: where it was sung, a little higher, a little lower.
+   - **Follow the beat's chords** and **End on the root** toggles; **Put back the sung melody** snaps the notes
+     back to the key from what was sung.
+4. Options last while the plugin is loaded (not saved with the project yet).
+
+<img src="ui/hunt.jpg" alt="The note graph after one press of Hunt" width="100%">
+<img src="ui/hunt-menu.jpg" alt="The Hunt options menu" width="320">
+
 ### 12. Intent
 
 **Intent** (next to Correct, on by default) reads what each note was meant to be before correcting it:
