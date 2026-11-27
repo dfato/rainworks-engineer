@@ -269,11 +269,32 @@ void VocalEngineProcessor::scheduleAnalysis (const ve::RegionDescriptor& d)
             {
                 session.setAnalysis (id, *result);
                 resnapNotes(); // key estimate may have changed
+                for (auto& c : result->chords)
+                    if (c.root >= 0) ++manualAnalysisChords;
             }
             else if (! res.cancelled)
                 postMessage ("Sidechain analysis failed: " + res.error);
+
+            // "Analyse beat" pressed: report once every requested take is done.
+            if (manualAnalysisPending > 0 && --manualAnalysisPending == 0)
+            {
+                const auto key = session.getEstimatedKey();
+                postMessage ("Beat analysed: key " + (key.isValid() ? ve::Analysis::keyName (key.tonic, key.minor)
+                                                                     : juce::String ("not found"))
+                             + ", " + juce::String (manualAnalysisChords) + " chord change"
+                             + (manualAnalysisChords == 1 ? "" : "s"));
+            }
             sendChangeMessage();
         });
+}
+
+int VocalEngineProcessor::countTakesWithBeat() const
+{
+    int n = 0;
+    for (auto& d : session.getRegionDescriptors())
+        if (d.sidechainFile != juce::File() && d.sidechainFile.existsAsFile())
+            ++n;
+    return n;
 }
 
 void VocalEngineProcessor::schedulePitchTracking (const ve::RegionDescriptor& d)
@@ -697,6 +718,17 @@ void VocalEngineProcessor::importTake (const juce::File& vocal, const juce::File
 
 void VocalEngineProcessor::analyseAll()
 {
+    const int n = countTakesWithBeat();
+    if (n == 0)
+    {
+        postMessage ("No beat to analyse. Import the song with a beat file, or route the beat into the "
+                     "sidechain and record a take.");
+        sendChangeMessage();
+        return;
+    }
+    manualAnalysisPending = n;
+    manualAnalysisChords = 0;
+    postMessage ("Analysing the beat of " + juce::String (n) + (n == 1 ? " take..." : " takes..."));
     for (auto& d : session.getRegionDescriptors())
         scheduleAnalysis (d);
     sendChangeMessage();
@@ -705,8 +737,19 @@ void VocalEngineProcessor::analyseAll()
 void VocalEngineProcessor::analyseRegion (const juce::String& id)
 {
     auto r = session.findRegion (id);
-    if (r.isValid())
-        scheduleAnalysis (session.getRegionDescriptor (r));
+    if (! r.isValid())
+        return;
+    const auto d = session.getRegionDescriptor (r);
+    if (d.sidechainFile == juce::File() || ! d.sidechainFile.existsAsFile())
+    {
+        postMessage ("This take has no beat to analyse.");
+        sendChangeMessage();
+        return;
+    }
+    manualAnalysisPending = 1;
+    manualAnalysisChords = 0;
+    postMessage ("Analysing the beat of this take...");
+    scheduleAnalysis (d);
 }
 
 void VocalEngineProcessor::deleteRegion (const juce::String& id)

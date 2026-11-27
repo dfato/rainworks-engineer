@@ -45,6 +45,7 @@ namespace ve::ui
         void setMode (int);
         void setKeyOverride (int);
         void setEstimatedKeyText (const juce::String&);
+        void setCanAnalyse (bool anyTakeHasBeat);
         void setDataFolderText (const juce::String&);
         void setCorrection (float);
         void setStyleAmount (float);

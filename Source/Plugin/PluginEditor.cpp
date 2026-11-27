@@ -317,6 +317,7 @@ void VocalEngineEditor::rebuildFromSession()
 
     const auto est = session.getEstimatedKey();
     controls.setEstimatedKeyText (est.isValid() ? ve::Analysis::keyName (est.tonic, est.minor) : "not analysed");
+    controls.setCanAnalyse (processor.countTakesWithBeat() > 0);
 
     ve::ui::TimelineData d;
     bool isOverride = false;
