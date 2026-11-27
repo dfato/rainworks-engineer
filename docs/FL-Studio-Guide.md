@@ -184,7 +184,7 @@ Put `.json` files in `Documents\RainWorks\Engineer\Styles\` and restart FL. A st
   "vibrato": { "addDepthCents": 20, "rateHz": 5.0, "onsetMs": 400 } }
 ```
 
-The groups you can set are `pitch`, `vibrato`, `slides`, `timing`, `ornaments`, `tone` and `dynamics`. The repository [README](../README.md) lists every field. A file with the same `id` as a built-in replaces it.
+The groups you can set are `pitch`, `vibrato`, `slides`, `timing`, `ornaments`, `tone` and `dynamics`. The [feature reference](Feature-Reference.md#10-genre-styles) lists every field. A file with the same `id` as a built-in replaces it.
 
 ### Voice models
 
