@@ -1,402 +1,157 @@
-# Engineer by RainWorks (VocalEngine)
+<div align="center">
 
-VST3 + Standalone vocal processing plugin for FL Studio on Windows. JUCE 8 via CMake FetchContent, C++20.
+# Engineer by RainWorks
 
-This build covers Stages 0 and 1: plugin foundation, host sync, capture, cached playback, saved state,
-sidechain key/chord detection, the job system with an optional ONNX hook, and the timeline editor.
-There is no pitch correction or ML rendering yet.
+**Intelligent vocal tuning and styling for FL Studio.**
+Drop in a vocal and your beat. Engineer finds every note, hears the key and chords in the beat, works out what
+you meant to sing, and hands back a tuned, genre-styled take you can fine-tune note by note.
 
-## Layout
+VST3 · Windows 64-bit · FL Studio
 
-| Folder | Contents |
-|---|---|
-| `Source/Plugin` | `VocalEngineProcessor` (audio thread glue, orchestration), `VocalEngineEditor` (wires state to UI) |
-| `Source/Engine` | `HostContext`, `TripleBuffer`, `TempoMap`, `CaptureEngine`, `PlaybackEngine`, `RenderCache` + `RegionRenderer`, `SidechainAnalysis`, `JobQueue`, `ML/InferenceBackend`. No GUI includes. |
-| `Source/State`  | `SessionModel` (juce::ValueTree session) |
-| `Source/UI`     | `HeaderComponent`, `ControlBar`, `HostInfoComponent`, `TimelineComponent`, `StatusBar`, `EngineerLookAndFeel` (brushed aluminium + pink glow, all vector, Inter font embedded from `Resources/Fonts`). Components get plain data, never the processor. |
-| `Source/Tools`  | `EngineerStyleLearn` (style learning CLI), `EngineerUiSnapshot` (renders the real editor and its drop-downs to PNG; `-DVE_BUILD_UI_SNAPSHOT=ON`, run under `xvfb-run` on Linux) |
-| `Tests`         | `EngineTests` (headless, no GUI modules, which enforces the Engine/UI split), `OnnxSmokeTest` |
+[Get it](#get-started) · [FL Studio guide](docs/FL-Studio-Guide.md) · [Feature reference](docs/Feature-Reference.md) · [Build from source](docs/Developer-Guide.md)
 
-### Threads
+<br>
 
-- **Audio thread**: reads the play head into a `HostSnapshot`, publishes it through a lock-free triple buffer,
-  pushes audio and timeline events into `juce::AbstractFifo`s (capture), and plays an immutable
-  `PlaybackSnapshot`. No allocation, locks, file I/O or logging.
-- **Capture writer thread**: drains the FIFOs and streams 32-bit float WAVs.
-- **JobQueue workers** (2): load/render takes into the `RenderCache`, run sidechain analysis, future inference.
-  Priority, progress, cancellation (per group), completion callbacks on the message thread.
-- **Message thread**: owns the `SessionModel`, builds playback snapshots, and frees retired snapshots that the
-  audio thread hands back through a FIFO, so nothing is freed on the audio thread.
+<img src="docs/ui/main-view.jpg" alt="Engineer by RainWorks: brushed aluminium editor with a glowing pink Amount knob, a waveform of the take, the detected chords and a note graph of the corrected vocal" width="100%">
 
-### Hooks for later stages
+</div>
 
-- `RenderPlan` + `RegionRenderer`: Stage 2 adds the note plan to `RenderPlan`; its `hash()` changes, the cache
-  key (region id + plan hash) misses, and only that region is re-rendered. Playback does not change.
-- `TimelineComponent::getNoteLaneBounds()`: reserved lane for Stage 2 note blobs.
-- `ml::InferenceBackend`: Stage 5 renderer talks to this interface, in-process (ONNX Runtime) or a sidecar.
+## Why Engineer
 
-## Build on Windows (MSVC)
+Most tuners make you pick a key and hope. Engineer listens first.
 
-Needs Visual Studio 2022 or newer (Desktop development with C++) and CMake 3.22+ (bundled with VS). Without `-G`, CMake picks the newest Visual Studio installed.
+- **It knows the song.** Route your beat into the sidechain (or just drop the beat file in) and Engineer
+  detects the key and the chord on every beat. Notes snap to *your* song's scale, not a guess.
+- **It hears the singer.** A neural pitch tracker finds the note even on gritty, breathy or roomy takes, and a
+  technique detector marks vibrato, belts, breathy lines, grit and rapped or spoken parts.
+- **It keeps what you meant.** Intent reads each note before correcting it, so slides stay slides, vibrato
+  stays yours, chosen blue notes stay blue, and rapped lines are left alone.
+- **It sounds like a genre, not a plug-in.** Pick Rock, Pop, Indie, R&B, Hip-Hop or Trap and get that genre's
+  pitch feel, movement, tone and compression in one move. Push it to 200% when you want it obvious.
 
-```
-cmake -S . -B build -A x64
-cmake --build build --config Release --parallel
-ctest --test-dir build -C Release --output-on-failure
-```
+## Features
 
-Outputs:
-- `build\VocalEngine_artefacts\Release\VST3\Engineer by RainWorks.vst3`
-- `build\VocalEngine_artefacts\Release\Standalone\Engineer by RainWorks.exe`
+<table>
+<tr>
+<td width="50%" valign="top">
 
-Install the VST3 by copying the whole `.vst3` folder to `C:\Program Files\Common Files\VST3\`.
+### Neural pitch and technique detection
+FCPE, a neural pitch tracker, reads the melody and a small classifier rates the technique every 10 ms
+(vibrato, breathy, belt, grit, spoken/rapped). On the vocadito test set, octave errors on clean takes drop from
+1.9% to 0.1%, and pitch accuracy in a reverberant room rises from 89.4% to 92.7%
+([measurements](docs/Feature-Reference.md#12a-neural-pitch-and-technique-detection)).
 
-### Optional: ONNX Runtime smoke test
+</td>
+<td width="50%" valign="top">
 
-```
-cmake -S . -B build-onnx -A x64 -DVE_WITH_ONNX=ON
-cmake --build build-onnx --config Release --target VocalEngineOnnxSmokeTest
-ctest --test-dir build-onnx -C Release -R onnx_smoke --output-on-failure
-```
+### Auto key and chords from the beat
+Send the instrumental to the sidechain and Engineer fills a chord strip (major, minor, 7, sus2, sus4, dim) and
+sets the key, which you can override at any time. No beat? Pick the key yourself.
 
-CMake downloads ONNX Runtime from its NuGet package (`VE_ONNX_VERSION`, default 1.20.1). To use one you already have,
-pass `-DVE_ONNX_ROOT=C:\path\to\onnxruntime-win-x64-1.20.1`. The test builds a tiny `Y = X + X` model in
-memory (no model files ship) and runs one inference on a JobQueue worker. The plugin itself does not link
-ONNX Runtime yet.
+</td>
+</tr>
+<tr>
+<td valign="top">
 
-## Bus layout
+### Intent: slides and vibrato preserved
+Every note is read as a slide, scoop, held vibrato, passing note, chosen accidental, ad-lib, spoken line or
+scream, and corrected accordingly. Right-click any note to see how it was read. Notes you edit by hand are
+never second-guessed.
 
-- Main in: mono or stereo vocal. Main out: same as main in.
-- Sidechain in: stereo (optional; the plugin runs with it disconnected).
-- Latency: 0.
+</td>
+<td valign="top">
 
-## Where takes are stored
+### Six genre styles, plus the basics
+<img src="docs/ui/style-menu.png" alt="Style menu: Basic (Hard Tune, Natural, Transparent) and Genres (Hip-Hop, Indie, Pop, R&B, Rock, Trap), plus Learn style from vocals" width="170" align="right">
 
-Each plugin instance has a session id saved in the FL project. Takes go to
-`Documents\RainWorks\Engineer\Sessions\<session id>\Regions\` as `<take id>_vocal.wav` and
-`<take id>_sidechain.wav` (32-bit float). The session stores paths relative to that folder.
-Use **Data folder > Show in file browser** to see it, or **Locate / change data folder...** to point a project
-at a moved folder.
+**Rock** (modern rock, pop-punk, emo, post-hardcore cleans), **Pop**, **Indie**, **R&B**, **Hip-Hop** and
+**Trap**, plus **Natural**, **Transparent** and **Hard Tune**. Pop, Rock, Indie and R&B were
+learned from openly licensed vocals; Hip-Hop and Trap are tuned by hand. Learn your own style
+from reference vocals, or write one as a small JSON file.
 
----
-
-## Testing in FL Studio
-
-### 1. Install and load
-
-1. Copy the `.vst3` folder into `C:\Program Files\Common Files\VST3\`.
-2. Options > Manage plugins > Find more plugins. "Engineer by RainWorks" appears under Effects.
-3. Put a vocal audio clip on a playlist track routed to mixer insert 1. Add **Engineer by RainWorks** to insert 1.
-4. Play. With Monitor = Input, the vocal must sound identical with the plugin on or bypassed.
+</td>
+</tr>
+<tr>
+<td valign="top">
 
-### 2. Route the instrumental into the sidechain
+### Graph editing
+A full note graph: click, box-select or select every note at a pitch, drag in pitch or time with snap to
+scale, split and merge notes, and set Correct, Vibrato and Drift per note. Full undo and redo, plus keyboard
+shortcuts.
 
-1. Route the beat to its own mixer insert, e.g. insert 2.
-2. Select insert 2. Right-click the routing arrow at the bottom of insert 1 and choose **Sidechain to this track**.
-   Insert 2 still feeds Master and now also feeds insert 1 as a sidechain source.
-3. In the plugin window click the wrapper's cog icon, open the **Processing** tab, find **Connections**, and set
-   the plugin's sidechain input (second input port) to insert 2.
-4. Press play. Top right of the plugin shows a glowing pink light with a dB level. Mute insert 2: it turns to an amber dot ("no signal").
+</td>
+<td valign="top">
 
-### 3. Host context (Step 2)
-
-The transport read-out in the footer (right side) shows BPM, time signature, bar | beat, PPQ, sample position, play/rec state,
-loop on/off with loop points, and sample rate.
-
-- Change the tempo and time signature in FL: the values follow live.
-- Turn on loop recording / select a loop range in the playlist: LOOP shows On and the range.
-- A field the host does not provide shows `--`. A `*` after PPQ or SAMPLE means it was derived from the other
-  value and the tempo.
-
-### 4. Capture (Step 3)
-
-1. Switch FL to **Song mode**. Click **Arm** (glows pink, light on).
-2. Press play from bar 1 and let it run 8 bars, then stop. The timeline shows a red "Recording" block while it
-   plays, then the take's waveform once it is written.
-3. Play from bar 5 for 2 bars and stop: a second take appears on top (punch-in).
-4. Turn on looping over 2 bars and play: every loop pass becomes its own take (a jump in the timeline always
-   closes a take).
-5. Data folder > Show in file browser: one `_vocal.wav` (and `_sidechain.wav` if the sidechain is routed) per take.
-6. Disarm before moving on, or every play records a new take.
-
-### 4b. Whole song in one go
-
-**Import (fastest).** Export your vocal (and optionally the beat) from FL starting at bar 1, then either click
-**Import song...** and select one or both files, or drag them onto the plugin. A file whose name contains
-beat/inst/music/track/mix is used as the beat; the other is the vocal. The take lands at bar 1 using the
-project's current tempo, the beat feeds sidechain analysis, and nothing has to play. WAV, AIFF, FLAC and Ogg
-work everywhere; MP3 works on Windows.
-
-**Capture during export.** Arm the plugin, then File > Export > WAV with the song range. FL renders faster
-than real time and the plugin captures the whole song as one take while it does (it waits for the disk
-instead of dropping audio during offline renders). Disarm afterwards. You can delete the exported WAV.
-
-### 5. Rendered playback (Step 4)
-
-1. Set Monitor to **Rendered**. Mute the original vocal clip in the playlist (or route it elsewhere) so you only
-   hear the plugin.
-2. Play from bar 1: you hear the captured take in time. Where takes overlap, the newest one plays.
-3. Click around the timeline while playing, loop a range, stop and start: playback stays locked to the song
-   position. Outside takes, the plugin passes its input through.
-4. While a take is being recorded you always hear the live input.
-5. **Bypass** passes audio untouched and disables capture even when armed.
-
-### 6. Save and restore (Step 5)
-
-1. With takes captured, Monitor = Rendered and a manual key set, save the FL project and close FL.
-2. Reopen the project. The takes reload in the background ("Load take" in the status bar), then play exactly as
-   before. Monitor mode and key override are restored. Arm is always off after loading.
-3. Missing files: rename the session's `Regions` folder and reopen. Takes show red "Missing audio", the status
-   bar says how many are missing, and the plugin passes input through there. Rename it back and use
-   Data folder > Locate... to pick the session folder: the takes come back.
-
-### 7. Sidechain analysis (Step 6)
-
-1. Route the beat into the sidechain (section 2) and record a take of 8 bars or more.
-2. Analysis starts automatically after each take. The chord lane fills in with one chord per beat (merged when
-   repeated) and the key shows top right of the timeline and in the Key menu ("Auto (C major)").
-3. **Analyse beat** re-runs it for all takes; right-click a take > Re-analyse sidechain for one.
-4. Pick a key in the Key menu to override it; the timeline shows "(manual)". Pick Auto to go back.
-
-Chord vocabulary: major, minor, 7, sus2, sus4, dim, or N.C. Beats follow the host tempo captured with the take.
-
-### 8. Timeline (Step 8)
-
-- Mouse wheel scrolls, Ctrl + wheel zooms around the mouse, drag on empty space scrolls.
-- **Follow** keeps the playhead in view while playing (dragging turns it off).
-- Bar numbers and beat lines come from the host tempo and time signature.
-- Right-click a take to re-analyse or remove it from the session (its files stay on disk).
-- The bottom lane is reserved for Stage 2 note blobs.
-
-### 9. Notes and pitch correction (Stage 2)
-
-1. Record or import a take. After it loads, "Track pitch" runs and the **Notes** lane fills with blobs: one per
-   sung note, at the pitch you sang. Colour = how far it is from the nearest in-key note
-   (silver < 15 cents, amber < 35, red beyond). An outline shows the target when it differs.
-2. Set Monitor to **Rendered** and raise **Correct** (small knob, top plate). Every note you haven't touched moves toward its
-   target by that amount and the take re-renders in the background (you keep hearing the previous render until
-   the new one is ready). Corrected notes glow pink; a faint ghost shows where they were sung.
-3. Per note: drag a blob up/down to choose another target (semitone steps, hold Alt for cents), double-click to
-   toggle correction on/off, right-click for 100% / 50% / 0% / reset. Edited notes get a white outline and the
-   Correct knob no longer changes them.
-4. Change the key (Key menu): untouched notes re-snap to the new scale.
-5. Save and reopen the project: notes, edits and the corrected sound come back.
-
-Correction moves each note as a whole (vibrato and slides are kept) using TD-PSOLA. Audio outside corrected
-notes is passed through untouched.
-
-### 10. Genre styles (Stage 3)
-
-1. With a take that has notes, set Monitor to **Rendered** and pick a **Style** (grouped by genre).
-   Picking a style sets **Correct** to that style's default and re-renders every take.
-2. Compare a few on the same take: **Natural** keeps vibrato and glides in gently; **Trap** / **Hard Tune**
-   snap instantly to a flat line; **R&B** adds slides between close notes, a soft scoop and vibrato on held
-   notes; **Rock** locks in fast with a straight tone; **Indie** stays loose.
-3. The Correct knob and per-note edits still work on top of the style.
-4. Save and reopen: the style is restored with the project.
-
-Built in: 3 basic styles (Natural, Transparent, Hard Tune) and six genres, each tuned on real vocals:
-
-| Genre | Pitch | Movement | Tone |
-| --- | --- | --- | --- |
-| **Pop** | 100%, fast (14 ms), human (keeps 40% of the singer's wobble) | smooth 40 ms glides, light vibrato on held ends | bright and airy, compressed |
-| **Rock** | 100%, fast (13 ms), straight (keeps about 30%) | no added scoops, falls or vibrato | bright, slightly lean, heavily compressed; no added grit, so the singer's own rasp is all you hear |
-| **Indie** | 95%, relaxed (about 55 ms), keeps most of the drift | wider glides | warm and soft, lightly compressed |
-| **R&B** | 100%, smooth (22 ms), keeps runs and vibrato | 60 ms slides, soft 30-cent scoops, a few runs | warm and close |
-| **Hip-Hop** | sung hooks tuned cleanly (20 ms); rapped lines with no clear pitch are left as sung (Intent) | pulled a quarter of the way to the 1/16 grid, light swing | punchy, compressed |
-| **Trap** | hard, near-instant (3 ms), flat line | quick glides, pulled firmly to the grid | bright and squashed |
-
-Rock covers modern rock, pop-punk, emo and post-hardcore clean vocals. Every genre tunes to the song's own
-key, so none of them rewrites the melody onto another scale.
-
-Earlier versions had 31 genres. A project saved with one of them opens with the genre that replaced it
-(for example Post-Hardcore and Pop-Punk open as Rock, Melodic Rap as Trap, Gospel and Neo-Soul as R&B,
-Singer-Songwriter and Folk as Indie, Pop Ballad and EDM as Pop). A custom style that inherits from a
-retired genre inherits from its replacement.
-
-**Custom styles.** Drop `.json` files into `Documents\RainWorks\Engineer\Styles\` and restart FL. A style can
-inherit from any other and override only what it changes:
-
-```json
-{ "id": "my-trap", "name": "My Trap", "inherits": "trap",
-  "vibrato": { "addDepthCents": 20, "rateHz": 5.0, "onsetMs": 400 } }
-```
-
-Fields: `pitch` (`correction` 0-1, `retuneMs`, `keepVariation` 0-1, `scale`), `vibrato` (`addDepthCents`, `rateHz`,
-`onsetMs`), `slides` (`betweenNotesMs`, `maxGapMs`, `scoopCents`, `scoopMs`), `timing` (`quantize` 0-1, `grid` divisions per whole note, `swing` 0-1),
-`ornaments` (`runs` 0-1, `runNotes` 2-8, `runNoteMs`, `fallCents`, `fallMs`), `tone` (`brightness` -1..1,
-`warmth` -1..1, `grit` 0-1, `breath` 0-1) and `dynamics` (`compress` 0-1).
-A file with the same `id` as a built-in replaces it.
-
-**Runs, falls and tone.** Each style also has its own ornaments and tone:
-
-- **Runs** are quick lines through the song's own scale on held notes. In the middle of a phrase a run
-  turns around the note and comes back. At a phrase end it walks down and lands on a lower scale note.
-  R&B uses them on a few long notes; the other genres leave runs to the singer.
-- **Falls** drop the pitch off the end of a phrase. No built-in genre adds them; a custom style can.
-- **Tone** sets brightness (presence and air), warmth (low mids), grit (rasp that follows the voice's level)
-  and breath (aspiration noise pulsed by the voice's own cycles), plus **compression**. Rock, Pop and Trap are bright and
-  tightly compressed. R&B and Indie are warm. No built-in genre adds grit or breath.
-
-The loudness of the take is kept, and the gaps between phrases stay exactly as recorded, so the tone stage
-never raises the hiss floor (before, the compressor's make-up gain lifted it 2 to 7 dB). The **Amount** knob (centre of the top plate) sets how strongly all of this is
-applied: 0% is tuning only, 100% is the style as designed, and 200% exaggerates it (double-click for 100%).
-At Correct 0% the take still plays exactly as sung.
-
-**Scales.** `pitch.scale` picks which notes of the key the targets snap to, so a style can change the
-melody as well as the delivery: `key` (the key's own major or natural minor), `pentatonic`, `blues`
-(adds the blue note), `harmonic` (raised 7th), `modal` (mixolydian in major keys, dorian in minor) or
-`chromatic` (nearest semitone). A note moved to another scale degree is moved all the way, whatever the
-Correct amount, so it never lands between two notes. All built-in styles use `key`; the other scales are
-there for custom styles.
-
-**Learn a style from vocals.** At the bottom of the Style menu, pick **Learn style from vocals...**, choose
-one or more dry, solo vocals sung the way you want, and name the style. Engineer measures how they are sung
-(how close notes sit to pitch, how fast the voice moves between notes, vibrato rate/depth/onset and how
-often it is used, scoops into notes) and saves a new style built on the one currently selected, under
-**My styles** (also written to `Documents\RainWorks\Engineer\Styles\`). Only those numbers are kept: it
-does not copy the voice, words or melody, so it shapes your take toward the reference's phrasing without
-making you sound like that singer. Several references (ideally different songs) give a steadier result.
-Timing (swing/quantize) is not learned here because a reference file's tempo is unknown.
-
-The built-in genre styles were tuned the same way from openly licensed singing, with each genre's
-signature (scale, tone, compression and, for Rock, Hip-Hop and Trap, the whole pitch feel) set by hand (see
-`tools/style-learning/README.md` for the sources, licences and which genres had data).
-
-### 11. Timing: quantize, swing and note nudges
-
-1. Pick **Trap**, **EDM**, **Hyperpop** or **Hard Tune** on a take sung slightly off the beat. Corrected notes
-   are pulled toward the 1/16 grid (by the style's `quantize` times each note's correction). The note lane
-   shows the blob where it will sound, with a faint outline where it was sung.
-2. **Lo-Fi**, **Neo-Soul**, **Afrobeats**, **Drill** and **House** add swing: every second 1/16 step sits late.
-3. **Shift + drag** a blob left or right to move that note in time. It snaps to 1/16; hold **Alt** too for
-   free movement. Right-click > **Reset timing** puts it back.
-4. Each note keeps its length and moves as a block; the gaps around it stretch or squeeze (up to 4x either
-   way). Pitch, vibrato and formants are kept. Audio away from moved notes is untouched.
-5. Right-click a blob > **Split note here** cuts it where you clicked (each half gets its own pitch);
-   **Merge with next note** joins it with the following blob.
-
-### 11b. Graph editing: selection, snap to scale, undo
-
-The Notes lane is the note graph; it now takes half the timeline height and has a tool row above it.
-
-1. **Select**: click a blob to select it (white outline). **Ctrl/Cmd-click** or **Shift-click** adds or removes
-   notes; **drag on empty graph space** for a box selection (hold Shift/Ctrl to add to it); **Ctrl+A** selects
-   everything, **Esc** clears. Right-click a blob > **Select all notes at this pitch**.
-2. **Move together**: drag any selected blob and the whole selection moves (up/down in pitch, **Shift + drag** in
-   time, snapping to 1/16; hold Alt for free moves).
-3. **Snap to scale** (tool row, on by default, saved with the project): pitch moves land on the notes of the key
-   and the style's scale (shown at the right, e.g. "A minor, pentatonic"; scale rows are shaded in the graph).
-   Off: semitone steps. Alt always moves freely in cents. Right-click > **Snap to scale** or **S** puts selected
-   notes onto the nearest scale note.
-4. **Correct / Vibrato / Drift sliders** edit the selection: Correct = how far notes are pulled (0-100%);
-   Vibrato = vibrato kept (0% flat line, 100% as the style decides, 200% double); Drift = slow pitch wander kept
-   inside the note (0% dead steady, 100% as sung; far left = Auto, set by Correct). Notes with custom vibrato or
-   drift show a small "v0" / "d50" tag. The right-click menu has the same options for the selection.
-5. **Undo / Redo**: buttons, or **Ctrl+Z** and **Ctrl+Shift+Z / Ctrl+Y**. Covers drags, sliders, menu edits,
-   split and merge. Undo only puts back what you edited, so a key or style change made since is kept.
-6. **Keys** (click in the graph first so it has focus): **Up/Down** = one scale step (semitone with Snap off),
-   **Shift+Up/Down** = octave, **Alt+Up/Down** = 5 cents, **Left/Right** = move 1/16 in time,
-   **Enter** = correct 100%, **Delete/Backspace** = leave as sung (0%). If FL Studio plays notes instead, turn off
-   "Typing keyboard to piano roll" in FL's Options menu.
-
-### 12. Intent (Stage 4)
-
-**Intent** (next to Correct, on by default) reads what each note was meant to be before correcting it:
-
-| Read as | What happens |
+### Amount up to 200%
+One big knob sets how strongly the style is applied: 0% is clean tuning only, 100% is the style as designed,
+200% exaggerates it. The **Correct** knob sets how far notes are pulled to pitch.
+
+</td>
+</tr>
+</table>
+
+Also inside: whole-song import (drag in the vocal and beat, nothing has to play), punch-in capture while FL
+plays, quantize and swing per style, sessions saved with your FL project, and GPU rendering of voice models through DirectML.
+
+<div align="center">
+<img src="docs/ui/graph-selected.jpg" alt="The note graph with every note selected, showing snap to scale and the Correct, Vibrato and Drift sliders" width="100%">
+<sub>Graph mode: select notes, then drag, snap to scale or reshape vibrato and drift.</sub>
+</div>
+
+## Get started
+
+1. **Download.** Open [Actions → build](https://github.com/dfato/rainworks-engineer/actions/workflows/build.yml),
+   pick the newest green run on `main`, and download the **EngineByRainWorks-VST3-win64** artifact (sign in to
+   GitHub first; artifacts expire after 90 days).
+2. **Install.** Unzip it and copy the whole `Engineer by RainWorks.vst3` folder into
+   `C:\Program Files\Common Files\VST3\`. It's a folder, not a single file, so keep it whole.
+3. **Scan.** In FL Studio: *Options → Manage plugins → Find more plugins*. Engineer appears under Effects,
+   from RainWorks.
+4. **Load.** Put Engineer first on your vocal's mixer insert, before EQ, compression or reverb.
+5. **Bring in a take.** Click **Import song...** and pick your dry vocal and your beat (both exported from bar
+   1), or arm Engineer and record while FL plays.
+6. **Hear it.** Pick a **Style**, set **Monitor** to **Rendered**, and press play.
+
+A fresh instance starts with Correct at 0% and Monitor on Input, so nothing changes until you pick a style and
+switch to Rendered. The [FL Studio guide](docs/FL-Studio-Guide.md) walks through routing the sidechain, every
+control, recommended settings for each genre and troubleshooting.
+
+## How it works
+
+Engineer is an offline vocal editor that lives on a mixer insert. You record or import a take, it renders in
+the background, and the rendered vocal plays back locked to FL's transport. It does not change your voice
+live while you sing, which is what lets it look at the whole phrase before deciding how to tune each note.
+
+| Step | What happens |
 | --- | --- |
-| Slide (pitch glides through the note) | 40% of Correct, so the glide stays |
-| Vibrato on a held note | Corrected, and the singer's own vibrato is kept even on flatter styles (not on Hard Tune) |
-| Scoop into a note | 80% of Correct |
-| Passing note (short, between two others) | 50% of Correct, and it keeps the semitone it was sung on |
-| Short note sung cleanly on a semitone outside the key (a run, a quick turn) | Stays on that semitone |
-| Chosen accidental (held, steady, on a semitone outside the key) | Stays on that semitone instead of being pulled into the key |
-| Spoken or rapped line | Left as sung |
-| Ad-lib (much quieter than the take) | 60% of Correct |
-| Screamed or growled (technique classifier sure of it) | 60% of Correct, so a scream doesn't warble. Some rasp is marked "gritty" and corrected as usual |
-| Breathy or belted (technique classifier) | Marked only; corrected as usual |
-| Spoken or rapped (technique classifier) | Marked only; pitch evidence (above) decides whether it's corrected |
+| Capture | Your vocal (and the beat on the sidechain) is saved as a take with the song position |
+| Analyse | Neural pitch finds the notes; the beat gives the key and chords; technique detection marks how each part was sung |
+| Plan | Intent decides how much to correct each note; the style adds its pitch feel, glides, vibrato, runs, timing and tone |
+| Render | Notes are moved as a whole with TD-PSOLA, keeping vibrato and slides; audio outside corrected notes is untouched |
+| Play | The render plays in sync with FL; edit a note and only that take re-renders |
 
-1. Import or record a take sung with some slides, a blue note and a spoken line. The status bar lists what
-   was found ("12 notes. Kept as sung or corrected gently: 2 slides, 1 chosen accidental, ...").
-2. Right-click a note: the menu says how it was read ("Sung as: Slide (40% of Correct)").
-3. Turn **Intent** off to compare: every note is pulled to the key the same way.
-4. Notes you edit by hand are never changed by Intent.
+## Status
 
-### 12a. Neural pitch and technique detection
+Engineer is at version 0.1.0 and in active development. The Windows build is produced by CI on every change.
 
-Pitch and technique are read by two neural networks on a background thread when the build has ONNX
-Runtime (the Windows build does). Without them the DSP tracker (YIN) and the pitch-curve rules work alone,
-as before.
+- **Voice models** (re-singing a take in a trained voice) are built in but experimental: they have only been
+  run with stand-in models so far. Training scripts are in [tools/voice-training](tools/voice-training/README.md).
+- GPU rendering through DirectML has not yet been checked on real hardware.
+- See [Known limitations](docs/Feature-Reference.md#known-limitations) for the full list.
 
-- **Pitch: FCPE** (torchfcpe, MIT licence). It finds the note on gritty, breathy and reverberant takes where
-  YIN slips an octave or hears pitch in noise. YIN still refines each frame where the two agree, so clean
-  notes keep YIN's precision. `pitch-fcpe.onnx` (43 MB) ships inside the VST3 bundle; it can also live in
-  `Documents\RainWorks\Engineer\Models`. A 3 minute vocal takes about 3 seconds on the CPU.
-- **Technique: a small classifier** (embedded, 1 MB) trained in `tools/technique-model` on VocalSet and the
-  Extreme Metal Vocals Dataset (CC BY 4.0) plus CMU ARCTIC speech (CC0). Every 10 ms it rates vibrato,
-  breathy, belt, grit and spoken/rapped. Intent uses it (table above), and **Learn style from vocals...** turns
-  how gritty and airy the references are into the style's tone (grit, breath).
+## Documentation
 
-Measured on vocadito (40 solo vocals with reference pitch, CC BY 4.0), as raw pitch accuracy (frames within
-50 cents of the true pitch) and octave errors:
+| Guide | For |
+| --- | --- |
+| [FL Studio guide](docs/FL-Studio-Guide.md) | Musicians: install, routing, every control, settings per genre, troubleshooting |
+| [Feature reference](docs/Feature-Reference.md) | Every feature in detail: style fields, Intent rules, measurements, limitations |
+| [Developer guide](docs/Developer-Guide.md) | Architecture, threads, building with MSVC, ONNX Runtime, CI, UI snapshots |
+| [Style learning](tools/style-learning/README.md) | How the built-in genres were tuned, and the data sources and licences |
+| [Voice training](tools/voice-training/README.md) | Training and exporting your own voice model |
 
-| | DSP (before) | Neural |
-| --- | --- | --- |
-| Clean takes | 96.8%, 1.9% octave errors | 97.7%, 0.1% |
-| Room reverb | 89.4%, 3.2% | 92.7%, 0.0% |
-| Noise floor (15 dB SNR) | 95.2%, 2.3% | 97.4%, 0.1% |
-| Notes heard where nothing is sung (clean) | 21.6% of silent frames | 11.0% |
+## Credits
 
-Notes found correctly (onset within 50 ms, pitch within 50 cents of vocadito's note annotations) go from
-67.9% to 69.9% on clean takes and from 58.8% to 65.7% with reverb, mostly because far fewer phantom notes
-are made from breaths and room tails.
-
-The final tuning is about the same as before: rendered with Pop and Intent on, 98-99% of held notes land
-within 25 cents either way (DSP 99.0-99.3%, neural 98.4-99.0% across clean, reverb and noisy copies), with
-a slightly tighter median (1.2-1.5 cents against 1.3-1.6). The DSP path was already near the ceiling on
-those takes; the neural path's gain is that it is wrong less often about *what* was sung.
-
-`tools/pitch-models/eval_pitch.py` reproduces the tracker numbers; the Windows CI build runs it on every push.
-
-1. Import a take. The status bar says "Pitch analysis: Neural pitch (FCPE) + technique detection".
-   If it says "DSP pitch tracker (...)", the reason is in the brackets.
-2. Right-click a screamed or breathy note: "Sung as: Gritty (60% of Correct)".
-
-### 12b. Voice models (Stage 5)
-
-Voice models re-sing each take in a trained voice, following the notes, style and timing.
-Training a model is covered in [tools/voice-training/README.md](tools/voice-training/README.md)
-(RTX 3060 12 GB: about 1 to 2 hours per voice).
-
-1. Export a voice (that guide, step 4). It lands in `Documents\RainWorks\Engineer\Voices\<name>`.
-2. **Voice** menu > **Rescan voices folder**, then pick the voice. The status bar says when it starts.
-3. With Monitor on **Rendered**, takes play in the new voice once each render finishes. The old
-   render keeps playing until then.
-4. Pitch edits, styles and timing still apply: the model sings the planned pitch.
-5. **As recorded** returns to the original voice. Save and reopen: the voice choice is kept.
-
-If ONNX Runtime can't load, the Voice menu is greyed out and its tooltip says why.
-
-**GPU.** Voice models render on the GPU through DirectML (any DirectX 12 GPU, including the RTX 3060).
-The Voice menu's **Render on GPU** item switches between GPU and CPU. When a render finishes, the status
-bar says where it ran, for example "on GPU (DirectML)". If the GPU can't be used, it says "CPU (GPU failed: ...)"
-and the render still completes on the CPU.
-
-## Known limitations (to fix after the full build)
-
-- Takes are aligned by sample position. If you change the project tempo after recording, takes stay at their
-  original time, not their original bar.
-- Takes load fully into RAM (about 23 MB per stereo minute at 48 kHz). Streaming comes later.
-- Standalone has no host transport, so capture and Rendered playback do nothing there.
-- The session id is copied when you "Save as" an FL project, so both projects share one data folder.
-- No crossfades at take boundaries yet (punch-ins can click).
-- Moving a note only re-times the gaps either side of it, so pulling a note past its neighbour is limited
-  (gaps squeeze to a quarter of their length at most). Very long gaps of breath noise can sound grainy when
-  stretched a lot.
-- Quantize uses the tempo recorded with the take; it ignores tempo changes made after recording.
-- The content encoder isn't bundled yet: export it once with the training tools.
-- Voice rendering has only been tested with stand-in models; no real trained voice has been
-  run through the plugin yet.
-- Heavily breathy or polyphonic material confuses the pitch tracker (it assumes one voice).
+Built with [JUCE](https://juce.com). Neural pitch by [FCPE / torchfcpe](https://github.com/CNChTu/FCPE) (MIT).
+Interface font [Inter](https://rsms.me/inter/) (SIL Open Font License). Genre styles and the technique
+classifier were trained on openly licensed singing and speech (CC BY 4.0 and CC0); sources are listed in
+[tools/style-learning](tools/style-learning/README.md) and the [feature reference](docs/Feature-Reference.md#12a-neural-pitch-and-technique-detection).
