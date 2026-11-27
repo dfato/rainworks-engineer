@@ -13,7 +13,8 @@ There is no pitch correction or ML rendering yet.
 | `Source/Plugin` | `VocalEngineProcessor` (audio thread glue, orchestration), `VocalEngineEditor` (wires state to UI) |
 | `Source/Engine` | `HostContext`, `TripleBuffer`, `TempoMap`, `CaptureEngine`, `PlaybackEngine`, `RenderCache` + `RegionRenderer`, `SidechainAnalysis`, `JobQueue`, `ML/InferenceBackend`. No GUI includes. |
 | `Source/State`  | `SessionModel` (juce::ValueTree session) |
-| `Source/UI`     | `HeaderComponent`, `ControlBar`, `HostInfoComponent`, `TimelineComponent`, `StatusBar`. Components get plain data, never the processor. |
+| `Source/UI`     | `HeaderComponent`, `ControlBar`, `HostInfoComponent`, `TimelineComponent`, `StatusBar`, `EngineerLookAndFeel` (brushed aluminium + pink glow, all vector, Inter font embedded from `Resources/Fonts`). Components get plain data, never the processor. |
+| `Source/Tools`  | `EngineerStyleLearn` (style learning CLI), `EngineerUiSnapshot` (renders the real editor and its drop-downs to PNG; `-DVE_BUILD_UI_SNAPSHOT=ON`, run under `xvfb-run` on Linux) |
 | `Tests`         | `EngineTests` (headless, no GUI modules, which enforces the Engine/UI split), `OnnxSmokeTest` |
 
 ### Threads
@@ -95,11 +96,11 @@ at a moved folder.
    Insert 2 still feeds Master and now also feeds insert 1 as a sidechain source.
 3. In the plugin window click the wrapper's cog icon, open the **Processing** tab, find **Connections**, and set
    the plugin's sidechain input (second input port) to insert 2.
-4. Press play. Top right of the plugin shows a green light with a dB level. Mute insert 2: it turns yellow.
+4. Press play. Top right of the plugin shows a glowing pink light with a dB level. Mute insert 2: it turns to an amber dot ("no signal").
 
 ### 3. Host context (Step 2)
 
-The strip under the controls shows BPM, time signature, bar | beat, PPQ, sample position, play/rec state,
+The transport read-out in the footer (right side) shows BPM, time signature, bar | beat, PPQ, sample position, play/rec state,
 loop on/off with loop points, and sample rate.
 
 - Change the tempo and time signature in FL: the values follow live.
@@ -109,9 +110,9 @@ loop on/off with loop points, and sample rate.
 
 ### 4. Capture (Step 3)
 
-1. Switch FL to **Song mode**. Click **Arm** (turns red).
+1. Switch FL to **Song mode**. Click **Arm** (glows pink, light on).
 2. Press play from bar 1 and let it run 8 bars, then stop. The timeline shows a red "Recording" block while it
-   plays, then a blue take with its waveform once it is written.
+   plays, then the take's waveform once it is written.
 3. Play from bar 5 for 2 bars and stop: a second take appears on top (punch-in).
 4. Turn on looping over 2 bars and play: every loop pass becomes its own take (a jump in the timeline always
    closes a take).
@@ -171,13 +172,13 @@ Chord vocabulary: major, minor, 7, sus2, sus4, dim, or N.C. Beats follow the hos
 
 1. Record or import a take. After it loads, "Track pitch" runs and the **Notes** lane fills with blobs: one per
    sung note, at the pitch you sang. Colour = how far it is from the nearest in-key note
-   (green < 15 cents, yellow < 35, red beyond). An outline shows the target when it differs.
-2. Set Monitor to **Rendered** and raise **Correct** (top bar). Every note you haven't touched moves toward its
+   (silver < 15 cents, amber < 35, red beyond). An outline shows the target when it differs.
+2. Set Monitor to **Rendered** and raise **Correct** (small knob, top plate). Every note you haven't touched moves toward its
    target by that amount and the take re-renders in the background (you keep hearing the previous render until
-   the new one is ready). Corrected notes turn blue; a faint ghost shows where they were sung.
+   the new one is ready). Corrected notes glow pink; a faint ghost shows where they were sung.
 3. Per note: drag a blob up/down to choose another target (semitone steps, hold Alt for cents), double-click to
    toggle correction on/off, right-click for 100% / 50% / 0% / reset. Edited notes get a white outline and the
-   Correct slider no longer changes them.
+   Correct knob no longer changes them.
 4. Change the key (Key menu): untouched notes re-snap to the new scale.
 5. Save and reopen the project: notes, edits and the corrected sound come back.
 
@@ -191,7 +192,7 @@ notes is passed through untouched.
 2. Compare a few on the same take: **Natural** keeps vibrato and glides in gently; **Trap** / **Hard Tune**
    snap instantly to a flat line; **R&B** adds slides between close notes, a soft scoop and vibrato on held
    notes; **Rock** locks in fast with a straight tone; **Indie** stays loose.
-3. The Correct slider and per-note edits still work on top of the style.
+3. The Correct knob and per-note edits still work on top of the style.
 4. Save and reopen: the style is restored with the project.
 
 Built in: 3 basic styles (Natural, Transparent, Hard Tune) and six genres, each tuned on real vocals:
@@ -238,7 +239,7 @@ A file with the same `id` as a built-in replaces it.
   tightly compressed. R&B and Indie are warm. No built-in genre adds grit or breath.
 
 The loudness of the take is kept, and the gaps between phrases stay exactly as recorded, so the tone stage
-never raises the hiss floor (before, the compressor's make-up gain lifted it 2 to 7 dB). The **Amount** slider next to Style sets how strongly all of this is
+never raises the hiss floor (before, the compressor's make-up gain lifted it 2 to 7 dB). The **Amount** knob (centre of the top plate) sets how strongly all of this is
 applied: 0% is tuning only, 100% is the style as designed, and 200% exaggerates it (double-click for 100%).
 At Correct 0% the take still plays exactly as sung.
 

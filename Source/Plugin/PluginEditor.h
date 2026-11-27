@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
 #include "UI/ControlBar.h"
+#include "UI/EngineerLookAndFeel.h"
 #include "UI/HeaderComponent.h"
 #include "UI/HostInfoComponent.h"
 #include "UI/StatusBar.h"
@@ -35,6 +36,7 @@ private:
     void refreshVoices();
 
     VocalEngineProcessor& processor;
+    ve::ui::EngineerLookAndFeel lnf;   // declared first: outlives every component that uses it
     ve::ui::HeaderComponent header;
     ve::ui::ControlBar controls;
     ve::ui::HostInfoComponent hostInfo;
@@ -52,6 +54,12 @@ private:
     bool dragHover = false;
 
     void importFiles (const juce::Array<juce::File>&);
+
+    // Chassis geometry, from resized(): the top plate (with the knob tab), the side rails and the footer.
+    juce::Path plateShape;
+    juce::Rectangle<int> plateBounds, leftRail, rightRail, footer;
+    void layoutFooter();
+    juce::String lastRightText;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VocalEngineEditor)
 };

@@ -83,6 +83,10 @@ namespace ve::ui
 
         int getNumSelectedNotes() const noexcept { return (int) selection.size(); }
 
+        // The two dark glass screens (local coordinates), for the editor's side rails.
+        juce::Rectangle<int> getTakesScreenBounds() const noexcept { return takesScreen; }
+        juce::Rectangle<int> getNotesScreenBounds() const noexcept { return notesScreen; }
+
         // Reserved lane geometry so Stage 2 note blobs drop straight in.
         juce::Rectangle<int> getNoteLaneBounds() const noexcept { return noteLane; }
         double xToPpq (float x) const noexcept;
@@ -149,6 +153,9 @@ namespace ve::ui
         bool noteDragged = false;
 
         juce::Rectangle<int> ruler, takesLane, chordLane, noteLane, noteTools;
+        juce::Rectangle<int> takesScreen, notesScreen;
+        std::vector<juce::Rectangle<int>> toolGrooves;
+        std::vector<std::pair<int, float>> octaveLabels;   // (midi, y) from the last drawNotes   // recessed wells behind the tool-row sliders
         juce::ScrollBar hScroll { false };
         juce::ToggleButton followButton { "Follow" };
 

@@ -154,6 +154,23 @@ function(ve_configure_engine_target target)
     target_compile_definitions(${target} PRIVATE VE_WITH_ONNX=$<BOOL:${VE_WITH_ONNX}>)
 endfunction()
 
+# Processor, editor and UI (shared by the plugin and the UI snapshot tool).
+set(VE_EDITOR_SOURCES
+    Source/Plugin/PluginProcessor.cpp
+    Source/Plugin/PluginEditor.cpp
+    Source/UI/ControlBar.cpp
+    Source/UI/EngineerLookAndFeel.cpp
+    Source/UI/HeaderComponent.cpp
+    Source/UI/HostInfoComponent.cpp
+    Source/UI/TimelineComponent.cpp
+)
+# Inter (SIL Open Font License 1.1, see Resources/Fonts/OFL.txt): the UI typeface on every OS.
+juce_add_binary_data(VE_UiData
+    HEADER_NAME VEUiData.h
+    NAMESPACE   VEUi
+    SOURCES     Resources/Fonts/Inter-Regular.otf Resources/Fonts/Inter-SemiBold.otf)
+set_target_properties(VE_UiData PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 juce_add_plugin(VocalEngine
     COMPANY_NAME                "RainWorks"
     COMPANY_WEBSITE             ""
@@ -173,12 +190,7 @@ juce_add_plugin(VocalEngine
 
 target_sources(VocalEngine PRIVATE
     ${VE_ENGINE_SOURCES}
-    Source/Plugin/PluginProcessor.cpp
-    Source/Plugin/PluginEditor.cpp
-    Source/UI/ControlBar.cpp
-    Source/UI/HeaderComponent.cpp
-    Source/UI/HostInfoComponent.cpp
-    Source/UI/TimelineComponent.cpp
+    ${VE_EDITOR_SOURCES}
 )
 
 target_include_directories(VocalEngine PRIVATE Source)
@@ -217,6 +229,7 @@ target_compile_definitions(VocalEngine PUBLIC
 target_link_libraries(VocalEngine
     PRIVATE
         VE_ModelData
+        VE_UiData
         juce::juce_audio_utils
         juce::juce_dsp
     PUBLIC
@@ -270,3 +283,22 @@ if(VE_BUILD_TOOLS)
     endif()
 endif()
 
+# ---- UI snapshot tool (off by default) ----
+# EngineerUiSnapshot renders the real editor and its menus to PNG for design review.
+# Linux: run it under xvfb-run. See Source/Tools/UiSnapshotMain.cpp.
+option(VE_BUILD_UI_SNAPSHOT "Build EngineerUiSnapshot (renders the editor to PNG)" OFF)
+if(VE_BUILD_UI_SNAPSHOT)
+    juce_add_console_app(EngineerUiSnapshot PRODUCT_NAME "EngineerUiSnapshot")
+    target_sources(EngineerUiSnapshot PRIVATE Source/Tools/UiSnapshotMain.cpp ${VE_EDITOR_SOURCES} ${VE_ENGINE_SOURCES})
+    ve_configure_engine_target(EngineerUiSnapshot)
+    target_compile_definitions(EngineerUiSnapshot PRIVATE
+        JUCE_MODAL_LOOPS_PERMITTED=1 JUCE_USE_CURL=0 JUCE_WEB_BROWSER=0
+        JucePlugin_Name="Engineer by RainWorks" JucePlugin_VersionString="${PROJECT_VERSION}")
+    target_link_libraries(EngineerUiSnapshot PRIVATE VE_ModelData VE_UiData juce::juce_audio_utils juce::juce_dsp
+        PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+    if(VE_WITH_ONNX)
+        target_compile_definitions(EngineerUiSnapshot PRIVATE VE_WITH_ONNX=1)
+        target_link_libraries(EngineerUiSnapshot PRIVATE ve_onnxruntime)
+        ve_copy_runtime(EngineerUiSnapshot)
+    endif()
+endif()

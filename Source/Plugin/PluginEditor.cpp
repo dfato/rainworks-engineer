@@ -10,11 +10,16 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
       processor (p),
       header (JucePlugin_Name, JucePlugin_VersionString)
 {
+    header.setInterceptsMouseClicks (false, false);
+    hostInfo.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (header);
     addAndMakeVisible (controls);
-    addAndMakeVisible (hostInfo);
     addAndMakeVisible (timeline);
     addAndMakeVisible (statusBar);
+    addAndMakeVisible (hostInfo);
+    // After the children exist, so they all get lookAndFeelChanged() (slider text boxes are rebuilt).
+    setLookAndFeel (&lnf);
+    tooltips.setLookAndFeel (&lnf);
 
     controls.onArmChanged = [this] (bool a) { processor.setArmed (a); controls.setArmed (a); };
     controls.onModeChanged = [this] (int m) { processor.setMonitoringMode ((ve::MonitoringMode) m); };
@@ -100,25 +105,112 @@ VocalEngineEditor::~VocalEngineEditor()
 {
     stopTimer();
     processor.removeChangeListener (this);
+    if (learnDialog != nullptr) learnDialog->setLookAndFeel (nullptr);
+    tooltips.setLookAndFeel (nullptr);
+    setLookAndFeel (nullptr);
 }
 
 void VocalEngineEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (ve::ui::Theme::background);
+    using namespace ve::ui;
+    const auto all = getLocalBounds().toFloat();
+
+    // Base chassis, a shade darker than the top plate.
+    Paint::brushedMetal (g, all, 0.0f, 0.93f);
+
+    // Top plate with the raised centre tab that carries the Amount knob.
+    for (int i = 4; i >= 1; --i)
+    {
+        g.setColour (juce::Colours::black.withAlpha (0.045f * (float) (5 - i)));
+        g.fillPath (plateShape, juce::AffineTransform::translation (0.0f, (float) i));
+    }
+    {
+        juce::Graphics::ScopedSaveState s (g);
+        g.reduceClipRegion (plateShape);
+        Paint::brushedMetal (g, plateBounds.toFloat(), 0.0f, 1.03f);
+    }
+    g.setColour (juce::Colours::white.withAlpha (0.9f));
+    g.strokePath (plateShape, juce::PathStrokeType (1.2f), juce::AffineTransform::translation (0.0f, 1.0f));
+    g.setColour (Theme::metalEdge);
+    g.strokePath (plateShape, juce::PathStrokeType (1.0f));
+
+    // Side rails: light tubes beside the takes screen, a grille and tube beside the notes.
+    const auto takes = timeline.getTakesScreenBounds().translated (timeline.getX(), timeline.getY());
+    const auto notes = timeline.getNotesScreenBounds().translated (timeline.getX(), timeline.getY());
+    for (auto* rail : { &leftRail, &rightRail })
+    {
+        const float cx = (float) rail->getCentreX();
+        const bool left = rail == &leftRail;
+        auto tubeA = juce::Rectangle<float> (cx - 4.0f, (float) takes.getY() + 18.0f, 8.0f, (float) takes.getHeight() - 36.0f);
+        if (tubeA.getHeight() > 20.0f) Paint::lightTube (g, tubeA, 0.55f);
+        auto lower = juce::Rectangle<float> (cx - 11.0f, (float) notes.getY() + 14.0f, 22.0f, (float) notes.getHeight() - 28.0f);
+        if (left && lower.getHeight() > 120.0f)
+        {
+            auto grilleArea = lower.removeFromTop (lower.getHeight() * 0.55f);
+            Paint::grille (g, grilleArea);
+            lower.removeFromTop (10.0f);
+            Paint::lightTube (g, lower.withSizeKeepingCentre (8.0f, lower.getHeight()), 0.7f);
+        }
+        else if (lower.getHeight() > 20.0f)
+            Paint::lightTube (g, lower.withSizeKeepingCentre (8.0f, lower.getHeight()), 0.7f);
+        Paint::screw (g, { cx, (float) takes.getY() + 6.0f }, 4.0f);
+        Paint::screw (g, { cx, (float) notes.getBottom() - 4.0f }, 4.0f);
+    }
+
+    // Footer groove under the status text.
+    Paint::groove (g, footer.toFloat().reduced (0.0f, 2.0f), 10.0f);
 }
 
 void VocalEngineEditor::resized()
 {
-    auto r = getLocalBounds().reduced (8);
-    header.setBounds (r.removeFromTop (34));
-    r.removeFromTop (4);
-    controls.setBounds (r.removeFromTop (36));
-    r.removeFromTop (6);
-    hostInfo.setBounds (r.removeFromTop (38));
-    r.removeFromTop (6);
-    statusBar.setBounds (r.removeFromBottom (22));
+    const auto bounds = getLocalBounds();
+    const int w = bounds.getWidth();
+    const int plateH = 122, tabTop = 2, plateTop = 14;
+    plateBounds = juce::Rectangle<int> (0, 0, w, plateH + 4);
+
+    // Plate outline: full width, with a centre tab rising to the top edge around the knob.
+    {
+        const float x0 = 8.0f, x1 = (float) w - 8.0f, y0 = (float) plateTop, y1 = (float) plateH, r = 16.0f;
+        const float cx = (float) w * 0.5f, tabHalf = 92.0f, shoulder = 46.0f;
+        juce::Path p;
+        p.startNewSubPath (x0 + r, y0);
+        p.lineTo (cx - tabHalf - shoulder, y0);
+        p.cubicTo (cx - tabHalf - shoulder * 0.35f, y0, cx - tabHalf - shoulder * 0.25f, (float) tabTop, cx - tabHalf + 10.0f, (float) tabTop);
+        p.lineTo (cx + tabHalf - 10.0f, (float) tabTop);
+        p.cubicTo (cx + tabHalf + shoulder * 0.25f, (float) tabTop, cx + tabHalf + shoulder * 0.35f, y0, cx + tabHalf + shoulder, y0);
+        p.lineTo (x1 - r, y0);
+        p.quadraticTo (x1, y0, x1, y0 + r);
+        p.lineTo (x1, y1 - r);
+        p.quadraticTo (x1, y1, x1 - r, y1);
+        p.lineTo (x0 + r, y1);
+        p.quadraticTo (x0, y1, x0, y1 - r);
+        p.lineTo (x0, y0 + r);
+        p.quadraticTo (x0, y0, x0 + r, y0);
+        p.closeSubPath();
+        plateShape = p;
+    }
+
+    header.setBounds (26, plateTop + 6, w - 52, 26);
+    controls.setBounds (8, tabTop, w - 16, plateH - tabTop);
+
+    auto r = bounds.withTrimmedTop (plateH + 10);
+    footer = r.removeFromBottom (32).reduced (44, 3);
     r.removeFromBottom (4);
+    leftRail = r.removeFromLeft (40);
+    rightRail = r.removeFromRight (40);
     timeline.setBounds (r);
+    statusBar.setBounds (footer);
+    layoutFooter();
+}
+
+void VocalEngineEditor::layoutFooter()
+{
+    // Transport read-out sits between the status message and the take/job text on the right.
+    const int rightW = statusBar.getRightTextWidth();
+    const int hostW = juce::jmin (560, juce::jmax (0, footer.getWidth() / 2 - 20));
+    auto host = juce::Rectangle<int> (footer.getRight() - rightW - 20 - hostW, footer.getY(), hostW, footer.getHeight());
+    hostInfo.setBounds (host);
+    statusBar.setMiddleGap ({ host.getX() - footer.getX(), host.getRight() - footer.getX() });
 }
 
 bool VocalEngineEditor::isInterestedInFileDrag (const juce::StringArray& files)
@@ -153,7 +245,7 @@ void VocalEngineEditor::paintOverChildren (juce::Graphics& g)
         return;
     g.fillAll (juce::Colours::black.withAlpha (0.55f));
     g.setColour (ve::ui::Theme::accent);
-    g.drawRect (getLocalBounds().reduced (6), 2);
+    g.drawRoundedRectangle (getLocalBounds().reduced (6).toFloat(), 14.0f, 2.0f);
     g.setColour (ve::ui::Theme::text);
     g.setFont (ve::ui::Theme::font (18.0f, true));
     g.drawText ("Drop the vocal (and the beat) to import the whole song as one take",
@@ -190,6 +282,7 @@ void VocalEngineEditor::askToLearnStyle (const juce::Array<juce::File>& files)
         "Engineer measures how these vocals are sung (pitch moves, vibrato, scoops, slides) and saves it as a style "
         "built on the current one. It does not copy the voice.",
         juce::MessageBoxIconType::NoIcon, this);
+    learnDialog->setLookAndFeel (&lnf);
     learnDialog->addTextEditor ("name", files[0].getFileNameWithoutExtension() + " style", "Style name");
     learnDialog->addButton ("Learn", 1, juce::KeyPress (juce::KeyPress::returnKey));
     learnDialog->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
@@ -200,7 +293,7 @@ void VocalEngineEditor::askToLearnStyle (const juce::Array<juce::File>& files)
             processor.learnStyle (files, name);
         juce::MessageManager::callAsync ([safe = juce::Component::SafePointer<VocalEngineEditor> (this)]
         {
-            if (safe != nullptr) safe->learnDialog.reset();
+            if (safe != nullptr && safe->learnDialog != nullptr) { safe->learnDialog->setLookAndFeel (nullptr); safe->learnDialog.reset(); }
         });
     }), false);
 }
@@ -277,7 +370,7 @@ void VocalEngineEditor::rebuildFromSession()
     const auto msg = processor.getLastMessage();
     statusBar.setLeftText (msg);
     statusBar.setLeftColour (msg.containsIgnoreCase ("fail") || msg.containsIgnoreCase ("missing") || msg.containsIgnoreCase ("could not")
-                                 ? ve::ui::Theme::warn : ve::ui::Theme::text);
+                                 ? juce::Colour (0xffa45400) : ve::ui::Theme::ink);
 }
 
 void VocalEngineEditor::timerCallback()
@@ -310,5 +403,10 @@ void VocalEngineEditor::timerCallback()
     }
     if (right.isEmpty())
         right << processor.getSession().getNumRegions() << " take(s)";
-    statusBar.setRightText (right);
+    if (right != lastRightText)
+    {
+        lastRightText = right;
+        statusBar.setRightText (right);
+        layoutFooter();
+    }
 }
