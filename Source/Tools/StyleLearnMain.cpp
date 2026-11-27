@@ -26,6 +26,7 @@
 //   --correct <0..1>   with --render: the Correct amount (default: the style's)
 //   --no-intent        with --render: correct every note alike (the plugin's Intent toggle off)
 //   --no-tone          with --render: skip the ToneShaper (pitch and expression only)
+//   --transpose <st>   with --render: also move every note by this many semitones, fully (tests big pitch moves)
 //   --key <key>        with --render: the song's key (e.g. Gm, F#), instead of guessing it from the vocal
 //   --engine <e>       pitch tracker: auto (neural when its model is installed, default), dsp or neural
 //   --referee <e>      with --render: tracker that measures the result (default: dsp, so trackers compare fairly)
@@ -183,6 +184,7 @@ int main (int argc, char* argv[])
     float correctOverride = -1.0f;
     bool useIntent = true;
     bool noTone = false;
+    float transpose = 0.0f;
     juce::String renderStyle, renderOut;
     juce::StringArray inputs;
     auto engine = PitchTracker::Engine::automatic, referee = PitchTracker::Engine::dsp;
@@ -209,6 +211,7 @@ int main (int argc, char* argv[])
         else if (a == "--correct")    correctOverride = next().getFloatValue();
         else if (a == "--no-intent")  useIntent = false;
         else if (a == "--no-tone")    noTone = true;
+        else if (a == "--transpose")  transpose = next().getFloatValue();
         else if (a == "--render")     { renderStyle = next(); renderOut = next(); }
         else if (a == "--engine")     engine = parseEngine (next());
         else if (a == "--referee")    referee = parseEngine (next());
@@ -282,6 +285,8 @@ int main (int argc, char* argv[])
         if (useIntent) NoteIntent::apply (track, notes, key);
         const float amountCorrect = correctOverride >= 0.0f ? juce::jlimit (0.0f, 1.0f, correctOverride) : style.correction;
         for (auto& n : notes) n.correction = NoteIntent::correctionFor (n, amountCorrect, useIntent);
+        if (std::abs (transpose) > 0.0f)
+            for (auto& n : notes) { n.targetMidi += transpose; n.correction = 1.0f; }
 
         const int len = audio.getNumSamples();
         std::vector<float> f0 ((size_t) len, 0.0f);
@@ -319,8 +324,18 @@ int main (int argc, char* argv[])
             std::cerr << longNotes << " notes of 0.6 s or more; ";
             std::cerr << "shift: " << jumps << " steps > 2 cents/sample, max step " << maxStep << " st, " << big << " samples beyond 2.5 st" << std::endl;
         }
+        // "take.wav@<bpm>": a 4/4 grid at that tempo from the take's start, so the style's
+        // timing (quantize, swing) moves the notes as it would in the plugin.
+        TimeWarp warp;
+        if (inputs[0].containsChar ('@'))
+            if (const double bpm = inputs[0].fromLastOccurrenceOf ("@", false, false).getDoubleValue(); bpm > 0.0)
+            {
+                TempoMap tempo (sr);
+                tempo.addPoint ({ 0, 0.0, bpm, 4, 4 });
+                warp = TimeWarp::build (plan, style, tempo, len);
+            }
         juce::AudioBuffer<float> out;
-        PitchCorrectRenderer::psolaShift (audio, out, sr, f0, shift);
+        PitchCorrectRenderer::psolaShift (audio, out, sr, f0, shift, warp);
         if (! noTone) ToneShaper::process (out, sr, style);
 
         auto outFile = juce::File::getCurrentWorkingDirectory().getChildFile (renderOut);

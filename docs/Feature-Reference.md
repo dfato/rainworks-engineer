@@ -108,7 +108,9 @@ Chord vocabulary: major, minor, 7, sus2, sus4, dim, or N.C. Beats follow the hos
 5. Save and reopen the project: notes, edits and the corrected sound come back.
 
 Correction moves each note as a whole (vibrato and slides are kept) using TD-PSOLA. Audio outside corrected
-notes is passed through untouched.
+notes is passed through untouched. Grains follow each cycle of the voice to a fraction of a sample, so big moves
+(a fifth or an octave) stay smooth instead of grainy, and a moved note keeps its loudness. Where timing moves
+stretch a breath or a gap, it is rebuilt as noise, without the buzz that repeating grains used to add.
 
 ### 10. Genre styles
 
@@ -164,7 +166,9 @@ A file with the same `id` as a built-in replaces it.
   tightly compressed. R&B and Indie are warm. No built-in genre adds grit or breath.
 
 The loudness of the take is kept, and the gaps between phrases stay exactly as recorded, so the tone stage
-never raises the hiss floor (before, the compressor's make-up gain lifted it 2 to 7 dB). The **Amount** knob (centre of the top plate) sets how strongly all of this is
+never raises the hiss floor (before, the compressor's make-up gain lifted it 2 to 7 dB). The compressor
+looks 3 ms ahead and a de-plosive tames "p" and "b" thumps, so plosives no longer spike above the words
+(they used to come out up to 7 dB hotter than sung). The **Amount** knob (centre of the top plate) sets how strongly all of this is
 applied: 0% is tuning only, 100% is the style as designed, and 200% exaggerates it (double-click for 100%).
 At Correct 0% the take still plays exactly as sung.
 
