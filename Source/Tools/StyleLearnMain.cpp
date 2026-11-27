@@ -319,8 +319,18 @@ int main (int argc, char* argv[])
             std::cerr << longNotes << " notes of 0.6 s or more; ";
             std::cerr << "shift: " << jumps << " steps > 2 cents/sample, max step " << maxStep << " st, " << big << " samples beyond 2.5 st" << std::endl;
         }
+        // "take.wav@<bpm>": a 4/4 grid at that tempo from the take's start, so the style's
+        // timing (quantize, swing) moves the notes as it would in the plugin.
+        TimeWarp warp;
+        if (inputs[0].containsChar ('@'))
+            if (const double bpm = inputs[0].fromLastOccurrenceOf ("@", false, false).getDoubleValue(); bpm > 0.0)
+            {
+                TempoMap tempo (sr);
+                tempo.addPoint ({ 0, 0.0, bpm, 4, 4 });
+                warp = TimeWarp::build (plan, style, tempo, len);
+            }
         juce::AudioBuffer<float> out;
-        PitchCorrectRenderer::psolaShift (audio, out, sr, f0, shift);
+        PitchCorrectRenderer::psolaShift (audio, out, sr, f0, shift, warp);
         if (! noTone) ToneShaper::process (out, sr, style);
 
         auto outFile = juce::File::getCurrentWorkingDirectory().getChildFile (renderOut);

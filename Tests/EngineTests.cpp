@@ -1150,6 +1150,63 @@ public:
             for (int i = 0; i < n; ++i) if (! inGap (i)) maxDiff = juce::jmax (maxDiff, std::abs (out.getSample (0, i) - take.getSample (0, i)));
             expectGreaterThan (maxDiff, 0.02f);
         }
+
+        beginTest ("Tone shaping does not make plosives spike, and leaves low sung notes alone");
+        {
+            // Words of a 200 Hz vowel, each starting with a "p": a 25 ms, 70 Hz thump twice as
+            // loud as the vowel's peak.
+            const double sr = 44100.0;
+            const int n = (int) (4.0 * sr), word = (int) (0.8 * sr), gap = (int) (0.2 * sr);
+            juce::AudioBuffer<float> take (1, n);
+            take.clear();
+            std::vector<int> onsets;
+            for (int w0 = (int) (0.1 * sr); w0 + word < n; w0 += word + gap)
+            {
+                onsets.push_back (w0);
+                for (int i = 0; i < word; ++i)
+                {
+                    const double t = (double) i / sr;
+                    const double vow = juce::jmin (1.0, t / 0.03) * juce::jmin (1.0, (double) (word - i) / (0.05 * sr));
+                    double v = 0.0;
+                    for (int h = 1; h <= 8; ++h) v += std::sin (juce::MathConstants<double>::twoPi * 200.0 * h * t) / h;
+                    const double pop = t < 0.025 ? 0.9 * std::sin (juce::MathConstants<double>::pi * t / 0.025)
+                                                       * std::sin (juce::MathConstants<double>::twoPi * 70.0 * t) : 0.0;
+                    take.setSample (0, w0 + i, (float) (0.25 * vow * v + pop));
+                }
+            }
+            auto spike = [&] (const juce::AudioBuffer<float>& b)
+            {
+                // Mean over words of: peak of the first 30 ms vs RMS of the vowel 150..600 ms in, dB.
+                double sum = 0.0;
+                for (int w0 : onsets)
+                {
+                    const float pk = b.getMagnitude (0, w0, (int) (0.03 * sr));
+                    const float body = b.getRMSLevel (0, w0 + (int) (0.15 * sr), (int) (0.45 * sr));
+                    sum += 20.0 * std::log10 (pk / body);
+                }
+                return sum / (double) onsets.size();
+            };
+            StyleProfile scene; scene.brightness = 0.65f; scene.warmth = 0.3f; scene.compress = 0.9f;
+            auto out = take;
+            ToneShaper::process (out, sr, scene);
+            const double before = spike (take), after = spike (out);
+            logMessage ("Plosive peak over the vowel: " + juce::String (before, 1) + " dB sung, " + juce::String (after, 1) + " dB rendered");
+            expectLessThan (after, before + 1.0);
+
+            // A low sung note (110 Hz, its energy mostly below 160 Hz) keeps its low end.
+            juce::AudioBuffer<float> low (1, n);
+            for (int i = 0; i < n; ++i)
+            {
+                const double t = (double) i / sr;
+                low.setSample (0, i, (float) (0.3 * std::sin (juce::MathConstants<double>::twoPi * 110.0 * t)
+                                              + 0.05 * std::sin (juce::MathConstants<double>::twoPi * 330.0 * t)));
+            }
+            StyleProfile light; light.brightness = 0.01f;
+            auto lowOut = low;
+            ToneShaper::process (lowOut, sr, light);
+            const double lowDb = 20.0 * std::log10 (lowOut.getRMSLevel (0, n / 4, n / 2) / low.getRMSLevel (0, n / 4, n / 2));
+            expectWithinAbsoluteError (lowDb, 0.0, 0.3);
+        }
     }
 };
 

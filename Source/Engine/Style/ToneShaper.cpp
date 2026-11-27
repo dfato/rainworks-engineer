@@ -135,6 +135,61 @@ namespace ve::ToneShaper
             for (int i = n - 2; i >= 0; --i) g[(size_t) i] = juce::jmax (g[(size_t) i], g[(size_t) i + 1] * sm);
             return g;
         }
+        // Plosives ("p", "b") are bursts of air on the mic: a thump below ~160 Hz far louder
+        // than the voice above it. Recorded, they sit as they were sung; but the shelves and the
+        // make-up gain of the compressor after them lift them by several dB, and the
+        // compressor (its attack is slower than the burst) does not catch them, so they come
+        // out spiking. Here the band below 160 Hz is turned down wherever it jumps well above
+        // both the voice above it and its own recent level, so a low sung note (a steady low
+        // band) is left alone and only the short burst is tamed.
+        void tamePlosives (float* x, int n, double sr)
+        {
+            // Zero-phase split (offline: forward and backward), so low + high == input exactly.
+            std::vector<float> low (x, x + n);
+            {
+                auto lp1 = Biquad::pass (sr, 160.0, false);
+                for (int i = 0; i < n; ++i) low[(size_t) i] = lp1 (low[(size_t) i]);
+                auto lp2 = Biquad::pass (sr, 160.0, false);
+                for (int i = n - 1; i >= 0; --i) low[(size_t) i] = lp2 (low[(size_t) i]);
+            }
+            const auto coef = [sr] (double ms) { return (float) std::exp (-1.0 / (ms * 0.001 * sr)); };
+            // RMS envelopes: fast (5 ms) for the burst, slow (250 ms) for the low band's usual level.
+            std::vector<float> lf ((size_t) n), hf ((size_t) n), lfSlow ((size_t) n);
+            {
+                const float f = coef (5.0), sl = coef (250.0);
+                float a = 0.0f, b = 0.0f, c = 0.0f;
+                for (int i = 0; i < n; ++i)
+                {
+                    const float lo = low[(size_t) i], hi = x[i] - lo;
+                    a = lo * lo + f * (a - lo * lo);
+                    b = hi * hi + f * (b - hi * hi);
+                    lf[(size_t) i] = a; hf[(size_t) i] = b;
+                }
+                // The slow level looks both ways (centred), and never counts a burst at full weight:
+                // it follows the low band through a 250 ms smoother of the fast level capped at the
+                // voice above it.
+                for (int i = 0; i < n; ++i) { const float v = juce::jmin (lf[(size_t) i], hf[(size_t) i]); c = v + sl * (c - v); lfSlow[(size_t) i] = c; }
+                c = 0.0f;
+                for (int i = n - 1; i >= 0; --i) { const float v = juce::jmin (lf[(size_t) i], hf[(size_t) i]); c = v + sl * (c - v); lfSlow[(size_t) i] = juce::jmax (lfSlow[(size_t) i], c); }
+            }
+            // Gain on the low band: allowed power = max (voice above, 2 x its usual level).
+            std::vector<float> g ((size_t) n, 1.0f);
+            for (int i = 0; i < n; ++i)
+            {
+                const float allowed = juce::jmax (hf[(size_t) i], 2.0f * lfSlow[(size_t) i]);
+                if (lf[(size_t) i] > allowed && lf[(size_t) i] > 1.0e-14f) g[(size_t) i] = std::sqrt (allowed / lf[(size_t) i]);
+            }
+            // Smooth: falls ~2 ms ahead of the burst (backward pass), recovers over 30 ms.
+            {
+                const float rel = coef (30.0), att = coef (2.0);
+                float v = 1.0f;
+                for (int i = 0; i < n; ++i) { v = g[(size_t) i] < v ? g[(size_t) i] : g[(size_t) i] + rel * (v - g[(size_t) i]); g[(size_t) i] = v; }
+                v = 1.0f;
+                for (int i = n - 1; i >= 0; --i) { v = g[(size_t) i] < v ? g[(size_t) i] : g[(size_t) i] + att * (v - g[(size_t) i]); g[(size_t) i] = v; }
+            }
+            for (int i = 0; i < n; ++i)
+                x[i] -= (1.0f - g[(size_t) i]) * low[(size_t) i];
+        }
     }
 
     void process (juce::AudioBuffer<float>& audio, double sr, const StyleProfile& st)
@@ -153,6 +208,7 @@ namespace ve::ToneShaper
         for (int ch = 0; ch < audio.getNumChannels(); ++ch)
         {
             float* x = audio.getWritePointer (ch);
+            tamePlosives (x, n, sr);
 
             // Voice level (fast envelope) for grit and breath.
             std::vector<float> env ((size_t) n);
@@ -219,21 +275,42 @@ namespace ve::ToneShaper
                     x[i] = air (presence (mud (low (x[i]))));
             }
 
-            // Compression: feed-forward, threshold relative to the take's peak.
+            // Compression: feed-forward, threshold relative to the take's peak. The render is
+            // offline, so the detector looks 3 ms ahead and follows peaks at once: the gain is
+            // already down when a consonant or a plosive hits. (It used to have a 4 ms attack
+            // and no look-ahead, so the first few ms of every hard onset slipped through and the
+            // make-up gain lifted them into spikes, up to +7 dB over the take.) The ratio is
+            // lower than before because a peak detector compresses harder for the same ratio;
+            // overall the words are evened out about as much as before.
             if (st.compress > 0.0f)
             {
                 const float thresh = peakBefore * std::pow (10.0f, -(10.0f + 12.0f * st.compress) / 20.0f);
-                const float ratio = 1.0f + 5.0f * st.compress;
-                const float att = envCoef (4.0), rel = envCoef (90.0);
-                float e = 0.0f, g = 1.0f;
+                const float ratio = 1.0f + 2.0f * st.compress;
+                const float rel = envCoef (90.0), smooth = envCoef (1.5);
+                const int ahead = juce::jmax (1, (int) (0.003 * sr));
+                std::vector<float> g ((size_t) n, 1.0f);
+                std::vector<int> dq ((size_t) n + 1);
+                size_t qh = 0, qt = 0;
+                int pushed = 0;
+                float e = 0.0f;
                 for (int i = 0; i < n; ++i)
                 {
-                    const float a = std::abs (x[i]);
-                    e = a > e ? a + att * (e - a) : a + rel * (e - a);
-                    const float target = e > thresh ? std::pow (thresh / e, 1.0f - 1.0f / ratio) : 1.0f;
-                    g = target + (target < g ? att : rel) * (g - target);
-                    x[i] *= g;
+                    for (; pushed < juce::jmin (n, i + ahead + 1); ++pushed)
+                    {
+                        while (qt > qh && std::abs (x[dq[qt - 1]]) <= std::abs (x[pushed])) --qt;
+                        dq[qt++] = pushed;
+                    }
+                    while (dq[qh] < i) ++qh;
+                    const float a = std::abs (x[dq[qh]]);
+                    e = a > e ? a : a + rel * (e - a);
+                    g[(size_t) i] = e > thresh ? std::pow (thresh / e, 1.0f - 1.0f / ratio) : 1.0f;
                 }
+                // Smooth the gain both ways (1.5 ms) so it never steps; backwards, falls are taken
+                // at once, so this only starts each fall a little earlier.
+                float v = 1.0f;
+                for (int i = n - 1; i >= 0; --i) { v = g[(size_t) i] < v ? g[(size_t) i] : g[(size_t) i] + smooth * (v - g[(size_t) i]); g[(size_t) i] = v; }
+                v = g.empty() ? 1.0f : g[0];
+                for (int i = 0; i < n; ++i) { v = g[(size_t) i] + smooth * (v - g[(size_t) i]); x[i] *= v; }
             }
         }
 
