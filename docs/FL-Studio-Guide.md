@@ -68,7 +68,7 @@ WAV, AIFF, FLAC and Ogg work; MP3 works on Windows. The take uses FL's tempo at 
 1. Switch FL to **Song** mode and place the playhead where you want to start.
 2. Click **Arm** in Engineer. It glows pink, its light comes on and it reads **Armed**; the status bar says **Armed: press play in the host to record**.
 3. Press play (and record in FL as normal if you're singing live). A pink-red **Recording** block grows on the timeline and the status bar counts **Recording take: 12.3 s**. Every jump of the playhead or loop pass closes a take and starts a new one.
-4. Stop. The take appears as its waveform on the Takes screen. Newer takes sit on top of older ones, so you can punch in over a line.
+4. Stop. The take appears as its waveform on the Takes screen. Newer takes sit on top of older ones, so you can punch in over a line; each take fades in and out over 10 ms at its edges, so a punch-in does not click.
 5. Click **Arm** again to disarm, or every play records another take.
 
 **Capture the whole song during export.** Arm Engineer, then File > Export > WAV over the whole song. FL renders faster than real time and Engineer captures the vocal and sidechain as one take without dropping audio. Disarm afterwards; you can delete the exported WAV.
