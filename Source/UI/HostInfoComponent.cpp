@@ -11,37 +11,25 @@ namespace ve::ui
 
     void HostInfoComponent::paint (juce::Graphics& g)
     {
-        g.setColour (Theme::panel);
-        g.fillRoundedRectangle (getLocalBounds().toFloat(), 4.0f);
-
-        auto area = getLocalBounds().reduced (8, 2);
+        // One compact line in the footer: label in dim ink, value in ink.
+        auto area = getLocalBounds();
         const juce::String none ("--");
-
-        auto field = [&] (const juce::String& label, const juce::String& value, int width, juce::Colour c = Theme::text)
-        {
-            auto r = area.removeFromLeft (width);
-            g.setFont (Theme::font (10.0f));
-            g.setColour (Theme::textDim);
-            g.drawText (label, r.removeFromTop (r.getHeight() / 2 - 1), juce::Justification::bottomLeft);
-            g.setFont (Theme::font (14.0f, true));
-            g.setColour (c);
-            g.drawText (value, r, juce::Justification::topLeft);
-            area.removeFromLeft (6);
-        };
 
         if (! snap.hasPlayHead)
         {
-            g.setFont (Theme::font (13.0f));
-            g.setColour (Theme::textDim);
-            g.drawText ("No host transport (standalone or host gives no play head)", area, juce::Justification::centredLeft);
+            g.setFont (Theme::font (12.0f));
+            g.setColour (Theme::inkFaint);
+            g.drawText ("No host transport", area, juce::Justification::centredRight);
             return;
         }
 
+        struct Field { juce::String label, value; juce::Colour colour; };
+        std::vector<Field> fields;
         const bool derivedPpq = (snap.derivedFlags & HostSnapshot::derivedPpq) != 0;
         const bool derivedSamples = (snap.derivedFlags & HostSnapshot::derivedTimeSamples) != 0;
 
-        field ("BPM", snap.hasBpm ? juce::String (snap.bpm, 2) : none, 62);
-        field ("SIG", snap.hasTimeSig ? juce::String (snap.timeSigNumerator) + "/" + juce::String (snap.timeSigDenominator) : none, 40);
+        fields.push_back ({ "BPM", snap.hasBpm ? juce::String (snap.bpm, 2) : none, Theme::ink });
+        fields.push_back ({ "SIG", snap.hasTimeSig ? juce::String (snap.timeSigNumerator) + "/" + juce::String (snap.timeSigDenominator) : none, Theme::ink });
 
         juce::String barBeat = none;
         if (snap.hasPpq)
@@ -52,18 +40,37 @@ namespace ve::ui
             const double beat = (snap.ppqPosition - barStart) / snap.ppqPerBeat() + 1.0;
             barBeat = juce::String (bar) + " | " + juce::String (beat, 2);
         }
-        field ("BAR | BEAT", barBeat, 82);
-        field (derivedPpq ? "PPQ*" : "PPQ", snap.hasPpq ? juce::String (snap.ppqPosition, 3) : none, 82);
-        field (derivedSamples ? "SAMPLE*" : "SAMPLE", snap.hasTimeSamples ? juce::String (snap.timeInSamples) : none, 92);
-
-        field ("PLAY", snap.isPlaying ? "Playing" : "Stopped", 62, snap.isPlaying ? Theme::good : Theme::textDim);
-        field ("REC", snap.isRecording ? "Rec" : "Off", 38, snap.isRecording ? Theme::record : Theme::textDim);
-
+        fields.push_back ({ "BAR", barBeat, Theme::ink });
+        fields.push_back ({ derivedPpq ? "PPQ*" : "PPQ", snap.hasPpq ? juce::String (snap.ppqPosition, 3) : none, Theme::ink });
+        fields.push_back ({ derivedSamples ? "SAMPLE*" : "SAMPLE", snap.hasTimeSamples ? juce::String (snap.timeInSamples) : none, Theme::ink });
+        fields.push_back ({ "", snap.isPlaying ? "Playing" : "Stopped", snap.isPlaying ? Theme::accentDeep : Theme::inkDim });
+        fields.push_back ({ "REC", snap.isRecording ? "On" : "Off", snap.isRecording ? Theme::record : Theme::inkDim });
         juce::String loop = snap.isLooping ? "On" : "Off";
         if (snap.hasLoopPoints)
-            loop << "  " << juce::String (snap.loopStartPpq, 2) << " - " << juce::String (snap.loopEndPpq, 2);
-        field ("LOOP (PPQ)", loop, 130, snap.isLooping ? Theme::accent : Theme::textDim);
+            loop << " " << juce::String (snap.loopStartPpq, 2) << "-" << juce::String (snap.loopEndPpq, 2);
+        fields.push_back ({ "LOOP", loop, snap.isLooping ? Theme::accentDeep : Theme::inkDim });
+        fields.push_back ({ "RATE", snap.sampleRate > 0 ? juce::String (snap.sampleRate / 1000.0, 1) + "k" : none, Theme::ink });
 
-        field ("RATE", snap.sampleRate > 0 ? juce::String (snap.sampleRate / 1000.0, 1) + "k" : none, 46);
+        // Lay out right to left so the line hugs the right edge.
+        const auto labelFont = Theme::font (10.0f, true), valueFont = Theme::font (12.0f, true);
+        int x = area.getRight();
+        for (auto it = fields.rbegin(); it != fields.rend(); ++it)
+        {
+            const int vw = juce::GlyphArrangement::getStringWidthInt (valueFont, it->value) + 2;
+            const int lw = it->label.isEmpty() ? 0 : juce::GlyphArrangement::getStringWidthInt (labelFont, it->label) + 4;
+            x -= vw;
+            g.setFont (valueFont);
+            g.setColour (it->colour);
+            g.drawText (it->value, x, area.getY(), vw, area.getHeight(), juce::Justification::centredLeft, false);
+            x -= lw;
+            if (lw > 0)
+            {
+                g.setFont (labelFont);
+                g.setColour (Theme::inkFaint);
+                g.drawText (it->label, x, area.getY(), lw, area.getHeight(), juce::Justification::centredLeft, false);
+            }
+            x -= 12;
+            if (x < area.getX()) break;
+        }
     }
 }

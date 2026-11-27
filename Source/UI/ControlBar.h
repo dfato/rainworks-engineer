@@ -4,8 +4,11 @@
 
 namespace ve::ui
 {
-    // Arm, monitoring mode, key override, analysis and data folder controls.
+    // The top plate: Arm, Monitor, Key, Style, the Amount knob (centre), Voice,
+    // Correct, Intent, and the Import / Analyse / Data folder tray.
     // Talks to the outside only through the std::function callbacks.
+    // The plate itself (metal, centre tab) is painted by the editor; this draws the
+    // grooves and controls on top of it.
     class ControlBar final : public juce::Component
     {
     public:
@@ -76,5 +79,10 @@ namespace ve::ui
         juce::Slider amountSlider { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
         juce::TextButton folderButton { "Data folder" };
         juce::String folderText;
+
+        // Layout results used by paint(): recessed grooves behind label + control pairs,
+        // the tray behind the three file buttons, and the headphone icon.
+        std::vector<juce::Rectangle<int>> grooves;
+        juce::Rectangle<int> tray, headphoneIcon;
     };
 }

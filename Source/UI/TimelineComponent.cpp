@@ -1,5 +1,6 @@
 #include "TimelineComponent.h"
 #include "Theme.h"
+#include "EngineerLookAndFeel.h"
 #include "Engine/Intent/NoteIntent.h"
 
 namespace ve::ui
@@ -12,13 +13,13 @@ namespace ve::ui
         addAndMakeVisible (hScroll);
 
         followButton.setToggleState (true, juce::dontSendNotification);
-        followButton.setColour (juce::ToggleButton::textColourId, Theme::textDim);
+        followButton.setColour (juce::ToggleButton::textColourId, Theme::text);
         followButton.onClick = [this] { followPlayhead = followButton.getToggleState(); };
         addAndMakeVisible (followButton);
 
         // ---- note graph tool row ----
         snapButton.setToggleState (true, juce::dontSendNotification);
-        snapButton.setColour (juce::ToggleButton::textColourId, Theme::text);
+        snapButton.getProperties().set ("led", true);
         snapButton.setTooltip ("On: dragged and moved notes land on the notes of the selected key and scale. "
                                "Off: they move in semitones. Hold Alt while dragging for free (cent) moves.");
         snapButton.onClick = [this]
@@ -36,18 +37,20 @@ namespace ve::ui
         addAndMakeVisible (undoButton);
         addAndMakeVisible (redoButton);
 
-        selectionLabel.setColour (juce::Label::textColourId, Theme::textDim);
-        selectionLabel.setFont (Theme::font (11.0f));
+        selectionLabel.setColour (juce::Label::textColourId, Theme::inkDim);
+        selectionLabel.setFont (Theme::font (12.0f));
         addAndMakeVisible (selectionLabel);
 
         auto setupSlider = [this] (juce::Label& label, juce::Slider& slider, double lo, double hi, const juce::String& tip)
         {
-            label.setColour (juce::Label::textColourId, Theme::textDim);
-            label.setFont (Theme::font (11.0f));
-            label.setJustificationType (juce::Justification::centredRight);
+            label.setColour (juce::Label::textColourId, Theme::ink);
+            label.setFont (Theme::font (12.5f));
+            label.setJustificationType (juce::Justification::centredLeft);
+            label.setBorderSize ({ 0, 6, 0, 0 });
+            label.setInterceptsMouseClicks (false, false);
             addAndMakeVisible (label);
             slider.setRange (lo, hi, 1.0);
-            slider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 44, 18);
+            slider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 50, 22);
             slider.setTooltip (tip);
             slider.setEnabled (false);
             addAndMakeVisible (slider);
@@ -265,32 +268,51 @@ namespace ve::ui
 
     void TimelineComponent::resized()
     {
+        // Two glass screens on the metal: takes (ruler + waveform) on top, the note graph
+        // below. Between them, on the metal: the chord strip and the note tool row.
         auto r = getLocalBounds();
-        hScroll.setBounds (r.removeFromBottom (12).withTrimmedLeft (gutter));
-        ruler = r.removeFromTop (24).withTrimmedLeft (gutter);
-        // The note graph gets half the room (at least 140 px): it is where the editing happens.
-        const int graphH = juce::jmax (140, (r.getHeight() - 26 - 28 - 4) / 2);
-        noteLane = r.removeFromBottom (graphH).withTrimmedLeft (gutter);
-        noteTools = r.removeFromBottom (26);
-        r.removeFromBottom (2);
-        chordLane = r.removeFromBottom (28).withTrimmedLeft (gutter);
-        r.removeFromBottom (2);
-        takesLane = r.withTrimmedLeft (gutter);
-        followButton.setBounds (0, 2, gutter, 20);
+        const int chordH = 30, toolsH = 38, gap = 8;
+        // The note graph gets half the room (at least 150 px): it is where the editing happens.
+        const int graphH = juce::jmax (150, (r.getHeight() - chordH - toolsH - 2 * gap) / 2 + 20);
 
-        auto t = noteTools.reduced (4, 3);
-        snapButton.setBounds (t.removeFromLeft (112));
-        t.removeFromLeft (6);
-        undoButton.setBounds (t.removeFromLeft (48));
-        t.removeFromLeft (4);
-        redoButton.setBounds (t.removeFromLeft (48));
-        t.removeFromLeft (10);
-        selectionLabel.setBounds (t.removeFromLeft (150));
-        auto slot = [&t] (juce::Label& l, juce::Slider& s)
+        notesScreen = r.removeFromBottom (graphH).reduced (3, 3);
+        r.removeFromBottom (2);
+        noteTools = r.removeFromBottom (toolsH);
+        chordLane = r.removeFromBottom (chordH).withTrimmedLeft (gutter);
+        r.removeFromBottom (gap - 2);
+        takesScreen = r.reduced (3, 3);
+
         {
-            t.removeFromLeft (6);
-            l.setBounds (t.removeFromLeft (50));
-            s.setBounds (t.removeFromLeft (170));
+            auto t = takesScreen.reduced (2, 2);
+            ruler = t.removeFromTop (24).withTrimmedLeft (gutter);
+            takesLane = t.withTrimmedLeft (gutter).withTrimmedRight (6).withTrimmedBottom (2);
+            ruler.setRight (takesLane.getRight());
+        }
+        {
+            auto n = notesScreen.reduced (2, 2);
+            auto scroll = n.removeFromBottom (14);
+            hScroll.setBounds (scroll.withTrimmedLeft (gutter).withTrimmedRight (10).reduced (0, 2));
+            noteLane = n.withTrimmedLeft (gutter).withTrimmedRight (6).withTrimmedTop (4);
+        }
+        chordLane.setRight (takesLane.getRight());
+        followButton.setBounds (takesScreen.getX() + 6, takesScreen.getY() + 3, gutter, 22);
+
+        toolGrooves.clear();
+        auto t = noteTools.reduced (0, 4);
+        snapButton.setBounds (t.removeFromLeft (132));
+        t.removeFromLeft (8);
+        undoButton.setBounds (t.removeFromLeft (62));
+        t.removeFromLeft (4);
+        redoButton.setBounds (t.removeFromLeft (62));
+        t.removeFromLeft (12);
+        selectionLabel.setBounds (t.removeFromLeft (150));
+        auto slot = [&t, this] (juce::Label& l, juce::Slider& s)
+        {
+            t.removeFromLeft (10);
+            auto g = t.removeFromLeft (58 + 180 + 4);
+            toolGrooves.push_back (g.expanded (2, 1));
+            l.setBounds (g.removeFromLeft (58));
+            s.setBounds (g.removeFromLeft (180));
         };
         slot (correctLabel, correctSlider);
         slot (vibratoLabel, vibratoSlider);
@@ -455,7 +477,7 @@ namespace ve::ui
         m.addSeparator();
         m.addItem (6, "Tip: Shift + drag moves " + what + " in time; arrows move pitch/time", false);
 
-        m.showMenuAsync (juce::PopupMenu::Options(), [this, id = r.id, idx = hit.note, splitAt] (int res)
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition(), [this, id = r.id, idx = hit.note, splitAt] (int res)
         {
             if (res == 0) return;
             if (res == 7) { if (onSplitNote) onSplitNote (id, idx, splitAt); return; }
@@ -511,7 +533,7 @@ namespace ve::ui
         m.addItem (4, "Redo  (Ctrl+Shift+Z)", data.canRedo);
         m.addSeparator();
         m.addItem (5, "Snap to scale", true, data.snapToScale);
-        m.showMenuAsync (juce::PopupMenu::Options(), [this] (int res)
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition(), [this] (int res)
         {
             if (res == 1) selectAll();
             if (res == 2) selectOnly ({});
@@ -598,7 +620,7 @@ namespace ve::ui
             m.addSectionHeader ("Take at " + juce::String (r->startPpq, 2) + " PPQ");
             m.addItem (1, "Re-analyse sidechain", r->hasSidechain && ! r->missing);
             m.addItem (2, "Remove take from session");
-            m.showMenuAsync (juce::PopupMenu::Options(), [this, id] (int res)
+            m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition(), [this, id] (int res)
             {
                 if (res == 1 && onAnalyseRegion) onAnalyseRegion (id);
                 if (res == 2 && onDeleteRegion) onDeleteRegion (id);
@@ -779,10 +801,10 @@ namespace ve::ui
         auto box = juce::Rectangle<float> (x0, (float) takesLane.getY() + 6.0f, x1 - x0, (float) takesLane.getHeight() - 12.0f);
         const auto clip = box.getIntersection (takesLane.toFloat());
 
-        g.setColour (r.missing ? Theme::bad.withAlpha (0.25f) : Theme::region.withAlpha (0.85f));
-        g.fillRoundedRectangle (box, 3.0f);
+        g.setColour (r.missing ? Theme::bad.withAlpha (0.18f) : Theme::region);
+        g.fillRoundedRectangle (box, 6.0f);
         g.setColour (r.missing ? Theme::bad : Theme::regionEdge);
-        g.drawRoundedRectangle (box, 3.0f, 1.0f);
+        g.drawRoundedRectangle (box, 6.0f, 1.0f);
 
         if (r.missing || r.peaks == nullptr)
         {
@@ -799,7 +821,10 @@ namespace ve::ui
         const double rateScale = captureRate > 0.0 ? r.renderedRate / captureRate : 1.0;
         const float midY = box.getCentreY();
         const float halfH = box.getHeight() * 0.45f;
-        g.setColour (Theme::waveform.withAlpha (0.9f));
+        // A faint centre line, then the waveform in pale lilac-silver.
+        g.setColour (Theme::waveform.withAlpha (0.25f));
+        g.drawHorizontalLine ((int) midY, clip.getX(), clip.getRight());
+        g.setColour (Theme::waveform.withAlpha (0.92f));
 
         for (int px = (int) std::floor (clip.getX()); px < (int) std::ceil (clip.getRight()); ++px)
         {
@@ -817,21 +842,35 @@ namespace ve::ui
 
     void TimelineComponent::drawChords (juce::Graphics& g)
     {
-        g.setFont (Theme::font (12.0f, true));
+        // Chord strip on the metal: a recessed channel with a silver key per chord.
+        Paint::groove (g, chordLane.toFloat().reduced (0.0f, 2.0f), 7.0f);
+        g.setFont (Theme::font (13.0f, true));
         for (auto& r : data.regions)
             for (auto& c : r.chords)
             {
                 const float x0 = juce::jmax (ppqToX (c.startPpq), (float) chordLane.getX());
                 const float x1 = juce::jmin (ppqToX (c.endPpq), (float) chordLane.getRight());
                 if (x1 <= x0) continue;
-                auto box = juce::Rectangle<float> (x0, (float) chordLane.getY() + 3.0f, x1 - x0, (float) chordLane.getHeight() - 6.0f).reduced (1.0f, 0.0f);
+                auto box = juce::Rectangle<float> (x0, (float) chordLane.getY() + 4.0f, x1 - x0, (float) chordLane.getHeight() - 8.0f).reduced (1.5f, 0.0f);
                 const bool nc = c.root < 0;
-                g.setColour (nc ? Theme::panelLight : Theme::accent.withAlpha (0.25f + 0.5f * juce::jlimit (0.0f, 1.0f, c.confidence)));
-                g.fillRoundedRectangle (box, 3.0f);
+                if (nc)
+                {
+                    g.setColour (Theme::metalShadow.withAlpha (0.18f));
+                    g.fillRoundedRectangle (box, 5.0f);
+                    continue;
+                }
+                const float conf = juce::jlimit (0.0f, 1.0f, c.confidence);
+                juce::ColourGradient grad (juce::Colour (0xfffbfbfc), box.getX(), box.getY(), juce::Colour (0xffc9c9cf), box.getX(), box.getBottom(), false);
+                g.setGradientFill (grad);
+                g.setOpacity (0.55f + 0.45f * conf);
+                g.fillRoundedRectangle (box, 5.0f);
+                g.setOpacity (1.0f);
+                g.setColour (Theme::metalShadow.withAlpha (0.6f));
+                g.drawRoundedRectangle (box.reduced (0.5f), 5.0f, 1.0f);
                 if (box.getWidth() > 18.0f)
                 {
-                    g.setColour (nc ? Theme::textDim : Theme::text);
-                    g.drawText (Analysis::chordName (c.root, c.quality), box.reduced (4.0f, 0.0f).toNearestInt(),
+                    g.setColour (Theme::ink.withAlpha (0.6f + 0.4f * conf));
+                    g.drawText (Analysis::chordName (c.root, c.quality), box.reduced (8.0f, 0.0f).toNearestInt(),
                                 juce::Justification::centredLeft, true);
                 }
             }
@@ -839,6 +878,7 @@ namespace ve::ui
 
     void TimelineComponent::drawNotes (juce::Graphics& g)
     {
+        octaveLabels.clear();
         // Pitch range over all notes so blobs fill the lane.
         float lo = 1000.0f, hi = -1000.0f;
         bool any = false, tracking = false;
@@ -849,10 +889,10 @@ namespace ve::ui
         }
         if (! any)
         {
-            g.setColour (Theme::textDim.withAlpha (0.6f));
-            g.setFont (Theme::font (11.0f));
+            g.setColour (Theme::textDim.withAlpha (0.7f));
+            g.setFont (Theme::font (12.5f));
             g.drawText (tracking ? "Tracking pitch..." : "Notes appear here after a take is analysed",
-                        noteLane.reduced (8, 0), juce::Justification::centredLeft);
+                        noteLane, juce::Justification::centred);
             return;
         }
         lo = std::floor (lo) - 1.0f;
@@ -877,16 +917,14 @@ namespace ve::ui
                 }
         }
 
-        // Octave C lines with labels.
-        g.setFont (Theme::font (10.0f));
+        // Octave C lines, labelled in the gutter.
         for (int m = (int) lo; m <= (int) hi; ++m)
         {
             if (m % 12 != 0) continue;
             const float y = yFor ((float) m);
-            g.setColour (Theme::gridBeat);
+            g.setColour (Theme::gridBar);
             g.drawHorizontalLine ((int) y, lane.getX(), lane.getRight());
-            g.setColour (Theme::textDim);
-            g.drawText ("C" + juce::String (m / 12 - 1), (int) lane.getX() + 2, (int) y - 12, 30, 12, juce::Justification::bottomLeft);
+            octaveLabels.push_back ({ m, y });
         }
 
         const float h = juce::jlimit (3.0f, 12.0f, noteRowH * 0.8f);
@@ -907,7 +945,7 @@ namespace ve::ui
                     const float g0 = ppqToX (r.tempoMap.sampleToPpq ((double) n.start));
                     const float g1 = ppqToX (r.tempoMap.sampleToPpq ((double) n.end));
                     g.setColour (Theme::textDim.withAlpha (0.4f));
-                    g.drawRoundedRectangle (juce::Rectangle<float> (g0, yFor (n.detectedMidi) - h * 0.5f, juce::jmax (2.0f, g1 - g0), h), h * 0.4f, 1.0f);
+                    g.drawRoundedRectangle (juce::Rectangle<float> (g0, yFor (n.detectedMidi) - h * 0.5f, juce::jmax (2.0f, g1 - g0), h), h * 0.5f, 1.0f);
                 }
 
                 const float cents = std::abs (n.centsOff());
@@ -917,7 +955,7 @@ namespace ve::ui
                 if (std::abs (n.targetMidi - n.detectedMidi) > 0.05f)
                 {
                     g.setColour (Theme::text.withAlpha (0.35f));
-                    g.drawRoundedRectangle (juce::Rectangle<float> (x0, yFor (n.targetMidi) - h * 0.5f, juce::jmax (2.0f, x1 - x0), h), h * 0.4f, 1.0f);
+                    g.drawRoundedRectangle (juce::Rectangle<float> (x0, yFor (n.targetMidi) - h * 0.5f, juce::jmax (2.0f, x1 - x0), h), h * 0.5f, 1.0f);
                 }
                 // Corrected notes are drawn at their target (where they will sound), with a
                 // faint ghost where they were sung.
@@ -925,23 +963,24 @@ namespace ve::ui
                 const float shown = n.detectedMidi + (n.targetMidi - n.detectedMidi) * n.correction;
                 if (corrected)
                 {
-                    g.setColour (colour.withAlpha (0.25f));
-                    g.fillRoundedRectangle (juce::Rectangle<float> (x0, yFor (n.detectedMidi) - h * 0.5f, juce::jmax (2.0f, x1 - x0), h), h * 0.4f);
+                    g.setColour (colour.withAlpha (0.22f));
+                    g.fillRoundedRectangle (juce::Rectangle<float> (x0, yFor (n.detectedMidi) - h * 0.5f, juce::jmax (2.0f, x1 - x0), h), h * 0.5f);
                 }
-                g.setColour ((corrected ? Theme::accent : colour).withAlpha (0.9f));
-                g.fillRoundedRectangle (juce::Rectangle<float> (x0, yFor (shown) - h * 0.5f, juce::jmax (2.0f, x1 - x0), h), h * 0.4f);
+                // Corrected notes glow pink; untouched notes show how far off they were sung
+                // (silver = in tune, amber = a little off, red = well off).
                 const auto blob = juce::Rectangle<float> (x0, yFor (shown) - h * 0.5f, juce::jmax (2.0f, x1 - x0), h);
+                Paint::glowBar (g, blob, corrected ? Theme::accent : colour, corrected ? 3.5f : 1.5f, h * 0.5f);
                 if (isSelected (ri, ni))
                 {
                     g.setColour (juce::Colours::white.withAlpha (0.35f));
-                    g.fillRoundedRectangle (blob, h * 0.4f);
+                    g.fillRoundedRectangle (blob, h * 0.5f);
                     g.setColour (juce::Colours::white);
-                    g.drawRoundedRectangle (blob.expanded (1.5f), h * 0.4f + 1.0f, 2.0f);
+                    g.drawRoundedRectangle (blob.expanded (1.5f), h * 0.5f + 1.0f, 2.0f);
                 }
                 else if (n.userEdited)
                 {
                     g.setColour (Theme::text);
-                    g.drawRoundedRectangle (blob, h * 0.4f, 1.0f);
+                    g.drawRoundedRectangle (blob, h * 0.5f, 1.0f);
                 }
                 // Small marks for per-note vibrato / drift settings.
                 if ((std::abs (n.vibrato - 1.0f) > 0.01f || n.hasDriftOverride()) && blob.getWidth() > 14.0f)
@@ -957,7 +996,7 @@ namespace ve::ui
 
         if (marqueeActive)
         {
-            g.setColour (Theme::accent.withAlpha (0.15f));
+            g.setColour (Theme::accent.withAlpha (0.12f));
             g.fillRect (marquee);
             g.setColour (Theme::accent);
             g.drawRect (marquee, 1.0f);
@@ -966,31 +1005,33 @@ namespace ve::ui
 
     void TimelineComponent::paint (juce::Graphics& g)
     {
-        g.fillAll (Theme::panel);
+        // No background fill: the editor's metal shows through around the screens.
+        Paint::screen (g, takesScreen.toFloat(), 14.0f);
+        Paint::screen (g, notesScreen.toFloat(), 14.0f);
 
-        // Lane backgrounds and labels.
-        g.setColour (Theme::background);
-        g.fillRect (takesLane);
-        g.fillRect (chordLane);
-        g.fillRect (noteLane);
-
-        g.setColour (Theme::panelLight);
-        g.drawHorizontalLine (chordLane.getY() - 1, 0.0f, (float) getWidth());
-        g.drawHorizontalLine (noteLane.getY() - 1, 0.0f, (float) getWidth());
-
-        g.setFont (Theme::font (11.0f));
+        g.setFont (Theme::font (12.0f));
         g.setColour (Theme::textDim);
-        g.drawText ("Takes", 6, takesLane.getY() + 4, gutter - 8, 16, juce::Justification::centredLeft);
-        g.drawText ("Chords", 6, chordLane.getY(), gutter - 8, chordLane.getHeight(), juce::Justification::centredLeft);
-        g.drawText ("Notes", 6, noteLane.getY(), gutter - 8, noteLane.getHeight(), juce::Justification::centredLeft);
+        g.drawText ("Takes", takesScreen.getX() + 10, takesLane.getY() + 2, gutter - 12, 16, juce::Justification::centredLeft);
+        g.setColour (Theme::inkDim);
+        g.setFont (Theme::font (12.5f, true));
+        g.drawText ("Chords", takesScreen.getX() + 4, chordLane.getY(), gutter - 6, chordLane.getHeight(), juce::Justification::centredLeft);
 
-        // Note graph tool row.
-        g.setColour (Theme::panelLight.withAlpha (0.4f));
-        g.fillRect (noteTools);
+        // Note graph tool row (on the metal).
+        for (auto& r : toolGrooves)
+            Paint::groove (g, r.toFloat(), (float) r.getHeight() * 0.5f);
         if (data.scaleText.isNotEmpty())
         {
-            g.setColour (data.snapToScale ? Theme::text : Theme::textDim);
-            g.drawText ("Scale: " + data.scaleText, noteTools.reduced (8, 0), juce::Justification::centredRight);
+            g.setFont (Theme::font (12.5f, true));
+            const auto text = "Scale: " + data.scaleText;
+            const int tw = juce::GlyphArrangement::getStringWidthInt (g.getCurrentFont(), text) + 28;
+            const int left = driftSlider.getRight() + 16;
+            auto pillArea = noteTools.reduced (0, 6).withLeft (juce::jmax (left, noteTools.getRight() - tw));
+            if (pillArea.getWidth() > 40)
+            {
+                Paint::pill (g, pillArea.toFloat(), true, false, false, true);
+                g.setColour (data.snapToScale ? Theme::ink : Theme::inkFaint);
+                g.drawFittedText (text, pillArea.reduced (12, 0), juce::Justification::centred, 1, 0.8f);
+            }
         }
 
         {
@@ -998,41 +1039,79 @@ namespace ve::ui
             g.reduceClipRegion (ruler.getUnion (noteLane));
             drawGrid (g, ruler, true);
             drawGrid (g, takesLane, false);
-            drawGrid (g, chordLane, false);
 
             for (auto& r : data.regions)
                 drawRegion (g, r);
 
+            if (data.regions.empty() && ! liveCapturing)
+            {
+                // Empty state: nothing recorded or imported yet.
+                auto c = takesLane.toFloat().withSizeKeepingCentre (360.0f, 110.0f);
+                Paint::waveformGlyph (g, c.removeFromTop (46.0f).withSizeKeepingCentre (64.0f, 40.0f), Theme::textDim.withAlpha (0.8f));
+                g.setColour (Theme::text.withAlpha (0.85f));
+                g.setFont (Theme::font (16.0f, true));
+                g.drawText ("No audio loaded", c.removeFromTop (30.0f), juce::Justification::centred);
+                g.setColour (Theme::textDim);
+                g.setFont (Theme::font (12.5f));
+                g.drawText ("Import a song, drop files here, or arm and record", c.removeFromTop (20.0f), juce::Justification::centred);
+            }
+
             if (liveCapturing)
             {
                 const float x0 = ppqToX (liveStartPpq), x1 = ppqToX (liveStartPpq + liveLengthPpq);
-                g.setColour (Theme::record.withAlpha (0.35f));
-                g.fillRect (juce::Rectangle<float> (x0, (float) takesLane.getY() + 6.0f, juce::jmax (1.0f, x1 - x0), (float) takesLane.getHeight() - 12.0f));
+                g.setColour (Theme::record.withAlpha (0.30f));
+                g.fillRoundedRectangle (juce::Rectangle<float> (x0, (float) takesLane.getY() + 6.0f, juce::jmax (1.0f, x1 - x0), (float) takesLane.getHeight() - 12.0f), 6.0f);
                 g.setColour (Theme::record);
-                g.setFont (Theme::font (12.0f, true));
-                g.drawText ("Recording", juce::Rectangle<float> (x0 + 4.0f, (float) takesLane.getY() + 8.0f, 90.0f, 16.0f), juce::Justification::centredLeft);
+                g.setFont (Theme::font (12.5f, true));
+                g.drawText ("Recording", juce::Rectangle<float> (x0 + 6.0f, (float) takesLane.getY() + 8.0f, 90.0f, 16.0f), juce::Justification::centredLeft);
             }
-
-            drawChords (g);
 
             drawGrid (g, noteLane, false);
             drawNotes (g);
-
-            // Playhead.
-            if (host.hasPpq)
-            {
-                const float x = ppqToX (host.ppqPosition);
-                g.setColour (Theme::playhead);
-                g.drawVerticalLine ((int) x, (float) ruler.getY(), (float) noteLane.getBottom());
-            }
         }
 
-        // Key display, top right of the ruler.
-        auto keyArea = ruler.withTrimmedLeft (ruler.getWidth() - 220).reduced (6, 2);
-        g.setColour (Theme::panel.withAlpha (0.9f));
-        g.fillRoundedRectangle (keyArea.toFloat(), 3.0f);
-        g.setColour (data.keyIsOverride ? Theme::warn : Theme::text);
+        // Chords sit between the screens, outside the clip above.
+        {
+            juce::Graphics::ScopedSaveState s (g);
+            g.reduceClipRegion (chordLane.expanded (0, 2));
+            drawChords (g);
+        }
+
+        // Octave labels in the note screen's gutter.
         g.setFont (Theme::font (12.0f, true));
-        g.drawText ("Key: " + data.keyText + (data.keyIsOverride ? " (manual)" : ""), keyArea.reduced (6, 0), juce::Justification::centredRight);
+        g.setColour (Theme::text.withAlpha (0.85f));
+        for (auto& [m, y] : octaveLabels)
+            if (y > (float) noteLane.getY() + 6.0f && y < (float) noteLane.getBottom() - 2.0f)
+                g.drawText ("C" + juce::String (m / 12 - 1), notesScreen.getX() + 12, (int) y - 8, gutter - 18, 16, juce::Justification::centredLeft);
+
+        // Playhead: a pink line with a soft glow, in both screens.
+        if (host.hasPpq)
+        {
+            const float x = ppqToX (host.ppqPosition);
+            if (x >= (float) takesLane.getX() && x <= (float) takesLane.getRight())
+                for (auto span : { juce::Range<float> ((float) ruler.getY(), (float) takesLane.getBottom()),
+                                   juce::Range<float> ((float) noteLane.getY(), (float) noteLane.getBottom()) })
+                {
+                    for (int i = 3; i >= 1; --i)
+                    {
+                        g.setColour (Theme::playhead.withAlpha (0.10f * (float) (4 - i)));
+                        g.fillRect (juce::Rectangle<float> (x - (float) i * 1.5f, span.getStart(), (float) i * 3.0f, span.getLength()));
+                    }
+                    g.setColour (Theme::playhead);
+                    g.fillRect (juce::Rectangle<float> (x - 0.75f, span.getStart(), 1.5f, span.getLength()));
+                }
+        }
+
+        // Key display, top right of the ruler (read-only; the Key menu above changes it).
+        g.setFont (Theme::font (12.5f, true));
+        const auto keyText = "Key: " + data.keyText + (data.keyIsOverride ? " (manual)" : "");
+        const int kw = juce::GlyphArrangement::getStringWidthInt (g.getCurrentFont(), keyText) + 24;
+        auto keyArea = juce::Rectangle<int> (ruler.getRight() - kw - 2, ruler.getY() + 2, kw, ruler.getHeight() - 4).toFloat();
+        g.setColour (juce::Colour (0xff2a2b30));
+        g.fillRoundedRectangle (keyArea, keyArea.getHeight() * 0.5f);
+        g.setColour (juce::Colours::white.withAlpha (0.12f));
+        g.drawRoundedRectangle (keyArea.reduced (0.5f), keyArea.getHeight() * 0.5f, 1.0f);
+        g.setColour (data.keyIsOverride ? Theme::warn : Theme::text);
+        g.drawText (keyText, keyArea, juce::Justification::centred);
     }
 }

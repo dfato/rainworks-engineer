@@ -30,7 +30,7 @@ Use the **windows-msvc** artifact named above. The other CI builds have no neura
 1. Open FL Studio. Go to **Options > Manage plugins** and click **Find more plugins** (or **Start scan**). **Engineer by RainWorks** appears under Effects, from the vendor RainWorks. Star it so it shows in your plugin list.
 2. Put your vocal on its own mixer insert, for example **Insert 1**. For a recorded vocal, that's the insert your mic input is set on. For an audio clip, set the clip's channel to output to Insert 1.
 3. Click an empty slot on Insert 1 and choose **Engineer by RainWorks**. Put it first in the chain, before EQ, compression or reverb, because it needs a dry vocal.
-4. The window opens at about 1580 x 720 and can be resized from the corner. From top to bottom you'll see the header, the control bar, the host strip (BPM, bar, play state), the timeline (Takes, Chords and Notes lanes) and the status bar.
+4. The window opens at about 1580 x 720 and can be resized from the corner. From top to bottom you'll see the top plate (name, input and sidechain status, every control, and the big **Amount** knob in the middle), the Takes screen, the Chords strip and note tools, the Notes screen, and the footer (status message, FL's transport, take count).
 5. Press play. With **Monitor** on **Input** the vocal should sound exactly the same with the plugin on or off. The header shows **Input: mono** or **Input: stereo** once audio flows.
 
 Use one instance per vocal track. Each instance keeps its own takes, settings and data folder.
@@ -43,7 +43,7 @@ The sidechain is how Engineer hears your beat to work out the key and the chord 
 2. **Select Insert 2** in the mixer (the source).
 3. On **Insert 1** (the vocal insert with Engineer), right-click the small routing arrow at the bottom of the insert and choose **Sidechain to this track**. Insert 2 still goes to the Master; it now also feeds Insert 1 as a sidechain. Some guides use Shift + click on the arrow instead, which does the same.
 4. Open Engineer, click the **cog** at the top left of the plugin window (plugin options), open the **Processing** tab, and find **Connections**. The second input is the sidechain (labelled like **2. Sidechain**). Click its circle to enable it, then drag or click the number field next to it and set it to **2** (the beat insert).
-5. Press play. Top right of Engineer the light turns **green** with a level, like **Sidechain: -8.4 dBFS**. If the beat is silent it shows yellow **Sidechain: no signal**. Grey **Sidechain: bus disabled** means step 4 didn't take.
+5. Press play. Top right of Engineer the light glows **pink** with a level, like **Sidechain: -8.4 dBFS**. If the beat is silent it shows an amber dot and **Sidechain: no signal**. Grey **Sidechain: bus disabled** means step 4 didn't take.
 
 The beat is only listened to while a take is recorded. For imported songs you hand Engineer the beat file instead (next section), so routing isn't needed there.
 
@@ -66,9 +66,9 @@ WAV, AIFF, FLAC and Ogg work; MP3 works on Windows. The take uses FL's tempo at 
 ### Option B: Capture while FL plays
 
 1. Switch FL to **Song** mode and place the playhead where you want to start.
-2. Click **Arm** in Engineer. It turns red and reads **Armed**; the status bar says **Armed: press play in the host to record**.
-3. Press play (and record in FL as normal if you're singing live). A red **Recording** block grows on the timeline and the status bar counts **Recording take: 12.3 s**. Every jump of the playhead or loop pass closes a take and starts a new one.
-4. Stop. A blue take with its waveform appears. Newer takes sit on top of older ones, so you can punch in over a line.
+2. Click **Arm** in Engineer. It glows pink, its light comes on and it reads **Armed**; the status bar says **Armed: press play in the host to record**.
+3. Press play (and record in FL as normal if you're singing live). A pink-red **Recording** block grows on the timeline and the status bar counts **Recording take: 12.3 s**. Every jump of the playhead or loop pass closes a take and starts a new one.
+4. Stop. The take appears as its waveform on the Takes screen. Newer takes sit on top of older ones, so you can punch in over a line.
 5. Click **Arm** again to disarm, or every play records another take.
 
 **Capture the whole song during export.** Arm Engineer, then File > Export > WAV over the whole song. FL renders faster than real time and Engineer captures the vocal and sidechain as one take without dropping audio. Disarm afterwards; you can delete the exported WAV.
@@ -77,7 +77,7 @@ In **Bypass**, capture is off even when armed (the status bar says **Armed (capt
 
 ## 5. Every control
 
-The control bar runs left to right in this order. Hover any control for a tooltip.
+The top plate runs left to right in this order; **Amount** is the big knob in the centre. Hover any control for a tooltip. Knobs turn by dragging up/down (or left/right); click the value under a knob to type a number.
 
 | Control | What it does | Default |
 | --- | --- | --- |
@@ -87,21 +87,21 @@ The control bar runs left to right in this order. Hover any control for a toolti
 | **Monitor: Bypass** | Untouched input and capture disabled. | |
 | **Key** | **Auto (A minor)** uses the key detected from the beat, or 24 manual keys (12 major, 12 minor). A manual key shows "(manual)" on the timeline. | Auto |
 | **Style** | Genre style, grouped by category. Picking one sets **Correct** to that style's default and re-renders every take. The last item is **Learn style from vocals...** | Natural |
-| **Amount** | How strongly the style's vibrato, scoops, runs, falls and tone are applied. 0% = tuning only, 100% = as designed, 200% = exaggerated. Double-click for 100%. | 100% |
+| **Amount** (centre knob) | How strongly the style's vibrato, scoops, runs, falls and tone are applied. 0% = tuning only, 100% = as designed, 200% = exaggerated. Double-click for 100%. | 100% |
 | **Voice** | **As recorded**, or a trained voice model. Also holds **Rescan voices folder**, **Open voices folder...** and **Render on GPU**. | As recorded |
-| **Correct** | How far every note you haven't edited moves to its target. 0% = as sung, 100% = on the key. | 0% until you pick a style |
-| **Intent** | On: reads what each note was meant to be (slides, vibrato, scoops, passing notes, chosen out-of-key notes, spoken lines) and keeps those as sung or corrects them gently. Off: every note is pulled to the key the same way. | On |
+| **Correct** (small knob) | How far every note you haven't edited moves to its target. 0% = as sung, 100% = on the key. | 0% until you pick a style |
+| **Intent** (lit = on) | On: reads what each note was meant to be (slides, vibrato, scoops, passing notes, chosen out-of-key notes, spoken lines) and keeps those as sung or corrects them gently. Off: every note is pulled to the key the same way. | On |
 | **Import song...** | Pick the vocal file, and optionally the beat. Same as dragging files onto the window. | |
 | **Analyse beat** | Re-runs key and chord detection on every take's sidechain. | |
 | **Data folder** | **Show in file browser** opens this instance's take folder. **Locate / change data folder...** points it at a moved folder. | `Documents\RainWorks\Engineer\Sessions\<id>` |
 
-**Header.** Product name and version on the left. On the right, **Input: mono / stereo / waiting** and the sidechain light (green with level, yellow "no signal", grey "bus disabled").
+**Header.** Product name and version on the left. On the right, **Input: mono / stereo / waiting** and the sidechain light (pink with level, amber "no signal", grey "bus disabled").
 
-**Host strip.** Mirrors FL: **BPM**, **SIG**, **BAR | BEAT**, **PPQ**, **SAMPLE**, **PLAY**, **REC**, **LOOP (PPQ)** and **RATE**. "--" means FL didn't send that value. A \* after PPQ or SAMPLE means it was worked out from the other value.
+**Transport (footer, right).** Mirrors FL: **BPM**, **SIG**, **BAR | BEAT**, **PPQ**, **SAMPLE**, play state (**Playing** / **Stopped**), **REC**, **LOOP** (in PPQ) and **RATE**. "--" means FL didn't send that value. A \* after PPQ or SAMPLE means it was worked out from the other value.
 
 **Timeline.**
 
-- **Takes** lane: one blue block per take with its waveform. Red "Missing audio" means its files can't be found. Right-click a take for **Re-analyse sidechain** or **Remove take from session** (the audio files stay on disk).
+- **Takes** screen: one faint frame per take with its waveform. Red "Missing audio" means its files can't be found. Right-click a take for **Re-analyse sidechain** or **Remove take from session** (the audio files stay on disk).
 - **Chords** lane: one chord per beat (major, minor, 7, sus2, sus4, dim, or N.C.), brighter when Engineer is more sure.
 - **Notes** lane: one blob per sung note (next section).
 - **Key: A minor** sits top right of the ruler.
@@ -115,10 +115,10 @@ Each blob in the **Notes** lane is one sung note. Edits re-render only that take
 
 **Reading the blobs.**
 
-- Colour of an uncorrected blob = how far it is from the nearest in-key note: **green** under 15 cents, **yellow** under 35, **red** beyond.
-- **Blue** = corrected. It's drawn where it will sound, with a faint ghost where you sang it.
+- Colour of an uncorrected blob = how far it is from the nearest in-key note: **silver** under 15 cents, **amber** under 35, **red** beyond.
+- **Glowing pink** = corrected. It's drawn where it will sound, with a faint ghost where you sang it.
 - A thin outline above or below = the target pitch, when it differs.
-- A **white outline** = you edited it by hand. Correct and Intent no longer change that note.
+- A **white outline** = you edited it by hand. Correct and Intent no longer change that note. A selected note is brighter, with a thicker white outline.
 - A faint outline to the side = where the note was sung before it was moved in time.
 - C lines (C3, C4...) mark octaves.
 
@@ -246,7 +246,7 @@ If the result sounds odd, check the key first. A wrong key (Auto picking the rel
 | Nothing sounds different | Monitor is on Input, or Correct is 0% | Set **Monitor** to **Rendered** and pick a style or raise **Correct** |
 | Changes take a moment to show up | Each edit re-renders that take in the background | Wait for the job on the right of the status bar to finish |
 | **Sidechain: bus disabled** (grey) | The sidechain input isn't enabled in FL's wrapper | Section 3, step 4 |
-| **Sidechain: no signal** (yellow) | The sidechain is connected but silent | Check the beat insert plays and is the one selected in Connections |
+| **Sidechain: no signal** (amber dot) | The sidechain is connected but silent | Check the beat insert plays and is the one selected in Connections |
 | **Key: not analysed** | No beat was captured or imported with the take | Route the sidechain and record again, import with the beat file, or pick the key by hand |
 | Wrong key | Auto picked the relative or a nearby key | Pick the right key in the **Key** menu |
 | **Pitch analysis: DSP pitch tracker (...)** | The neural pitch model couldn't load, so the older tracker is used. The reason is in the brackets, e.g. "the pitch model (pitch-fcpe.onnx) isn't installed" | Reinstall the full **EngineByRainWorks-VST3-win64** folder, or put `pitch-fcpe.onnx` in `Documents\RainWorks\Engineer\Models\`. Then remove the take and import it again |
