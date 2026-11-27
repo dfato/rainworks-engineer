@@ -2260,6 +2260,239 @@ static PlaybackTests playbackTests;
 static AnalysisTests analysisTests;
 static SessionTests sessionTests;
 
+// Sound quality of the PSOLA renderer on synthetic vowels where the right answer is known.
+class RenderQualityTests final : public juce::UnitTest
+{
+public:
+    RenderQualityTests() : juce::UnitTest ("Render quality", "VocalEngine") {}
+
+    static constexpr double sr = 44100.0;
+
+    // A sung vowel: harmonics of f0 under a fixed formant envelope (so a shifted reference
+    // keeps the same formants), with optional vibrato.
+    static void vowel (juce::AudioBuffer<float>& b, int start, int len, double f0, double vibCents, std::vector<float>* f0Out)
+    {
+        static const double fmt[3][3] = { { 700.0, 130.0, 1.0 }, { 1220.0, 150.0, 0.5 }, { 2600.0, 250.0, 0.25 } };
+        auto envelope = [] (double f)
+        {
+            double a = 0.0;
+            for (auto& q : fmt) a += q[2] / (1.0 + std::pow ((f - q[0]) / q[1], 2.0));
+            return (0.05 + a) / (1.0 + f / 1500.0);
+        };
+        std::vector<double> ph (64, 0.0);
+        for (int i = 0; i < len; ++i)
+        {
+            const double t = (double) i / sr;
+            const double f = f0 * std::pow (2.0, vibCents * std::sin (juce::MathConstants<double>::twoPi * 5.5 * t) / 1200.0);
+            const double fade = juce::jmin (1.0, juce::jmin ((double) i, (double) (len - i)) / (0.02 * sr));
+            double v = 0.0;
+            for (int h = 1; h < 64 && h * f < sr * 0.45; ++h)
+            {
+                ph[(size_t) h] += juce::MathConstants<double>::twoPi * h * f / sr;
+                v += envelope (h * f) * std::sin (ph[(size_t) h]);
+            }
+            b.setSample (0, start + i, (float) (0.12 * fade * v));
+            if (f0Out != nullptr) (*f0Out)[(size_t) (start + i)] = (float) f;
+        }
+    }
+
+    // Harmonics-to-noise ratio (dB) of [a, a + len): normalised autocorrelation at the best
+    // (fractional) lag within 3% of `period`.
+    static double hnr (const juce::AudioBuffer<float>& b, int a, int len, double period)
+    {
+        const float* x = b.getReadPointer (0);
+        double best = 0.0;
+        for (double L = period * 0.97; L <= period * 1.03; L += 0.05)
+        {
+            const int l0 = (int) L;
+            const float fr = (float) (L - l0);
+            double xy = 0.0, xx = 0.0, yy = 0.0;
+            for (int i = a; i < a + len; ++i)
+            {
+                const float y = x[i + l0] + fr * (x[i + l0 + 1] - x[i + l0]);
+                xy += x[i] * y; xx += x[i] * x[i]; yy += y * y;
+            }
+            best = juce::jmax (best, xy / std::sqrt (xx * yy + 1e-30));
+        }
+        best = juce::jlimit (1e-6, 1.0 - 1e-6, best);
+        return 10.0 * std::log10 (best / (1.0 - best));
+    }
+
+    // Pitch (Hz) of [a, a + len): the fractional lag with the best autocorrelation near `guess`.
+    static double pitchOf (const juce::AudioBuffer<float>& b, int a, int len, double guess)
+    {
+        const float* x = b.getReadPointer (0);
+        double best = -1.0, bestL = sr / guess;
+        for (double L = sr / guess * 0.94; L <= sr / guess * 1.06; L += 0.02)
+        {
+            const int l0 = (int) L;
+            const float fr = (float) (L - l0);
+            double xy = 0.0, xx = 0.0, yy = 0.0;
+            for (int i = a; i < a + len; ++i)
+            {
+                const float y = x[i + l0] + fr * (x[i + l0 + 1] - x[i + l0]);
+                xy += x[i] * y; xx += x[i] * x[i]; yy += y * y;
+            }
+            const double r = xy / std::sqrt (xx * yy + 1e-30);
+            if (r > best) { best = r; bestL = L; }
+        }
+        return sr / bestL;
+    }
+
+    // Strongest repetition (normalised autocorrelation) at lags of 1 to 20 ms: ~0 for noise,
+    // high when grains repeat (a buzz).
+    static double periodicity (const juce::AudioBuffer<float>& b, int a, int len)
+    {
+        const float* x = b.getReadPointer (0);
+        double best = 0.0;
+        for (int L = (int) (0.001 * sr); L <= (int) (0.02 * sr); ++L)
+        {
+            double xy = 0.0, xx = 0.0, yy = 0.0;
+            for (int i = a; i < a + len; ++i) { xy += x[i] * x[i + L]; xx += x[i] * x[i]; yy += x[i + L] * x[i + L]; }
+            best = juce::jmax (best, xy / std::sqrt (xx * yy + 1e-30));
+        }
+        return best;
+    }
+
+    // Spread (std, dB) of 2.5 ms levels: flutter in what should be steady noise.
+    static double flutter (const juce::AudioBuffer<float>& b, int a, int len)
+    {
+        const int blk = (int) (0.0025 * sr);
+        std::vector<double> db;
+        for (int i = a; i + blk <= a + len; i += blk) db.push_back (20.0 * std::log10 (b.getRMSLevel (0, i, blk) + 1e-12));
+        double m = 0.0, v = 0.0;
+        for (auto d : db) m += d;
+        m /= (double) db.size();
+        for (auto d : db) v += (d - m) * (d - m);
+        return std::sqrt (v / (double) db.size());
+    }
+
+    void runTest() override
+    {
+        beginTest ("Big pitch moves stay clean (no grain roughness)");
+        {
+            const int n = (int) (1.2 * sr);
+            double worstLoss = 0.0, worstCents = 0.0, worstLevel = 0.0, worstVib = 0.0;
+            for (double f0 : { 120.0, 220.0 })
+                for (double st : { -12.0, -7.0, -4.0, 4.0, 7.0, 12.0 })
+                    for (double vib : { 0.0, 30.0 })
+                    {
+                        juce::AudioBuffer<float> in (1, n), ref (1, n), out;
+                        in.clear(); ref.clear();
+                        std::vector<float> f0v ((size_t) n, 0.0f);
+                        vowel (in, 0, n, f0, vib, &f0v);
+                        vowel (ref, 0, n, f0 * std::pow (2.0, st / 12.0), vib, nullptr);
+                        std::vector<float> shift ((size_t) n, (float) st);
+                        PitchCorrectRenderer::psolaShift (in, out, sr, f0v, shift);
+                        const int a = (int) (0.3 * sr), len = vib > 0.0 ? (int) (0.012 * sr) : (int) (0.5 * sr);
+                        // With vibrato, the period drifts: measure short windows and take the median.
+                        std::vector<double> ho, hr;
+                        for (int w = a; w + len < (int) (0.9 * sr); w += vib > 0.0 ? len : n)
+                        {
+                            const double tf = f0v[(size_t) (w + len / 2)] * std::pow (2.0, st / 12.0);
+                            ho.push_back (hnr (out, w, len, sr / tf));
+                            hr.push_back (hnr (ref, w, len, sr / tf));
+                        }
+                        std::sort (ho.begin(), ho.end()); std::sort (hr.begin(), hr.end());
+                        const double o = ho[ho.size() / 2], r = hr[hr.size() / 2];
+                        const double want = f0 * std::pow (2.0, st / 12.0);
+                        const double got = vib > 0.0 ? want : pitchOf (out, a, (int) (0.4 * sr), want);
+                        if (vib > 0.0)
+                        {
+                            // Vibrato kept: the output pitch follows the sung pitch, moved by the shift.
+                            std::vector<double> ci, co;
+                            for (int w = a; w + 600 < (int) (0.9 * sr); w += 220)
+                            {
+                                const double tf = f0v[(size_t) (w + 300)];
+                                ci.push_back (1200.0 * std::log2 (pitchOf (in, w, 600, tf) / tf));
+                                co.push_back (1200.0 * std::log2 (pitchOf (out, w, 600, tf * std::pow (2.0, st / 12.0)) / (tf * std::pow (2.0, st / 12.0))));
+                            }
+                            std::vector<double> errs;
+                            for (size_t q = 0; q < co.size(); ++q) errs.push_back (std::abs (co[q] - ci[q]));
+                            std::sort (errs.begin(), errs.end());
+                            const double vibErr = errs[errs.size() * 9 / 10];
+                            logMessage ("   vibrato followed within " + juce::String (vibErr, 1) + " cents (P90)");
+                            worstVib = juce::jmax (worstVib, vibErr);
+                        }
+                        const double cents = 1200.0 * std::log2 (got / want);
+                        const double lvl = 20.0 * std::log10 (out.getRMSLevel (0, a, (int) (0.5 * sr)) / in.getRMSLevel (0, a, (int) (0.5 * sr)));
+                        logMessage ("f0 " + juce::String (f0, 0) + " shift " + juce::String (st, 0) + (vib > 0 ? " vib" : "    ")
+                                    + ": HNR " + juce::String (o, 1) + " dB (reference " + juce::String (r, 1) + "), pitch "
+                                    + juce::String (cents, 1) + " cents, level " + juce::String (lvl, 1) + " dB");
+                        worstCents = juce::jmax (worstCents, std::abs (cents));
+                        worstLevel = juce::jmax (worstLevel, std::abs (lvl));
+                        worstLoss = juce::jmax (worstLoss, juce::jmin (r, 40.0) - o);
+                    }
+            logMessage ("Worst HNR loss vs a clean vowel at the target pitch: " + juce::String (worstLoss, 1) + " dB; pitch "
+                        + juce::String (worstCents, 2) + " cents; level " + juce::String (worstLevel, 1) + " dB; vibrato "
+                        + juce::String (worstVib, 1) + " cents");
+            // Before sub-sample grains the worst loss was 21 dB (-12 at 220 Hz), level -5.8 dB at +12.
+            expectLessThan (worstLoss, 3.0);
+            expectLessThan (worstCents, 2.0);
+            expectLessThan (worstLevel, 3.5);
+            expectLessThan (worstVib, 8.0);
+        }
+
+        beginTest ("Long stretched gaps stay noise (no grain buzz) and keep their level");
+        {
+            // Vowel, 0.3 s of breathy noise, vowel. The noise gap is stretched 3x (the first
+            // vowel is squeezed to make room, the second stays in place).
+            const int v1 = (int) (1.0 * sr), gap = (int) (0.3 * sr), v2 = (int) (0.4 * sr);
+            const int n = v1 + gap + v2;
+            juce::AudioBuffer<float> in (1, n), out;
+            in.clear();
+            std::vector<float> f0v ((size_t) n, 0.0f);
+            vowel (in, 0, v1, 200.0, 0.0, &f0v);
+            vowel (in, v1 + gap, v2, 200.0, 0.0, &f0v);
+            for (int i = v1; i < v1 + gap; ++i) f0v[(size_t) i] = 0.0f;
+            juce::Random rng (5);
+            float lp = 0.0f;
+            for (int i = v1; i < v1 + gap; ++i)
+            {
+                lp += 0.5f * ((rng.nextFloat() * 2.0f - 1.0f) - lp);
+                in.setSample (0, i, 0.05f * lp);
+            }
+            const double gIn0 = v1, gIn1 = v1 + gap, gOut1 = gIn1, gOut0 = gOut1 - 3.0 * gap;
+            TimeWarp warp;
+            warp.anchors = { { 0.0, 0.0 }, { gIn0, gOut0 }, { gIn1, gOut1 }, { (double) n, (double) n } };
+            std::vector<float> shift ((size_t) n, 0.0f);
+            PitchCorrectRenderer::psolaShift (in, out, sr, f0v, shift, warp);
+
+            const int a = (int) gOut0 + (int) (0.03 * sr), len = (int) (3.0 * gap) - (int) (0.08 * sr);
+            const double pIn = periodicity (in, v1 + (int) (0.02 * sr), gap - (int) (0.06 * sr) - (int) (0.02 * sr));
+            const double pOut = periodicity (out, a, len - (int) (0.02 * sr));
+            const double lvl = 20.0 * std::log10 (out.getRMSLevel (0, a, len) / in.getRMSLevel (0, v1 + (int) (0.02 * sr), gap - (int) (0.04 * sr)));
+            const double fIn = flutter (in, v1 + (int) (0.02 * sr), gap - (int) (0.04 * sr)), fOut = flutter (out, a, len);
+            logMessage ("Stretched noise: repetition " + juce::String (pIn, 2) + " -> " + juce::String (pOut, 2)
+                        + ", level " + juce::String (lvl, 1) + " dB, flutter " + juce::String (fIn, 2) + " -> " + juce::String (fOut, 2) + " dB");
+            // Before: repetition 0.53 (a 200 Hz buzz from grains repeating every 5 ms).
+            expectLessThan (pOut, 0.2);
+            expectWithinAbsoluteError (lvl, 0.0, 1.5);
+            expectLessThan (fOut, 1.5);
+        }
+
+        beginTest ("Long stretched notes stay clean");
+        {
+            const int n = (int) (1.0 * sr);
+            juce::AudioBuffer<float> in (1, n), out;
+            in.clear();
+            std::vector<float> f0v ((size_t) n, 0.0f);
+            vowel (in, 0, n, 180.0, 0.0, &f0v);
+            TimeWarp warp;
+            warp.anchors = { { 0.0, 0.0 }, { 0.3 * sr, 0.1 * sr }, { 0.45 * sr, 0.85 * sr }, { (double) n, (double) n } };  // 0.15 s -> 0.75 s
+            std::vector<float> shift ((size_t) n, 3.0f);
+            PitchCorrectRenderer::psolaShift (in, out, sr, f0v, shift, warp);
+            const double tf = 180.0 * std::pow (2.0, 3.0 / 12.0);
+            const double h = hnr (out, (int) (0.2 * sr), (int) (0.5 * sr), sr / tf);
+            const double hIn = hnr (in, (int) (0.2 * sr), (int) (0.5 * sr), sr / 180.0);
+            logMessage ("Note stretched 5x and shifted +3: HNR " + juce::String (h, 1) + " dB (sung " + juce::String (hIn, 1) + ")");
+            expectGreaterThan (h, 45.0);   // was 36 dB
+        }
+    }
+};
+
+static RenderQualityTests renderQualityTests;
+
 int main()
 {
     juce::UnitTestRunner runner;

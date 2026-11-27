@@ -1,6 +1,7 @@
 #include "PitchCorrectRenderer.h"
 #include "Style/ExpressionLayer.h"
 #include "Style/ToneShaper.h"
+#include <random>
 
 namespace ve
 {
@@ -131,14 +132,94 @@ namespace ve
                 int best = clampIdx (next);
                 for (int i = lo; i <= hi; ++i)
                     if (mono[(size_t) i] > mono[(size_t) best]) best = i;
-                if (best > t + 0.5 * T) next = best;
+                if (best > t + 0.5 * T)
+                {
+                    // Sub-sample peak (parabola through the three samples around it): marks on
+                    // whole samples put each grain up to half a sample off its cycle, and that
+                    // jitter is heard as a fine grainy noise on the upper harmonics.
+                    double frac = 0.0;
+                    if (best > 0 && best < n - 1)
+                    {
+                        const double y0 = mono[(size_t) best - 1], y1 = mono[(size_t) best], y2 = mono[(size_t) best + 1];
+                        const double den = y0 - 2.0 * y1 + y2;
+                        if (den < 0.0) frac = juce::jlimit (-0.5, 0.5, 0.5 * (y0 - y2) / den);
+                    }
+                    next = best + frac;
+                }
             }
             t = next;
+        }
+
+        // Each voiced mark is then lined up with the cycle before it: moved (within 10% of a
+        // period, to a fraction of a sample) to where the two cycles match best. Peak picking
+        // alone wanders between peaks of a real voice's cycle, so grains taken at its marks do
+        // not line up; a big pitch move then sounds rough. Cycle-to-cycle alignment keeps each
+        // grain's glottal pulse at its centre.
+        for (size_t k = 1; k < marks.size(); ++k)
+        {
+            const double prev = marks[k - 1], cur = marks[k], T = cur - prev;
+            if (f0[(size_t) clampIdx (prev)] <= 0.0f || f0[(size_t) clampIdx (cur)] <= 0.0f || T < 8.0 || T > sr * 0.02) continue;
+            const int half = (int) (0.5 * T), reach = juce::jmax (1, (int) (0.1 * T));
+            const int p0 = (int) std::llround (prev), c0 = (int) std::llround (cur);
+            if (p0 - half < 0 || c0 + reach + half + 1 >= n || c0 - reach - half - 1 < 0) continue;
+            std::vector<double> sc ((size_t) (2 * reach + 3));
+            for (int dd = -reach - 1; dd <= reach + 1; ++dd)
+            {
+                double xy = 0.0, yy = 0.0;
+                for (int j = -half; j <= half; ++j) { const double y = mono[(size_t) (c0 + dd + j)]; xy += mono[(size_t) (p0 + j)] * y; yy += y * y; }
+                sc[(size_t) (dd + reach + 1)] = xy / std::sqrt (yy + 1e-30);
+            }
+            int bi = 1;
+            for (int q = 1; q <= 2 * reach + 1; ++q) if (sc[(size_t) q] > sc[(size_t) bi]) bi = q;
+            const double y0 = sc[(size_t) bi - 1], y1 = sc[(size_t) bi], y2 = sc[(size_t) bi + 1], den = y0 - 2 * y1 + y2;
+            const double fr = den < 0.0 ? juce::jlimit (-0.5, 0.5, 0.5 * (y0 - y2) / den) : 0.0;
+            // The match is measured between whole samples around each mark, so the previous mark's
+            // fraction carries over.
+            const double aligned = (double) (c0 + bi - reach - 1) + fr + (prev - (double) p0);
+            if (aligned > prev + 4.0) marks[k] = aligned;
         }
 
         juce::AudioBuffer<float> acc (chs, n);
         acc.clear();
         std::vector<float> wsum ((size_t) n, 0.0f);
+
+        // Input at a fractional position (4-point cubic Hermite).
+        auto inAt = [&] (int ch, double pos)
+        {
+            const int i = (int) std::floor (pos);
+            const float t = (float) (pos - i);
+            auto at = [&] (int k) { return in.getSample (ch, juce::jlimit (0, n - 1, k)); };
+            const float y0 = at (i - 1), y1 = at (i), y2 = at (i + 1), y3 = at (i + 2);
+            const float c1 = 0.5f * (y2 - y0), c2 = y0 - 2.5f * y1 + 2.0f * y2 - 0.5f * y3, c3 = 0.5f * (y3 - y0) + 1.5f * (y1 - y2);
+            return ((c3 * t + c2) * t + c1) * t + y1;
+        };
+        // Adds a Hann grain of half-length `half` read around input time `ta`, centred on output
+        // time `ts` (both fractional), scaled by `gain`; its window goes to wsum.
+        auto addGrain = [&] (double ta, double ts, double half, float gain)
+        {
+            const int d0 = juce::jmax (0, (int) std::ceil (ts - half)), d1 = juce::jmin (n - 1, (int) std::floor (ts + half));
+            for (int d = d0; d <= d1; ++d)
+            {
+                const double k = (double) d - ts;
+                const double src = ta + k;
+                if (src < 0.0 || src > (double) (n - 1)) continue;
+                const float w = 0.5f + 0.5f * (float) std::cos (juce::MathConstants<double>::pi * k / half);
+                for (int ch = 0; ch < chs; ++ch)
+                    acc.addSample (ch, d, gain * w * inAt (ch, src));
+                wsum[(size_t) d] += w;
+            }
+        };
+
+        // Unvoiced stretches (breaths, "s", room tone) have no cycles to follow: grains are read
+        // where the output reads from, 10 ms each way at a 5 ms hop (4x overlap, so the windows
+        // add up flat both for copies of one signal and for unrelated noise). Where time is
+        // stretched or squeezed, each read position is jittered so the grains never repeat
+        // in step (a repeat every 5 ms is a 200 Hz buzz in a stretched breath); jittered grains
+        // add up as unrelated noise, so they get the gain that keeps the level.
+        const double uHop = unvoicedPeriod, uHalf = 2.0 * unvoicedPeriod;
+        const float noiseGain = 2.0f / std::sqrt (1.5f);
+        std::mt19937 jitterRng (0x5eed);
+        std::uniform_real_distribution<double> jitter (-0.5 * uHop, 0.5 * uHop);
 
         int seg = 0;
         while (seg < n)
@@ -148,31 +229,34 @@ namespace ve
             int segEnd = seg;
             while (segEnd < n && active[(size_t) segEnd]) ++segEnd;
 
-            // Synthesis marks in output time, spaced by the local period divided by the
-            // pitch ratio; each takes the analysis grain nearest to where it reads from.
+            // Synthesis marks in output time, spaced by the local period divided by the pitch
+            // ratio. Grains are read and placed at fractional positions (cubic interpolation):
+            // rounding both to whole samples, as this used to, jitters every cycle by up to a
+            // sample, which is heard as grainy noise over the upper harmonics of a moved note.
             size_t m = 0;
             for (double ts = seg; ts < segEnd;)
             {
                 const double u = inputAt (ts);
+                if (f0[(size_t) clampIdx (u)] <= 0.0f)
+                {
+                    const double slope = (inputAt (ts + uHop) - u) / uHop;
+                    const bool stretched = std::abs (slope - 1.0) > 0.02;
+                    addGrain (stretched ? u + jitter (jitterRng) : u, ts, uHalf, stretched ? noiseGain : 1.0f);
+                    ts += uHop;
+                    continue;
+                }
+                // The analysis grain nearest to where this mark reads from.
                 while (m + 1 < marks.size() && std::abs (marks[m + 1] - u) <= std::abs (marks[m] - u)) ++m;
                 const double ta = marks[m];
-                const double T = m + 1 < marks.size() ? juce::jlimit (8.0, sr * 0.02, marks[m + 1] - marks[m]) : periodAt (ta);
+                const double T = m + 1 < marks.size() ? juce::jlimit (8.0, sr * 0.02, marks[m + 1] - ta) : periodAt (ta);
                 const float sft = shift[(size_t) clampIdx (u)];
                 const double ratio = std::pow (2.0, (double) sft / 12.0);
-
-                // Hann grain of length 2T centred on the analysis mark, placed at ts.
-                const int half = juce::jmax (2, (int) std::ceil (T));
-                for (int k = -half; k <= half; ++k)
-                {
-                    const int src = (int) std::llround (ta) + k;
-                    const int dst = (int) std::llround (ts) + k;
-                    if (src < 0 || src >= n || dst < 0 || dst >= n) continue;
-                    const float w = 0.5f + 0.5f * (float) std::cos (juce::MathConstants<double>::pi * k / (double) half);
-                    for (int ch = 0; ch < chs; ++ch)
-                        acc.addSample (ch, dst, in.getSample (ch, src) * w);
-                    wsum[(size_t) dst] += w;
-                }
-                ts += f0[(size_t) clampIdx (u)] > 0.0f ? T / ratio : T;
+                // Level: raised, the cycles overlap more than in the take; lowered, they are
+                // further apart. The gain keeps the note's loudness (the sum is divided by the
+                // window overlap below, which alone would make raised notes quieter).
+                const float gain = (float) (ratio >= 1.0 ? std::sqrt (ratio) : 1.0 / std::sqrt (ratio));
+                addGrain (ta, ts, juce::jmax (2.0, T), gain);
+                ts += T / ratio;
             }
             seg = segEnd;
         }
@@ -211,11 +295,14 @@ namespace ve
         {
             const float m = mix[(size_t) i];
             if (m <= 0.0f) continue;
-            const bool hasGrains = wsum[(size_t) i] >= 1.0e-3f;
-            const float inv = hasGrains ? 1.0f / wsum[(size_t) i] : 0.0f;
+            // Where grains overlap (shifting up, or unvoiced) the sum is divided by the window
+            // weight. Where they do not quite meet (shifting down: cycles further apart than
+            // in the take) it is left as is: dividing there would blow up each grain's tails,
+            // a harsh buzz on every lowered note.
+            const float inv = 1.0f / juce::jmax (1.0f, wsum[(size_t) i]);
             for (int ch = 0; ch < chs; ++ch)
             {
-                const float processed = hasGrains ? acc.getSample (ch, i) * inv : 0.0f;
+                const float processed = acc.getSample (ch, i) * inv;
                 out.setSample (ch, i, (1.0f - m) * in.getSample (ch, i) + m * processed);
             }
         }
