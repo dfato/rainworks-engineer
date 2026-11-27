@@ -119,7 +119,7 @@ namespace ve::ui
         analyseButton.onClick = [this] { if (onAnalyse) onAnalyse(); };
         setCanAnalyse (false);
 
-        importButton.setTooltip ("Bring in a whole song at once: pick the vocal file, and optionally the beat. You can also drag files onto the plugin.");
+        importButton.setTooltip ("Bring in a whole song at once: pick the vocal, the beat, or both. A file named beat/inst/instrumental is used as the beat (never tuned). You can also drag files onto the plugin.");
         importButton.onClick = [this] { if (onImport) onImport(); };
         addAndMakeVisible (importButton);
         addAndMakeVisible (analyseButton);
@@ -149,8 +149,8 @@ namespace ve::ui
         analyseButton.setTooltip (anyTakeHasBeat
             ? "Re-run key and chord detection on the beat saved with every take. It already runs by itself after each "
               "take; use this after changing the beat. The status bar shows the result."
-            : "No take has a beat yet. Import the song with a beat file, or route the beat into the sidechain and "
-              "record a take; key and chords are then detected automatically.");
+            : "No take has a beat yet. Drag the beat file onto Engineer (name it with beat or inst), or route the beat "
+              "into the sidechain and record a take; key and chords are then detected automatically.");
     }
 
     void ControlBar::setStyles (const std::vector<StyleItem>& items)

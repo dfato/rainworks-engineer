@@ -175,10 +175,7 @@ void VocalEngineProcessor::timerCallback()
         if (r.droppedSamples > 0)
             postMessage ("Take captured with " + juce::String (r.droppedSamples) + " samples of dropout (disk too slow?)");
 
-        const auto d = session.getRegionDescriptor (session.findRegion (r.id));
-        scheduleRender (d);
-        scheduleAnalysis (d);
-        schedulePitchTracking (d);
+        onTakeAdded (session.getRegionDescriptor (session.findRegion (r.id)));
         changed = true;
     }
 
@@ -707,13 +704,132 @@ void VocalEngineProcessor::importTake (const juce::File& vocal, const juce::File
                 return;
             }
             session.addRegion (*result);
-            const auto d = session.getRegionDescriptor (session.findRegion (result->id));
-            scheduleRender (d);
-            scheduleAnalysis (d);
-            schedulePitchTracking (d);
+            onTakeAdded (session.getRegionDescriptor (session.findRegion (result->id)));
             postMessage ("Imported " + name + " as a take from bar 1 ("
                          + juce::String ((double) result->lengthSamples / result->sampleRate, 1) + " s)");
         });
+}
+
+void VocalEngineProcessor::onTakeAdded (const ve::RegionDescriptor& d)
+{
+    scheduleRender (d);
+    schedulePitchTracking (d);
+    // No beat of its own (sidechain not routed, or a vocal imported alone): use the song's beat.
+    if (d.sidechainFile == juce::File() && session.getBeatFile().existsAsFile())
+        attachBeatTo ({ d }, false);
+    else
+        scheduleAnalysis (d);
+}
+
+void VocalEngineProcessor::setBeat (const juce::File& beat, double startSeconds)
+{
+    if (! beat.existsAsFile())
+        return;
+
+    const auto folder = session.getDataFolder();
+    auto relative = std::make_shared<juce::String>();
+    postMessage ("Setting the beat: " + beat.getFileName());
+
+    // Keep a copy in the data folder so the session doesn't depend on where the file was.
+    jobs->submit ("Set beat", "beat", ve::JobPriority::high,
+        [beat, folder, relative] (ve::JobContext&)
+        {
+            const auto dir = folder.getChildFile ("Beat");
+            if (! dir.createDirectory())
+                return juce::Result::fail ("Could not create " + dir.getFullPathName());
+            auto dest = dir.getChildFile (beat.getFileName());
+            if (dest != beat)
+            {
+                dest = dir.getNonexistentChildFile (beat.getFileNameWithoutExtension(), beat.getFileExtension(), false);
+                if (! beat.copyFileTo (dest))
+                    return juce::Result::fail ("Could not copy " + beat.getFileName() + " (disk full?)");
+            }
+            *relative = dest.getRelativePathFrom (folder).replaceCharacter ('\\', '/');
+            return juce::Result::ok();
+        },
+        [this, relative, startSeconds, name = beat.getFileName()] (const ve::JobResult& res)
+        {
+            if (! res.success)
+            {
+                if (! res.cancelled)
+                    postMessage ("Could not set the beat: " + res.error);
+                return;
+            }
+            session.setBeatFile (*relative, startSeconds);
+            const auto takes = session.getRegionDescriptors();
+            if (takes.empty())
+                postMessage ("Beat set: " + name + ". It will be used for the vocal you import or record next.");
+            else
+            {
+                postMessage ("Beat set: " + name + ". Analysing it under " + juce::String ((int) takes.size())
+                             + (takes.size() == 1 ? " take..." : " takes..."));
+                attachBeatTo (takes, true);
+            }
+            sendChangeMessage();
+        });
+}
+
+void VocalEngineProcessor::attachBeatTo (const std::vector<ve::RegionDescriptor>& takes, bool report)
+{
+    const auto beat = session.getBeatFile();
+    const double start = session.getBeatStart();
+    const auto folder = session.getDataFolder();
+    if (! beat.existsAsFile() || takes.empty())
+        return;
+
+    if (report)
+    {
+        manualAnalysisPending = (int) takes.size();
+        manualAnalysisChords = 0;
+    }
+
+    for (auto& d : takes)
+    {
+        jobs->cancelGroup ("analysis:" + d.id);
+        auto relative = std::make_shared<juce::String>();
+        jobs->submit ("Attach beat", "beat:" + d.id, ve::JobPriority::normal,
+            [beat, start, folder, d, relative] (ve::JobContext& ctx)
+            {
+                return ve::TakeImporter::writeBeatForTake (beat, start, folder, d.id, d.startSample, d.lengthSamples,
+                                                           d.captureSampleRate, &ctx, *relative);
+            },
+            [this, id = d.id, relative, report] (const ve::JobResult& res)
+            {
+                const auto r = session.findRegion (id);
+                if (res.success && r.isValid())
+                {
+                    session.setSidechainFile (id, *relative);
+                    scheduleAnalysis (session.getRegionDescriptor (r)); // reports when the last one is done
+                }
+                else
+                {
+                    if (! res.success && ! res.cancelled)
+                        postMessage ("Could not use the beat for a take: " + res.error);
+                    if (report && manualAnalysisPending > 0)
+                        --manualAnalysisPending;
+                }
+                sendChangeMessage();
+            });
+    }
+}
+
+void VocalEngineProcessor::useTakeAsBeat (const juce::String& id)
+{
+    auto r = session.findRegion (id);
+    if (! r.isValid())
+        return;
+    const auto d = session.getRegionDescriptor (r);
+    if (! d.vocalFile.existsAsFile() || d.captureSampleRate <= 0.0)
+    {
+        postMessage ("This take's audio is missing, so it can't be used as the beat.");
+        sendChangeMessage();
+        return;
+    }
+    const auto file = d.vocalFile;               // stays on disk after the take is removed
+    const double start = (double) d.startSample / d.captureSampleRate;
+    deleteRegion (id);
+    setBeat (file, start);
+    sendChangeMessage();
 }
 
 void VocalEngineProcessor::analyseAll()
@@ -757,6 +873,7 @@ void VocalEngineProcessor::deleteRegion (const juce::String& id)
     jobs->cancelGroup ("render:" + id);
     jobs->cancelGroup ("analysis:" + id);
     jobs->cancelGroup ("pitch:" + id);
+    jobs->cancelGroup ("beat:" + id);
     if (session.removeRegion (id))
     {
         cache.removeRegion (id);

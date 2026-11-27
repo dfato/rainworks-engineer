@@ -619,11 +619,13 @@ namespace ve::ui
             juce::PopupMenu m;
             m.addSectionHeader ("Take at " + juce::String (r->startPpq, 2) + " PPQ");
             m.addItem (1, "Re-analyse sidechain", r->hasSidechain && ! r->missing);
+            m.addItem (3, "This is the beat, not a vocal (use it as the beat)", ! r->missing);
             m.addItem (2, "Remove take from session");
             m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition(), [this, id] (int res)
             {
                 if (res == 1 && onAnalyseRegion) onAnalyseRegion (id);
                 if (res == 2 && onDeleteRegion) onDeleteRegion (id);
+                if (res == 3 && onUseTakeAsBeat) onUseTakeAsBeat (id);
             });
         }
     }

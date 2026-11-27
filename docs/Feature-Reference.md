@@ -47,7 +47,11 @@ loop on/off with loop points, and sample rate.
 
 **Import (fastest).** Export your vocal (and optionally the beat) from FL starting at bar 1, then either click
 **Import song...** and select one or both files, or drag them onto the plugin. A file whose name contains
-beat/inst/music/track/mix is used as the beat; the other is the vocal. The take lands at bar 1 using the
+beat/inst/music/track/mix/backing/karaoke/808 is used as the beat; vocal/vox/acapella/lead wins over those, so
+"vocal mix.wav" is a vocal. A beat-named file dropped on its own is never a take: it becomes the session's beat
+(copied to `<data folder>/Beat/`), is written under every take as its sidechain and analysed, and is used for
+every later take that has no beat of its own. Right-click a take > **This is the beat, not a vocal** fixes a
+beat that went in as a take. The take lands at bar 1 using the
 project's current tempo, the beat feeds sidechain analysis, and nothing has to play. WAV, AIFF, FLAC and Ogg
 work everywhere; MP3 works on Windows.
 
@@ -76,7 +80,8 @@ instead of dropping audio during offline renders). Disarm afterwards. You can de
 
 ### 7. Sidechain analysis
 
-1. Route the beat into the sidechain (section 2) and record a take of 8 bars or more.
+1. Route the beat into the sidechain (section 2) and record a take of 8 bars or more, or drag the beat file
+   (named with "beat" or "inst") onto the plugin.
 2. Analysis starts automatically after each take. The chord lane fills in with one chord per beat (merged when
    repeated) and the key shows top right of the timeline and in the Key menu ("Auto (C major)").
 3. **Analyse beat** re-runs it for all takes; right-click a take > Re-analyse sidechain for one. The status bar

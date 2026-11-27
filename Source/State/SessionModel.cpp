@@ -215,6 +215,26 @@ namespace ve
         return out;
     }
 
+    void SessionModel::setSidechainFile (const juce::String& regionId, const juce::String& relative)
+    {
+        auto r = findRegion (regionId);
+        if (! r.isValid()) return;
+        r.setProperty (IDs::sidechainFile, relative, nullptr);
+        r.removeChild (r.getChildWithName (IDs::Analysis), nullptr);
+    }
+
+    juce::File SessionModel::getBeatFile() const
+    {
+        const auto rel = tree.getProperty (IDs::beatFile).toString();
+        return rel.isEmpty() ? juce::File() : getDataFolder().getChildFile (rel);
+    }
+    double SessionModel::getBeatStart() const { return tree.getProperty (IDs::beatStart, 0.0); }
+    void SessionModel::setBeatFile (const juce::String& relative, double startSeconds)
+    {
+        tree.setProperty (IDs::beatFile, relative, nullptr);
+        tree.setProperty (IDs::beatStart, startSeconds, nullptr);
+    }
+
     void SessionModel::setAnalysis (const juce::String& regionId, const SidechainAnalysisResult& a)
     {
         auto r = findRegion (regionId);

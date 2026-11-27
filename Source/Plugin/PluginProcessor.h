@@ -75,6 +75,13 @@ public:
     void setDataFolder (const juce::File&);
     // Imports a whole song from files (vocal + optional beat) as one take starting at bar 1.
     void importTake (const juce::File& vocal, const juce::File& beat);
+    // A beat file on its own (dropped or picked without a vocal): it becomes the
+    // beat of every take, and of takes added later that have none. startSeconds
+    // is where the file starts on the song timeline (0 = bar 1).
+    void setBeat (const juce::File& beat, double startSeconds = 0.0);
+    // Undoes a beat imported by mistake as a vocal: the take is removed and its
+    // audio becomes the song's beat.
+    void useTakeAsBeat (const juce::String& regionId);
     void analyseAll();
     int countTakesWithBeat() const;   // takes whose sidechain (beat) audio is on disk
     void analyseRegion (const juce::String& regionId);
@@ -128,6 +135,9 @@ private:
     void reloadAllRegions();
     void scheduleRender (const ve::RegionDescriptor&);
     void scheduleAnalysis (const ve::RegionDescriptor&);
+    // Writes the session beat under each take as its sidechain, then analyses it.
+    void attachBeatTo (const std::vector<ve::RegionDescriptor>&, bool report);
+    void onTakeAdded (const ve::RegionDescriptor&);
     void schedulePitchTracking (const ve::RegionDescriptor&);
     void resnapNotes();
     ve::KeyEstimate snappingKey() const;   // session key + the current style's scale

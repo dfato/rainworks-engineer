@@ -32,6 +32,28 @@ namespace ve::TakeImporter
         return f.existsAsFile() && f.hasFileExtension ("wav;wave;aif;aiff;flac;ogg;mp3");
     }
 
+    namespace
+    {
+        bool nameHasAny (const juce::File& f, std::initializer_list<const char*> words)
+        {
+            const auto n = f.getFileNameWithoutExtension().toLowerCase();
+            for (auto* k : words)
+                if (n.contains (k)) return true;
+            return false;
+        }
+    }
+
+    bool nameLooksLikeVocal (const juce::File& f)
+    {
+        return nameHasAny (f, { "vocal", "vox", "voc ", "voc_", "voc-", "acapella", "a cappella", "acappella", "lead", "adlib" });
+    }
+
+    bool nameLooksLikeBeat (const juce::File& f)
+    {
+        return ! nameLooksLikeVocal (f)
+            && nameHasAny (f, { "beat", "inst", "music", "track", "mix", "backing", "karaoke", "808", "prod" });
+    }
+
     void classifyFiles (const juce::Array<juce::File>& files, juce::File& vocal, juce::File& beat)
     {
         vocal = beat = juce::File();
@@ -39,23 +61,56 @@ namespace ve::TakeImporter
         for (auto& f : files)
             if (isSupportedAudioFile (f))
                 audio.add (f);
+        if (audio.isEmpty())
+            return;
 
-        auto looksLikeBeat = [] (const juce::File& f)
+        if (audio.size() == 1)
         {
-            const auto n = f.getFileNameWithoutExtension().toLowerCase();
-            for (auto* k : { "beat", "inst", "music", "track", "mix", "backing", "karaoke" })
-                if (n.contains (k)) return true;
-            return false;
-        };
+            (nameLooksLikeBeat (audio[0]) ? beat : vocal) = audio[0];
+            return;
+        }
 
         for (auto& f : audio)
-            if (beat == juce::File() && looksLikeBeat (f) && audio.size() > 1)
-                beat = f;
+            if (vocal == juce::File() && nameLooksLikeVocal (f)) vocal = f;
         for (auto& f : audio)
-            if (f != beat) { vocal = f; break; }
-        if (beat == juce::File())
-            for (auto& f : audio)
-                if (f != vocal) { beat = f; break; }
+            if (beat == juce::File() && f != vocal && nameLooksLikeBeat (f)) beat = f;
+        for (auto& f : audio)
+            if (vocal == juce::File() && f != beat) vocal = f;
+        for (auto& f : audio)
+            if (beat == juce::File() && f != vocal) beat = f;
+    }
+
+    juce::Result writeBeatForTake (const juce::File& beatFile, double beatStartSeconds,
+                                   const juce::File& dataFolder, const juce::String& takeId,
+                                   std::int64_t takeStartSample, std::int64_t takeLengthSamples,
+                                   double takeSampleRate, JobContext* ctx, juce::String& relativeOut)
+    {
+        if (takeSampleRate <= 0.0 || takeLengthSamples <= 0)
+            return juce::Result::fail ("take has no audio");
+
+        juce::AudioBuffer<float> raw;
+        double rate = 0.0;
+        if (auto r = loadAudioFile (beatFile, takeSampleRate, ctx, raw, rate); r.failed())
+            return r;
+        if (raw.getNumChannels() == 0 || raw.getNumSamples() == 0)
+            return juce::Result::fail (beatFile.getFileName() + " is empty");
+        if (ctx != nullptr && ctx->shouldCancel()) return juce::Result::fail ("cancelled");
+
+        const int length = (int) takeLengthSamples;
+        juce::AudioBuffer<float> beat (2, length);
+        beat.clear();
+
+        // Sample of the beat file that lines up with the take's first sample.
+        const std::int64_t offset = takeStartSample - (std::int64_t) std::llround (beatStartSeconds * takeSampleRate);
+        const std::int64_t srcStart = juce::jmax<std::int64_t> (0, offset);
+        const std::int64_t dstStart = juce::jmax<std::int64_t> (0, -offset);
+        const std::int64_t n = juce::jmin<std::int64_t> ((std::int64_t) raw.getNumSamples() - srcStart, (std::int64_t) length - dstStart);
+        if (n > 0)
+            for (int ch = 0; ch < 2; ++ch)
+                beat.copyFrom (ch, (int) dstStart, raw, juce::jmin (ch, raw.getNumChannels() - 1), (int) srcStart, (int) n);
+
+        relativeOut = CaptureEngine::regionsSubfolder() + "/" + takeId + "_sidechain.wav";
+        return writeWav (dataFolder.getChildFile (relativeOut), beat, takeSampleRate);
     }
 
     juce::Result importTake (const juce::File& vocalFile, const juce::File& beatFile, const juce::File& dataFolder,

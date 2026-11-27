@@ -26,8 +26,22 @@ namespace ve
         juce::Result writeWav (const juce::File&, const juce::AudioBuffer<float>&, double sampleRate);
 
         // Given dropped/selected files, picks which is the vocal and which the beat.
-        // Names containing beat/inst/music/track/mix count as the beat.
+        // Names with vocal/vox/acapella/... count as the vocal; names with
+        // beat/inst/music/track/mix/backing/karaoke/808 count as the beat.
+        // A single file whose name says beat is returned as the beat only
+        // (vocal left empty), so dropping just the beat never makes a vocal take.
         void classifyFiles (const juce::Array<juce::File>&, juce::File& vocal, juce::File& beat);
+        bool nameLooksLikeBeat (const juce::File&);
+        bool nameLooksLikeVocal (const juce::File&);
+
+        // Writes the part of a beat file that lies under one take as that take's
+        // sidechain WAV (stereo, take rate, take length; silence where the beat
+        // has no audio). beatStartSeconds is where the beat file starts on the
+        // song timeline (0 = bar 1). relativeOut is the path inside dataFolder.
+        juce::Result writeBeatForTake (const juce::File& beatFile, double beatStartSeconds,
+                                       const juce::File& dataFolder, const juce::String& takeId,
+                                       std::int64_t takeStartSample, std::int64_t takeLengthSamples,
+                                       double takeSampleRate, JobContext* ctx, juce::String& relativeOut);
 
         bool isSupportedAudioFile (const juce::File&);
     }
