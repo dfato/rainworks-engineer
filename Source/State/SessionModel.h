@@ -21,7 +21,7 @@ namespace ve
         VE_ID (Chords) VE_ID (Chord) VE_ID (endPpq) VE_ID (root) VE_ID (quality) VE_ID (confidence)
         VE_ID (Notes) VE_ID (Note) VE_ID (start) VE_ID (end) VE_ID (detected) VE_ID (target) VE_ID (correction)
         VE_ID (edited) VE_ID (shift) VE_ID (intent) VE_ID (intentScale) VE_ID (useIntent) VE_ID (voiceGpu) VE_ID (pitchFile) VE_ID (styleId) VE_ID (styleAmount) VE_ID (voiceId)
-        VE_ID (vibrato) VE_ID (drift) VE_ID (snapToScale)
+        VE_ID (vibrato) VE_ID (drift) VE_ID (snapToScale) VE_ID (beatFile) VE_ID (beatStart)
         #undef VE_ID
     }
 
@@ -83,6 +83,17 @@ namespace ve
 
         std::vector<RegionDescriptor> getRegionDescriptors() const;
         RegionDescriptor getRegionDescriptor (const juce::ValueTree& region) const;
+
+        // Points a take at a new beat (sidechain) file, relative to the data folder,
+        // and drops its old key/chord analysis.
+        void setSidechainFile (const juce::String& regionId, const juce::String& relative);
+
+        // The song's beat file (a copy in the data folder), used for takes that
+        // have no beat of their own. beatStart is where it starts on the song
+        // timeline, in seconds (0 = bar 1). Empty = none.
+        juce::File getBeatFile() const;
+        double getBeatStart() const;
+        void setBeatFile (const juce::String& relative, double startSeconds);
 
         void setAnalysis (const juce::String& regionId, const SidechainAnalysisResult&);
         bool hasAnalysis (const juce::String& regionId) const;

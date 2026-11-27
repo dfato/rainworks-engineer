@@ -27,7 +27,7 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
     controls.onAnalyse = [this] { processor.analyseAll(); };
     controls.onImport = [this]
     {
-        chooser = std::make_unique<juce::FileChooser> ("Choose the vocal file (select the beat too if you have it)",
+        chooser = std::make_unique<juce::FileChooser> ("Choose the vocal, the beat, or both (Ctrl + click)",
                                                        juce::File::getSpecialLocation (juce::File::userMusicDirectory),
                                                        "*.wav;*.aif;*.aiff;*.flac;*.ogg;*.mp3");
         chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles
@@ -55,6 +55,7 @@ VocalEngineEditor::VocalEngineEditor (VocalEngineProcessor& p)
 
     timeline.onDeleteRegion = [this] (const juce::String& id) { processor.deleteRegion (id); };
     timeline.onAnalyseRegion = [this] (const juce::String& id) { processor.analyseRegion (id); };
+    timeline.onUseTakeAsBeat = [this] (const juce::String& id) { processor.useTakeAsBeat (id); };
     timeline.onNotesChanged = [this] (const std::vector<ve::ui::TimelineNoteEdit>& edits)
     {
         std::vector<VocalEngineProcessor::NoteEditItem> items;
@@ -237,6 +238,8 @@ void VocalEngineEditor::importFiles (const juce::Array<juce::File>& files)
     ve::TakeImporter::classifyFiles (files, vocal, beat);
     if (vocal != juce::File())
         processor.importTake (vocal, beat);
+    else if (beat != juce::File())
+        processor.setBeat (beat); // just the beat: it's the sidechain for every take, never a vocal
 }
 
 void VocalEngineEditor::paintOverChildren (juce::Graphics& g)
@@ -248,7 +251,7 @@ void VocalEngineEditor::paintOverChildren (juce::Graphics& g)
     g.drawRoundedRectangle (getLocalBounds().reduced (6).toFloat(), 14.0f, 2.0f);
     g.setColour (ve::ui::Theme::text);
     g.setFont (ve::ui::Theme::font (18.0f, true));
-    g.drawText ("Drop the vocal (and the beat) to import the whole song as one take",
+    g.drawText ("Drop the vocal, the beat, or both (files named beat/inst/instrumental are the beat)",
                 getLocalBounds(), juce::Justification::centred);
 }
 

@@ -66,6 +66,7 @@ namespace ve::ui
 
         std::function<void (const juce::String&)> onDeleteRegion;
         std::function<void (const juce::String&)> onAnalyseRegion;
+        std::function<void (const juce::String&)> onUseTakeAsBeat;
         std::function<void (const std::vector<TimelineNoteEdit>&)> onNotesChanged;   // one undo step
         std::function<void()> onUndo, onRedo;
         std::function<void (bool)> onSnapToScaleChanged;

@@ -575,6 +575,60 @@ public:
             expectEquals (rate, 48000.0);
         }
 
+        beginTest ("A beat dropped on its own is the beat, never a vocal");
+        {
+            const auto folder = tempFolder ("classify");
+            juce::AudioBuffer<float> a (1, 4410);
+            a.clear();
+            auto make = [&] (const char* name) { auto f = folder.getChildFile (name); TakeImporter::writeWav (f, a, 44100.0); return f; };
+            const auto beat = make ("Dark Trap Beat 140bpm.wav"), inst = make ("Song (Instrumental).wav"),
+                       vox = make ("lead vox.wav"), vocalMix = make ("vocal mix.wav"), plain = make ("take 3.wav"),
+                       song = make ("Song.wav");
+
+            juce::File v, b;
+            TakeImporter::classifyFiles ({ beat }, v, b);
+            expect (v == juce::File() && b == beat, "single beat");
+            TakeImporter::classifyFiles ({ inst }, v, b);
+            expect (v == juce::File() && b == inst, "single instrumental");
+            TakeImporter::classifyFiles ({ plain }, v, b);
+            expect (v == plain && b == juce::File(), "single unnamed file is a vocal");
+            TakeImporter::classifyFiles ({ vocalMix }, v, b);
+            expect (v == vocalMix && b == juce::File(), "'vocal mix' is a vocal");
+            TakeImporter::classifyFiles ({ beat, vox }, v, b);
+            expect (v == vox && b == beat, "beat listed first");
+            TakeImporter::classifyFiles ({ song, vox }, v, b);
+            expect (v == vox && b == song, "vocal named, other file is the beat");
+        }
+
+        beginTest ("A beat file lines up under a take that starts later");
+        {
+            const auto folder = tempFolder ("beatfortake");
+            juce::AudioBuffer<float> beat (1, 48000 * 4);
+            for (int i = 0; i < beat.getNumSamples(); ++i) beat.setSample (0, i, (float) (i / 48000) * 0.1f); // 0, .1, .2, .3 per second
+            const auto bf = folder.getChildFile ("beat.wav");
+            expect (TakeImporter::writeWav (bf, beat, 48000.0).wasOk());
+
+            juce::String rel;
+            // Take from 2.5 s to 4.5 s: the last 0.5 s is past the end of the beat.
+            expect (TakeImporter::writeBeatForTake (bf, 0.0, folder, "t1", 120000, 96000, 48000.0, nullptr, rel).wasOk());
+            juce::AudioBuffer<float> sc;
+            double rate = 0;
+            expect (loadAudioFile (folder.getChildFile (rel), 0.0, nullptr, sc, rate).wasOk());
+            expectEquals (sc.getNumChannels(), 2);
+            expectEquals (sc.getNumSamples(), 96000);
+            expectWithinAbsoluteError (sc.getSample (0, 100), 0.2f, 1e-5f);
+            expectWithinAbsoluteError (sc.getSample (1, 30000), 0.3f, 1e-5f);
+            expectEquals (sc.getSample (0, 90000), 0.0f);
+
+            // Beat that itself starts at 1 s on the timeline (e.g. a take reused as the beat).
+            for (int i = 0; i < beat.getNumSamples(); ++i) beat.setSample (0, i, 0.5f);
+            expect (TakeImporter::writeWav (bf, beat, 48000.0).wasOk());
+            expect (TakeImporter::writeBeatForTake (bf, 1.0, folder, "t2", 0, 144000, 48000.0, nullptr, rel).wasOk());
+            expect (loadAudioFile (folder.getChildFile (rel), 0.0, nullptr, sc, rate).wasOk());
+            expectEquals (sc.getSample (0, 47000), 0.0f);
+            expectWithinAbsoluteError (sc.getSample (0, 49000), 0.5f, 1e-5f);
+        }
+
         beginTest ("Offline (export) capture never drops audio");
         {
             const auto folder = tempFolder ("offline");

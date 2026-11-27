@@ -39,6 +39,10 @@ Use one instance per vocal track. Each instance keeps its own takes, settings an
 
 The sidechain is how Engineer hears your beat to work out the key and the chord on each beat. It's optional, but without it (and without a key set by hand) notes snap to the nearest semitone, like a chromatic tuner, instead of to your song's key.
 
+**Easiest: skip the routing and drag the beat file in.** If you have the beat as a WAV/MP3, drag just that file onto the Engineer window (from Windows Explorer or FL's Browser). If its name contains **beat**, **inst**, **instrumental**, **backing**, **karaoke** or **808**, Engineer uses it as the beat for every take, now and later, and never tunes it. The status bar says **Beat set: yourbeat.wav. Analysing it under 1 take...** and then **Beat analysed: key F minor, 15 chord changes**. The beat file must start at bar 1. Rename it first if its name has none of those words, or it is taken as a vocal.
+
+Routing is only needed if you want Engineer to hear the beat live while you record. The steps:
+
 1. Put the beat (or an instrumental bus with everything except vocals) on its own insert, for example **Insert 2**.
 2. **Select Insert 2** in the mixer (the source).
 3. On **Insert 1** (the vocal insert with Engineer), right-click the small routing arrow at the bottom of the insert and choose **Sidechain to this track**. Insert 2 still goes to the Master; it now also feeds Insert 1 as a sidechain. Some guides use Shift + click on the arrow instead, which does the same.
@@ -56,8 +60,8 @@ There are two ways. Import is the fastest and most reliable for a finished song.
 ### Option A: Import the whole song (recommended)
 
 1. In FL, export the dry vocal from **bar 1** (File > Export > WAV, or right-click the clip and export). Export the beat from bar 1 too, if you have it. Starting both at bar 1 keeps them lined up.
-2. Name the beat file with one of these words in it: **beat**, **inst**, **music**, **track**, **mix**, **backing** or **karaoke**. That's how Engineer tells the two apart. The other file is taken as the vocal.
-3. In Engineer click **Import song...** and select both files (Ctrl + click), or drag both onto the plugin window. The window shows "Drop the vocal (and the beat) to import the whole song as one take".
+2. Name the beat file with one of these words in it: **beat**, **inst**, **music**, **track**, **mix**, **backing**, **karaoke** or **808**, and the vocal with **vocal**, **vox**, **acapella** or **lead** (a vocal word wins, so "vocal mix.wav" is a vocal). That's how Engineer tells the two apart.
+3. In Engineer click **Import song...** and select both files (Ctrl + click), or drag both onto the plugin window together. You can also bring them in one at a time: drop the beat on its own (it becomes the beat, see section 3) and the vocal on its own. Drag from Windows Explorer or FL's Browser; both work the same. The window shows "Drop the vocal, the beat, or both".
 4. The status bar says **Importing vocal.wav + beat.wav**, then **Imported vocal.wav as a take from bar 1 (182.4 s)**. Nothing has to play.
 5. Engineer then loads the take, reads the key and chords from the beat, and finds the notes. The Notes lane shows **Tracking pitch...** until it's done (a few seconds for a 3-minute vocal).
 
@@ -101,7 +105,7 @@ The top plate runs left to right in this order; **Amount** is the big knob in th
 
 **Timeline.**
 
-- **Takes** screen: one faint frame per take with its waveform. Red "Missing audio" means its files can't be found. Right-click a take for **Re-analyse sidechain** or **Remove take from session** (the audio files stay on disk).
+- **Takes** screen: one faint frame per take with its waveform. Red "Missing audio" means its files can't be found. Right-click a take for **Re-analyse sidechain**, **This is the beat, not a vocal** (removes the take and uses its audio as the beat for every other take) or **Remove take from session** (the audio files stay on disk).
 - **Chords** lane: one chord per beat (major, minor, 7, sus2, sus4, dim, or N.C.), brighter when Engineer is more sure.
 - **Notes** lane: one blob per sung note (next section).
 - **Key: A minor** sits top right of the ruler.
@@ -256,6 +260,8 @@ If the result sounds odd, check the key first. A wrong key (Auto picking the rel
 | Notes lane says **Tracking pitch...** for a long time | Pitch tracking is still running, or failed | Check the status bar for "Pitch tracking failed: ..." |
 | **Import failed: ...** | The file couldn't be read | Re-export as WAV and import again |
 | Vocal and beat swapped on import | Neither file name had a beat word | Rename the beat to include "beat" or "inst" |
+| With **Monitor: Rendered** the beat sounds tuned, warbly or quieter | The beat went in as a vocal take (it was dropped without a beat word in its name), or Engineer sits on the beat's insert or the Master | Right-click that take > **This is the beat, not a vocal**. Keep Engineer only on the vocal's insert |
+| **Analyse beat** is greyed out | No take has a beat yet | Drag the beat file in (section 3), or route the sidechain and record a take |
 | Take in the wrong place | Exported files didn't start at bar 1, or tempo changed after import | Export from bar 1, set tempo first, then re-import |
 | **Take captured with N samples of dropout (disk too slow?)** | The disk couldn't keep up while recording | Record again, or use Import |
 | Red **Missing audio** / "N take(s) have missing audio files" | The session folder moved or was deleted | **Data folder > Locate / change data folder...** |
