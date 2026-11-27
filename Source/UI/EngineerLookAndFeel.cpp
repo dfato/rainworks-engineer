@@ -336,7 +336,8 @@ namespace ve::ui
     void EngineerLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& b, const juce::Colour&, bool hover, bool down)
     {
         auto r = b.getLocalBounds().toFloat().reduced (1.5f, 2.0f);
-        const bool lit = b.getToggleState() && flag (b, "led");
+        // "glow": always lit pink (Hunt), the graph's one generative action.
+        const bool lit = (b.getToggleState() && flag (b, "led")) || flag (b, "glow");
         Paint::pill (g, r, down, hover, lit, b.isEnabled());
         if (flag (b, "led"))
             Paint::led (g, { r.getX() + r.getHeight() * 0.55f, r.getCentreY() }, juce::jmin (4.0f, r.getHeight() * 0.16f), b.getToggleState());
@@ -350,10 +351,17 @@ namespace ve::ui
     void EngineerLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& b, bool, bool down)
     {
         auto r = b.getLocalBounds().reduced (2, 2);
+        const bool lit = (b.getToggleState() && flag (b, "led")) || flag (b, "glow");
+        if (flag (b, "chevron"))
+        {
+            // A menu arrow instead of text (Hunt options).
+            Paint::chevronDown (g, r.toFloat().translated (0.0f, down ? 1.5f : 0.5f),
+                                (lit ? Theme::accentDeep.darker (0.35f) : Theme::ink).withMultipliedAlpha (b.isEnabled() ? 0.9f : 0.4f));
+            return;
+        }
         if (flag (b, "led"))
             r.removeFromLeft (juce::roundToInt ((float) r.getHeight() * 0.9f));
         g.setFont (getTextButtonFont (b, b.getHeight()));
-        const bool lit = b.getToggleState() && flag (b, "led");
         g.setColour ((lit ? Theme::accentDeep.darker (0.35f) : Theme::ink).withMultipliedAlpha (b.isEnabled() ? 1.0f : 0.4f));
         g.drawText (b.getButtonText(), r.translated (0, down ? 1 : 0), juce::Justification::centred, false);
     }

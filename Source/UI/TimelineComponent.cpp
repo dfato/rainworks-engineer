@@ -37,6 +37,18 @@ namespace ve::ui
         addAndMakeVisible (undoButton);
         addAndMakeVisible (redoButton);
 
+        huntButton.getProperties().set ("glow", true);
+        huntButton.setTooltip ("Hunt (H): writes a new catchy melody into the selected notes, or every note when none are "
+                               "selected, inside the key and scale. Same rhythm, new pitches. Every press is a new idea; "
+                               "Ctrl+Z goes back. The arrow picks the genre flavour, contour, range and more.");
+        huntButton.onClick = [this] { hunt(); };
+        huntMenuButton.getProperties().set ("glow", true);
+        huntMenuButton.getProperties().set ("chevron", true);
+        huntMenuButton.setTooltip ("Hunt options: genre flavour, how different, contour, repetition, range, register");
+        huntMenuButton.onClick = [this] { showHuntMenu(); };
+        addAndMakeVisible (huntButton);
+        addAndMakeVisible (huntMenuButton);
+
         selectionLabel.setColour (juce::Label::textColourId, Theme::inkDim);
         selectionLabel.setFont (Theme::font (12.0f));
         addAndMakeVisible (selectionLabel);
@@ -246,6 +258,7 @@ namespace ve::ui
             sl->setEnabled (any);
         undoButton.setEnabled (data.canUndo);
         redoButton.setEnabled (data.canRedo);
+        huntButton.setEnabled (! huntScope().empty());
 
         juce::String text;
         if (any)
@@ -304,6 +317,10 @@ namespace ve::ui
         undoButton.setBounds (t.removeFromLeft (62));
         t.removeFromLeft (4);
         redoButton.setBounds (t.removeFromLeft (62));
+        t.removeFromLeft (8);
+        huntButton.setBounds (t.removeFromLeft (72));
+        t.removeFromLeft (1);
+        huntMenuButton.setBounds (t.removeFromLeft (30));
         t.removeFromLeft (12);
         selectionLabel.setBounds (t.removeFromLeft (150));
         auto slot = [&t, this] (juce::Label& l, juce::Slider& s)
@@ -471,6 +488,7 @@ namespace ve::ui
         m.addSeparator();
         m.addItem (7, "Split note here", count <= 1);
         m.addItem (8, "Merge with next note", count <= 1 && hit.note + 1 < (int) r.notes.size());
+        m.addItem (12, "Hunt a new melody for " + what + "  (H)");
         m.addSeparator();
         m.addItem (10, "Select all notes  (Ctrl+A)");
         m.addItem (11, "Select all notes at this pitch");
@@ -483,6 +501,7 @@ namespace ve::ui
             if (res == 7) { if (onSplitNote) onSplitNote (id, idx, splitAt); return; }
             if (res == 8) { if (onMergeNote) onMergeNote (id, idx); return; }
             if (res == 10) { selectAll(); return; }
+            if (res == 12) { hunt(); return; }
             if (res == 11)
             {
                 const auto h = hitFor ({ id, idx });
@@ -533,8 +552,10 @@ namespace ve::ui
         m.addItem (4, "Redo  (Ctrl+Shift+Z)", data.canRedo);
         m.addSeparator();
         m.addItem (5, "Snap to scale", true, data.snapToScale);
+        m.addItem (6, "Hunt a new melody  (H)", ! huntScope().empty());
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition(), [this] (int res)
         {
+            if (res == 6) { hunt(); return; }
             if (res == 1) selectAll();
             if (res == 2) selectOnly ({});
             if (res == 3 && onUndo) onUndo();
@@ -704,6 +725,177 @@ namespace ve::ui
         repaint();
     }
 
+    //==========================================================================
+    // Hunt
+
+    std::vector<TimelineComponent::NoteHit> TimelineComponent::huntScope() const
+    {
+        if (! selection.empty()) return selectedHits();
+        std::vector<NoteHit> all;
+        for (int ri = 0; ri < (int) data.regions.size(); ++ri)
+            if (! data.regions[(size_t) ri].missing)
+                for (int ni = 0; ni < (int) data.regions[(size_t) ri].notes.size(); ++ni)
+                    all.push_back ({ ri, ni });
+        return all;
+    }
+
+    void TimelineComponent::commitHits (const std::vector<NoteHit>& hits)
+    {
+        if (hits.empty() || ! onNotesChanged) return;
+        std::vector<TimelineNoteEdit> edits;
+        for (auto h : hits)
+        {
+            const auto& r = data.regions[(size_t) h.region];
+            edits.push_back ({ r.id, h.note, r.notes[(size_t) h.note] });
+        }
+        onNotesChanged (edits);
+    }
+
+    juce::String TimelineComponent::hunt()
+    {
+        return huntWith ((std::uint32_t) juce::Random::getSystemRandom().nextInt());
+    }
+
+    juce::String TimelineComponent::huntWith (std::uint32_t seed)
+    {
+        const auto hits = huntScope();
+        juce::String msg;
+        if (hits.empty())
+            msg = "Nothing to hunt yet: record or import a take first";
+        else
+        {
+            std::vector<MelodyHunt::InNote> in;
+            std::vector<ChordSpan> chords;
+            std::set<int> regionsSeen;
+            double beatsPerBar = 4.0;
+            for (auto h : hits)
+            {
+                const auto& r = data.regions[(size_t) h.region];
+                const auto& n = r.notes[(size_t) h.note];
+                const double out = outStart (r, h.note);
+                const double p0 = r.tempoMap.sampleToPpq (out), p1 = r.tempoMap.sampleToPpq (out + (double) (n.end - n.start));
+                const float current = n.correction >= 0.5f ? n.targetMidi : NoteSegmenter::snapToKey (n.detectedMidi, data.scaleKey);
+                in.push_back ({ p0, juce::jmax (0.05, p1 - p0), n.detectedMidi, current });
+                if (regionsSeen.insert (h.region).second)
+                {
+                    chords.insert (chords.end(), r.chords.begin(), r.chords.end());
+                    if (regionsSeen.size() == 1 && ! r.tempoMap.isEmpty())
+                    {
+                        const auto& tp = r.tempoMap.pointAtSample (out);
+                        if (tp.denominator > 0) beatsPerBar = tp.numerator * 4.0 / tp.denominator;
+                    }
+                }
+            }
+            auto opts = data.huntOptions;
+            opts.flavour = MelodyHunt::resolve (opts.flavour, data.styleId);
+            const auto res = MelodyHunt::hunt (in, data.scaleKey, chords, opts, seed, beatsPerBar);
+            for (size_t i = 0; i < hits.size(); ++i)
+            {
+                auto& n = data.regions[(size_t) hits[i].region].notes[(size_t) hits[i].note];
+                n.targetMidi = res.midi[i];
+                n.correction = juce::jmax (n.correction, 1.0f);
+            }
+            commitHits (hits);
+            msg = res.description + ". Hunt again for another idea, Ctrl+Z to go back";
+        }
+        refreshTools();
+        repaint();
+        if (onStatus) onStatus (msg);
+        return msg;
+    }
+
+    void TimelineComponent::putBackSung()
+    {
+        const auto hits = huntScope();
+        for (auto h : hits)
+        {
+            auto& n = data.regions[(size_t) h.region].notes[(size_t) h.note];
+            n.targetMidi = NoteSegmenter::snapToKey (n.detectedMidi, data.scaleKey);
+        }
+        commitHits (hits);
+        refreshTools();
+        repaint();
+        if (onStatus && ! hits.empty()) onStatus ("Put back the sung melody on " + juce::String ((int) hits.size()) + " notes");
+    }
+
+    juce::PopupMenu TimelineComponent::getHuntMenu() const
+    {
+        using namespace MelodyHunt;
+        const auto& o = data.huntOptions;
+        const int count = (int) huntScope().size();
+        const bool anyChords = std::any_of (data.regions.begin(), data.regions.end(), [] (auto& r) { return ! r.chords.empty(); });
+
+        juce::PopupMenu m;
+        m.addSectionHeader ("Hunt: new melodies in " + (data.scaleKey.isValid() ? data.scaleText : juce::String ("the key the notes suggest")));
+        m.addItem (1, count == 0 ? juce::String ("Hunt  (no notes yet)")
+                                 : "Hunt " + (selection.empty() ? "all " + juce::String (count) + " notes" : juce::String (count) + " selected notes") + "  (H)",
+                   count > 0);
+
+        m.addSectionHeader ("Genre flavour");
+        for (auto f : { Flavour::followStyle, Flavour::pop, Flavour::rock, Flavour::rnb, Flavour::hipHop, Flavour::trap, Flavour::indie })
+            m.addItem (10 + (int) f, f == Flavour::followStyle ? "Follow the style (" + toString (flavourForStyle (data.styleId)) + ")" : toString (f),
+                       true, o.flavour == f);
+
+        m.addSectionHeader ("How different");
+        for (auto v : { Variation::subtle, Variation::fresh, Variation::wild })
+            m.addItem (30 + (int) v, toString (v), true, o.variation == v);
+
+        m.addSeparator();
+        juce::PopupMenu contour, rep, range, reg;
+        for (auto c : { Contour::automatic, Contour::arch, Contour::rise, Contour::fall, Contour::wave, Contour::valley, Contour::hook })
+            contour.addItem (20 + (int) c, toString (c), true, o.contour == c);
+        for (auto r : { Repetition::hooky, Repetition::balanced, Repetition::free })
+            rep.addItem (40 + (int) r, toString (r), true, o.repetition == r);
+        for (auto r : { Range::tight, Range::normal, Range::wide })
+            range.addItem (50 + (int) r, toString (r), true, o.range == r);
+        for (auto r : { Register::asSung, Register::higher, Register::lower })
+            reg.addItem (60 + (int) r, toString (r), true, o.registerShift == r);
+        auto first = [] (const juce::String& s) { return s.upToFirstOccurrenceOf (" (", false, false); };
+        m.addSubMenu ("Contour: " + first (toString (o.contour)), contour);
+        m.addSubMenu ("Repetition: " + first (toString (o.repetition)), rep);
+        m.addSubMenu ("Range: " + first (toString (o.range)), range);
+        m.addSubMenu ("Register: " + toString (o.registerShift), reg);
+
+        m.addSeparator();
+        m.addItem (70, anyChords ? juce::String ("Follow the beat's chords") : juce::String ("Follow the beat's chords (none analysed: uses a chord loop)"),
+                   anyChords, o.followChords && anyChords);
+        m.addItem (71, "End on the root", true, o.endOnRoot);
+        m.addSeparator();
+        m.addItem (80, "Put back the sung melody", count > 0);
+        m.addItem (81, "Each press is a new idea. Ctrl+Z goes back", false);
+        return m;
+    }
+
+    void TimelineComponent::showHuntMenu()
+    {
+        getHuntMenu().showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&huntMenuButton),
+                                     [safe = juce::Component::SafePointer<TimelineComponent> (this)] (int res)
+                                     {
+                                         if (safe != nullptr) safe->handleHuntMenu (res);
+                                     });
+    }
+
+    void TimelineComponent::handleHuntMenu (int res)
+    {
+        using namespace MelodyHunt;
+        if (res == 0) return;
+        if (res == 1) { hunt(); return; }
+        if (res == 80) { putBackSung(); return; }
+        auto& o = data.huntOptions;
+        if (res >= 10 && res <= 16)      o.flavour = (Flavour) (res - 10);
+        else if (res >= 20 && res <= 26) o.contour = (Contour) (res - 20);
+        else if (res >= 30 && res <= 32) o.variation = (Variation) (res - 30);
+        else if (res >= 40 && res <= 42) o.repetition = (Repetition) (res - 40);
+        else if (res >= 50 && res <= 52) o.range = (Range) (res - 50);
+        else if (res >= 60 && res <= 62) o.registerShift = (Register) (res - 60);
+        else if (res == 70)              o.followChords = ! o.followChords;
+        else if (res == 71)              o.endOnRoot = ! o.endOnRoot;
+        else return;
+        if (onHuntOptionsChanged) onHuntOptionsChanged (o);
+        // Stay in the menu so several options can be set before hunting.
+        showHuntMenu();
+    }
+
     bool TimelineComponent::keyPressed (const juce::KeyPress& k)
     {
         const auto mods = k.getModifiers();
@@ -719,6 +911,7 @@ namespace ve::ui
         if (cmd && (code == 'Y' || code == 'y')) { if (onRedo) onRedo(); return true; }
         if (cmd && (code == 'A' || code == 'a')) { selectAll(); return true; }
         if (code == juce::KeyPress::escapeKey && ! selection.empty()) { selectOnly ({}); return true; }
+        if (! cmd && ! mods.isAltDown() && (code == 'H' || code == 'h')) { hunt(); return true; }
 
         if (selection.empty()) return false;
 
