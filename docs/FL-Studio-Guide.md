@@ -92,7 +92,7 @@ The top plate runs left to right in this order; **Amount** is the big knob in th
 | **Correct** (small knob) | How far every note you haven't edited moves to its target. 0% = as sung, 100% = on the key. | 0% until you pick a style |
 | **Intent** (lit = on) | On: reads what each note was meant to be (slides, vibrato, scoops, passing notes, chosen out-of-key notes, spoken lines) and keeps those as sung or corrects them gently. Off: every note is pulled to the key the same way. | On |
 | **Import song...** | Pick the vocal file, and optionally the beat. Same as dragging files onto the window. | |
-| **Analyse beat** | Re-runs key and chord detection on every take's sidechain. | |
+| **Analyse beat** | Re-runs key and chord detection on the beat saved with every take. It already runs by itself after each take, so you only need it to redo it. The status bar shows the result, e.g. **Beat analysed: key F minor, 15 chord changes**. Greyed out until a take has a beat (imported beat file or routed sidechain). | |
 | **Data folder** | **Show in file browser** opens this instance's take folder. **Locate / change data folder...** points it at a moved folder. | `Documents\RainWorks\Engineer\Sessions\<id>` |
 
 **Header.** Product name and version on the left. On the right, **Input: mono / stereo / waiting** and the sidechain light (pink with level, amber "no signal", grey "bus disabled").

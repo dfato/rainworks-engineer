@@ -79,7 +79,9 @@ instead of dropping audio during offline renders). Disarm afterwards. You can de
 1. Route the beat into the sidechain (section 2) and record a take of 8 bars or more.
 2. Analysis starts automatically after each take. The chord lane fills in with one chord per beat (merged when
    repeated) and the key shows top right of the timeline and in the Key menu ("Auto (C major)").
-3. **Analyse beat** re-runs it for all takes; right-click a take > Re-analyse sidechain for one.
+3. **Analyse beat** re-runs it for all takes; right-click a take > Re-analyse sidechain for one. The status bar
+   says "Analysing the beat of 2 takes..." and then "Beat analysed: key F minor, 15 chord changes". The
+   button is greyed out while no take has beat audio, and says why in its tooltip.
 4. Pick a key in the Key menu to override it; the timeline shows "(manual)". Pick Auto to go back.
 
 Chord vocabulary: major, minor, 7, sus2, sus4, dim, or N.C. Beats follow the host tempo captured with the take.

@@ -76,6 +76,7 @@ public:
     // Imports a whole song from files (vocal + optional beat) as one take starting at bar 1.
     void importTake (const juce::File& vocal, const juce::File& beat);
     void analyseAll();
+    int countTakesWithBeat() const;   // takes whose sidechain (beat) audio is on disk
     void analyseRegion (const juce::String& regionId);
     void deleteRegion (const juce::String& regionId);
 
@@ -132,6 +133,7 @@ private:
     ve::KeyEstimate snappingKey() const;   // session key + the current style's scale
     void rebuildPlayback();
     void postMessage (const juce::String&);
+    int manualAnalysisPending = 0, manualAnalysisChords = 0; // message thread: "Analyse beat" progress
 
     // ---- audio-thread shared state ------------------------------------------
     std::atomic<float> sidechainPeak { 0.0f };

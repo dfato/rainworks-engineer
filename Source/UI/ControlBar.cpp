@@ -117,6 +117,7 @@ namespace ve::ui
         addAndMakeVisible (keyBox);
 
         analyseButton.onClick = [this] { if (onAnalyse) onAnalyse(); };
+        setCanAnalyse (false);
 
         importButton.setTooltip ("Bring in a whole song at once: pick the vocal file, and optionally the beat. You can also drag files onto the plugin.");
         importButton.onClick = [this] { if (onImport) onImport(); };
@@ -142,6 +143,16 @@ namespace ve::ui
     void ControlBar::setMode (int m) { modeBox.setSelectedId (m + 1, juce::dontSendNotification); }
     void ControlBar::setKeyOverride (int k) { keyBox.setSelectedId (k + 2, juce::dontSendNotification); }
     void ControlBar::setEstimatedKeyText (const juce::String& t) { keyBox.changeItemText (1, "Auto (" + t + ")"); if (keyBox.getSelectedId() == 1) keyBox.setSelectedId (1, juce::dontSendNotification); }
+    void ControlBar::setCanAnalyse (bool anyTakeHasBeat)
+    {
+        analyseButton.setEnabled (anyTakeHasBeat);
+        analyseButton.setTooltip (anyTakeHasBeat
+            ? "Re-run key and chord detection on the beat saved with every take. It already runs by itself after each "
+              "take; use this after changing the beat. The status bar shows the result."
+            : "No take has a beat yet. Import the song with a beat file, or route the beat into the sidechain and "
+              "record a take; key and chords are then detected automatically.");
+    }
+
     void ControlBar::setStyles (const std::vector<StyleItem>& items)
     {
         styleBox.clear (juce::dontSendNotification);
